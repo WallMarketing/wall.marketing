@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wall Marketing: a proposal for your bathroom doors</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#000000;
+    --paper:#FFFFFF;
+    --backdrop:#C9C6BE;
+    --door:#C4C0B6;
+    --door-dark:#ABA69B;
+    --violet:#6B4B9E;
+    --violet-deep:#41306B;
+    --signal:#CE1126;
+    --muted:#54524D;
+    --rule:#DBD9D3;
+    --sans:"IBM Plex Sans","Segoe UI",Helvetica,Arial,sans-serif;
+    --cond:"IBM Plex Sans Condensed","IBM Plex Sans","Arial Narrow",Helvetica,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  }
+
+  *{box-sizing:border-box}
+
+  html{-webkit-text-size-adjust:100%}
+
+  body{
+    margin:0;
+    padding:28px 16px 60px;
+    background:var(--backdrop);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:16.5px;
+    line-height:1.62;
+    font-weight:400;
+  }
+
+  .sheet{
+    max-width:1020px;
+    margin:0 auto;
+    background:var(--paper);
+    box-shadow:0 1px 0 rgba(0,0,0,.25), 0 18px 50px rgba(0,0,0,.16);
+  }
+
+  .pad{padding:0 clamp(22px,5vw,64px)}
+
+  /* ---------- masthead ---------- */
+  .masthead{
+    background:var(--ink);
+    color:var(--paper);
+    display:flex;
+    flex-wrap:wrap;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:10px 24px;
+    padding:14px clamp(22px,5vw,64px);
+  }
+  .wordmark{
+    font-family:var(--cond);
+    font-weight:700;
+    font-size:1.5rem;
+    letter-spacing:.02em;
+    line-height:1;
+  }
+  .wordmark span{color:var(--violet);}
+  .masthead p{margin:0;font-size:.85rem;color:#B9B6B0}
+
+  /* ---------- hero ---------- */
+  .hero{
+    display:grid;
+    grid-template-columns:1.05fr .95fr;
+    gap:clamp(24px,4vw,54px);
+    align-items:center;
+    padding-top:clamp(34px,5vw,58px);
+    padding-bottom:clamp(30px,4vw,48px);
+  }
+  h1{
+    font-family:var(--cond);
+    font-weight:700;
+    font-size:clamp(2.5rem,5.6vw,4.05rem);
+    line-height:.94;
+    letter-spacing:-.015em;
+    margin:0 0 22px;
+    text-wrap:balance;
+  }
+  .hero .lede{
+    font-size:1.12rem;
+    line-height:1.55;
+    max-width:34em;
+    margin:0 0 18px;
+  }
+  .hero .sub{
+    font-size:1rem;
+    color:var(--muted);
+    max-width:34em;
+    margin:0;
+  }
+  .drawing{width:100%;height:auto;display:block}
+  .drawing-note{
+    font-family:var(--mono);
+    font-size:.72rem;
+    color:var(--muted);
+    margin:10px 0 0;
+    letter-spacing:.01em;
+  }
+
+  /* ---------- figures band ---------- */
+  .band{
+    background:var(--ink);
+    color:var(--paper);
+    padding:clamp(26px,4vw,38px) clamp(22px,5vw,64px);
+  }
+  .figures{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:clamp(20px,4vw,46px);
+  }
+  .fig .n{
+    font-family:var(--cond);
+    font-weight:700;
+    font-size:clamp(2.7rem,6vw,3.8rem);
+    line-height:1;
+    letter-spacing:-.02em;
+    display:block;
+    margin-bottom:8px;
+  }
+  .fig:nth-child(1) .n{color:#fff}
+  .fig:nth-child(2) .n{color:var(--violet)}
+  .fig:nth-child(3) .n{color:#fff}
+  .fig p{margin:0;font-size:.95rem;line-height:1.45;color:#CFCCC6;max-width:20em}
+
+  /* ---------- generic section ---------- */
+  section{padding-top:clamp(38px,5vw,60px);padding-bottom:clamp(8px,2vw,16px)}
+  h2{
+    font-family:var(--cond);
+    font-weight:600;
+    font-size:clamp(1.65rem,3.1vw,2.25rem);
+    line-height:1.05;
+    letter-spacing:-.01em;
+    margin:18px 0 16px;
+    max-width:20em;
+  }
+  p{margin:0 0 16px;max-width:68ch}
+  .kicker{
+    font-size:.82rem;
+    font-weight:600;
+    color:var(--violet);
+    margin:0 0 10px;
+    letter-spacing:.005em;
+  }
+
+  /* ---------- privacy / device ---------- */
+  .device-row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:clamp(24px,4vw,52px);
+    align-items:center;
+  }
+  .device{width:100%;height:auto;display:block}
+  .quiet-list{list-style:none;margin:18px 0 0;padding:0}
+  .quiet-list li{
+    padding:11px 0 11px 22px;
+    border-top:1px solid var(--rule);
+    position:relative;
+    font-size:.97rem;
+    line-height:1.5;
+  }
+  .quiet-list li:last-child{border-bottom:1px solid var(--rule)}
+  .quiet-list li::before{
+    content:"";
+    position:absolute;
+    left:0;top:1.15em;
+    width:9px;height:9px;
+    background:var(--violet);
+  }
+
+  /* ---------- specification rows ---------- */
+  .specs{border-top:2px solid var(--ink);margin-top:26px}
+  .spec{
+    display:grid;
+    grid-template-columns:minmax(150px,1fr) 2.6fr;
+    gap:6px clamp(18px,3vw,44px);
+    padding:20px 0;
+    border-bottom:1px solid var(--rule);
+  }
+  .spec h3{
+    font-family:var(--cond);
+    font-weight:600;
+    font-size:1.22rem;
+    line-height:1.15;
+    margin:0;
+    letter-spacing:-.005em;
+  }
+  .spec h3 em{
+    display:block;
+    font-family:var(--mono);
+    font-style:normal;
+    font-size:.7rem;
+    font-weight:400;
+    color:var(--muted);
+    margin-top:6px;
+    line-height:1.4;
+  }
+  .spec p{margin:0;font-size:.97rem;line-height:1.55;max-width:60ch}
+  .spec p + p{margin-top:10px}
+
+  /* ---------- ledger ---------- */
+  .ledger{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0 clamp(26px,4vw,56px);
+    margin-top:24px;
+  }
+  .ledger > div{padding-top:16px;border-top:2px solid var(--ink)}
+  .ledger > div + div{border-top-color:var(--violet)}
+  .ledger h3{
+    font-family:var(--cond);
+    font-weight:600;
+    font-size:1.35rem;
+    margin:0 0 12px;
+  }
+  .ledger ul{margin:0;padding:0;list-style:none}
+  .ledger li{
+    font-size:.97rem;
+    line-height:1.5;
+    padding:10px 0;
+    border-bottom:1px solid var(--rule);
+  }
+
+  /* ---------- pull ---------- */
+  .pull{
+    border-left:4px solid var(--signal);
+    padding:4px 0 4px 20px;
+    margin:30px 0 4px;
+    font-family:var(--cond);
+    font-weight:600;
+    font-size:clamp(1.3rem,2.6vw,1.72rem);
+    line-height:1.22;
+    max-width:24em;
+    letter-spacing:-.005em;
+  }
+
+  /* ---------- close ---------- */
+  .close{
+    background:var(--ink);
+    color:var(--paper);
+    padding:clamp(36px,5vw,54px) clamp(22px,5vw,64px) clamp(30px,4vw,44px);
+    margin-top:clamp(38px,5vw,58px);
+  }
+  .close h2{color:var(--paper);margin-bottom:14px}
+  .close p{color:#CFCCC6;max-width:56ch}
+  .contact{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    gap:22px;
+    margin-top:30px;
+    padding-top:22px;
+    border-top:1px solid #3A3A3A;
+  }
+  .contact div span{
+    display:block;
+    font-family:var(--mono);
+    font-size:.7rem;
+    color:#8E8B85;
+    margin-bottom:5px;
+  }
+  .contact div strong{font-weight:500;font-size:1rem;color:var(--paper)}
+  .colophon{
+    font-family:var(--mono);
+    font-size:.68rem;
+    color:#7A7770;
+    margin:26px 0 0;
+    line-height:1.6;
+  }
+
+  a{color:inherit}
+  a:focus-visible,:focus-visible{outline:2px solid var(--violet);outline-offset:3px}
+
+  @media (max-width:860px){
+    .hero,.device-row{grid-template-columns:1fr}
+    .figures{grid-template-columns:1fr;gap:24px}
+    .spec{grid-template-columns:1fr}
+    .ledger{grid-template-columns:1fr;gap:0}
+    .ledger > div + div{margin-top:30px}
+    h1{font-size:clamp(2.3rem,9vw,3rem)}
+  }
+
+  @media print{
+    @page{size:A4;margin:11mm}
+    body{background:#fff;padding:0;font-size:10.5pt;line-height:1.5}
+    .sheet{box-shadow:none;max-width:none}
+    .pad{padding:0 2mm}
+    .masthead,.band,.close{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    section,.spec,.device-row,.hero,.figures{break-inside:avoid}
+    .close{break-inside:avoid}
+    h1{font-size:34pt}
+    h2{font-size:17pt}
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+
+  <header class="masthead">
+    <div class="wordmark">Wall<span>Marketing</span></div>
+    <p>A proposal for the inside of your bathroom doors</p>
+  </header>
+
+  <!-- ============ HERO ============ -->
+  <div class="pad hero">
+    <div>
+      <h1>Your bathroom doors can pay you every month.</h1>
+      <p class="lede">Our wall units are small displays fitted at eye height on the inside of the door. We supply them, install them, run them and remove them at no cost; you keep 30% of every dollar they earn, paid monthly.</p>
+      <p class="sub">Advertisers pay well for the inside of a bathroom door because the person in front of it is stationary, undistracted and certain to look.</p>
+    </div>
+
+    <div>
+      <svg class="drawing" viewBox="0 0 560 630" role="img" aria-label="Elevation drawing of a bathroom door with a wall unit mounted at eye height, 1,550 mm or 61 inches from the floor.">
+        <defs>
+          <pattern id="weave" width="4" height="4" patternUnits="userSpaceOnUse">
+            <rect width="4" height="4" fill="#6B4B9E"/>
+            <rect width="2" height="2" fill="#573D80"/>
+            <rect x="2" y="2" width="2" height="2" fill="#573D80"/>
+          </pattern>
+          <marker id="ar" markerWidth="9" markerHeight="9" refX="4.5" refY="4.5" orient="auto">
+            <path d="M1 1.5 L7 4.5 L1 7.5 Z" fill="#41306B"/>
+          </marker>
+        </defs>
+
+        <!-- floor line -->
+        <line x1="0" y1="592" x2="560" y2="592" stroke="#000" stroke-width="1.5"/>
+        <g stroke="#ABA69B" stroke-width="1">
+          <line x1="10" y1="600" x2="24" y2="592"/><line x1="42" y1="600" x2="56" y2="592"/>
+          <line x1="74" y1="600" x2="88" y2="592"/><line x1="106" y1="600" x2="120" y2="592"/>
+          <line x1="138" y1="600" x2="152" y2="592"/><line x1="170" y1="600" x2="184" y2="592"/>
+          <line x1="202" y1="600" x2="216" y2="592"/><line x1="234" y1="600" x2="248" y2="592"/>
+          <line x1="266" y1="600" x2="280" y2="592"/><line x1="298" y1="600" x2="312" y2="592"/>
+        </g>
+
+        <!-- door -->
+        <rect x="58" y="34" width="248" height="558" fill="#C4C0B6"/>
+        <rect x="58" y="34" width="248" height="558" fill="none" stroke="#8D887D" stroke-width="1.5"/>
+        <rect x="70" y="46" width="224" height="534" fill="none" stroke="#B0ABA0" stroke-width="1"/>
+        <!-- lever handle -->
+        <circle cx="284" cy="330" r="7" fill="none" stroke="#7E7A70" stroke-width="2"/>
+        <path d="M284 330 h-26" stroke="#7E7A70" stroke-width="4" stroke-linecap="round"/>
+        <!-- occupancy bolt -->
+        <rect x="279" y="290" width="12" height="9" fill="#7E7A70"/>
+
+        <!-- wall unit, centre at y=163 -->
+        <g>
+          <rect x="130" y="126" width="104" height="74" rx="3" fill="#141414"/>
+          <rect x="139" y="133" width="86" height="9" fill="url(#weave)"/>
+          <rect x="139" y="146" width="86" height="34" fill="#FBFBF9"/>
+          <rect x="139" y="146" width="86" height="7" fill="#CE1126"/>
+          <g fill="#20201F">
+            <rect x="143" y="157" width="34" height="3"/><rect x="143" y="163" width="28" height="3"/>
+            <rect x="143" y="169" width="32" height="3"/>
+            <rect x="187" y="157" width="30" height="3"/><rect x="187" y="163" width="22" height="3"/>
+            <rect x="187" y="169" width="26" height="3"/>
+          </g>
+          <rect x="139" y="184" width="86" height="9" fill="url(#weave)"/>
+        </g>
+
+        <!-- dimension line: floor to eye height -->
+        <g stroke="#41306B" stroke-width="1.2">
+          <line x1="30" y1="586" x2="30" y2="169" marker-start="url(#ar)" marker-end="url(#ar)"/>
+          <line x1="24" y1="592" x2="36" y2="592"/>
+          <line x1="24" y1="163" x2="128" y2="163" stroke-dasharray="3 3" opacity=".65"/>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="11" fill="#41306B">
+          <text x="30" y="378" transform="rotate(-90 30 378)" text-anchor="middle" dy="-6">Eye height: 1,550 mm / 61 in</text>
+        </g>
+
+        <!-- leaders -->
+        <g stroke="#41306B" stroke-width="1">
+          <line x1="234" y1="137" x2="352" y2="112"/>
+          <line x1="234" y1="163" x2="352" y2="163"/>
+          <line x1="234" y1="196" x2="352" y2="232"/>
+        </g>
+        <g fill="#41306B">
+          <circle cx="352" cy="112" r="2.5"/><circle cx="352" cy="163" r="2.5"/><circle cx="352" cy="232" r="2.5"/>
+        </g>
+        <g font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="#111">
+          <text x="362" y="105" font-weight="600">Solar cells</text>
+          <text x="362" y="121" fill="#54524D" font-size="11.5">Charged by your existing</text>
+          <text x="362" y="136" fill="#54524D" font-size="11.5">room lighting. No wiring.</text>
+
+          <text x="362" y="156" font-weight="600">Electronic paper</text>
+          <text x="362" y="172" fill="#54524D" font-size="11.5">Reads like a printed page.</text>
+          <text x="362" y="187" fill="#54524D" font-size="11.5">No glow, no sound, no motion.</text>
+
+          <text x="362" y="225" font-weight="600">Adhesive mount</text>
+          <text x="362" y="241" fill="#54524D" font-size="11.5">Fitted in under a minute.</text>
+          <text x="362" y="256" fill="#54524D" font-size="11.5">No drilling. Lifts off clean.</text>
+        </g>
+      </svg>
+      <p class="drawing-note">Inside face of the door. Unit shown to scale.</p>
+    </div>
+  </div>
+
+  <!-- ============ FIGURES ============ -->
+  <div class="band">
+    <div class="figures">
+      <div class="fig">
+        <span class="n">30%</span>
+        <p>of all revenue from every unit on your site, reported and paid to you monthly.</p>
+      </div>
+      <div class="fig">
+        <span class="n">$0</span>
+        <p>to pay for the hardware, the fitting, the servicing, the replacements or the removal.</p>
+      </div>
+      <div class="fig">
+        <span class="n">60s</span>
+        <p>to fit one unit. No drilling, no contractor, nothing taken out of service.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PRIVACY ============ -->
+  <section class="pad">
+    <div class="device-row">
+      <div>
+        <h2>A printed page that changes once a day. Nothing more.</h2>
+        <p>The unit contains no camera, no microphone and no sensor of any kind. Nothing about the people in front of it is seen, recorded or transmitted.</p>
+        <p>The screen is electronic paper, not a backlit panel. It emits no light, makes no sound, never flickers and never moves; it holds its image without drawing any power at all.</p>
+      </div>
+
+      <div>
+        <svg class="device" viewBox="0 0 520 380" role="img" aria-label="The wall unit: a black frame with solar strips above and below an electronic paper screen. The screen is split between an advertiser panel and the venue's own notice. A line on the frame reads: no camera, no microphone, no sensors.">
+          <defs>
+            <pattern id="weave2" width="6" height="6" patternUnits="userSpaceOnUse">
+              <rect width="6" height="6" fill="#6B4B9E"/>
+              <rect width="3" height="3" fill="#573E80"/>
+              <rect x="3" y="3" width="3" height="3" fill="#573E80"/>
+            </pattern>
+          </defs>
+
+          <rect x="6" y="6" width="508" height="368" rx="6" fill="#151515"/>
+          <rect x="6" y="6" width="508" height="368" rx="6" fill="none" stroke="#000" stroke-width="1"/>
+
+          <!-- solar strips -->
+          <rect x="58" y="30" width="404" height="34" fill="url(#weave2)"/>
+          <rect x="58" y="286" width="404" height="34" fill="url(#weave2)"/>
+
+          <!-- screen -->
+          <rect x="42" y="84" width="436" height="182" fill="#FAFAF7"/>
+          <rect x="52" y="94" width="416" height="162" fill="#FAFAF7" stroke="#111" stroke-width="2"/>
+          <rect x="52" y="94" width="416" height="30" fill="#CE1126"/>
+          <line x1="260" y1="94" x2="260" y2="256" stroke="#111" stroke-width="2"/>
+
+          <g font-family="IBM Plex Sans Condensed, sans-serif" font-weight="700" font-size="16" fill="#fff">
+            <text x="66" y="115">This week&#8217;s advertiser</text>
+            <text x="274" y="115">Your notice</text>
+          </g>
+
+          <!-- left pane: advertiser -->
+          <g font-family="IBM Plex Sans, sans-serif" fill="#111">
+            <text x="66" y="150" font-family="IBM Plex Sans Condensed, sans-serif" font-weight="700" font-size="21">Two stops away.</text>
+            <text x="66" y="174" font-family="IBM Plex Sans Condensed, sans-serif" font-weight="700" font-size="21">Open till late.</text>
+            <text x="66" y="200" font-size="12.5" fill="#3A3A3A">A category you approved,</text>
+            <text x="66" y="217" font-size="12.5" fill="#3A3A3A">from a brand you can veto.</text>
+            <rect x="66" y="230" width="86" height="3" fill="#6B4B9E"/>
+          </g>
+
+          <!-- right pane: venue -->
+          <g font-family="IBM Plex Sans, sans-serif" fill="#111">
+            <text x="274" y="150" font-family="IBM Plex Sans Condensed, sans-serif" font-weight="700" font-size="19">Happy hour, 4 to 6</text>
+            <text x="274" y="173" font-size="12.5" fill="#3A3A3A">Every weekday. Ask at the bar.</text>
+            <text x="274" y="203" font-family="IBM Plex Sans Condensed, sans-serif" font-weight="600" font-size="14">Feeling unwell?</text>
+            <text x="274" y="222" font-size="12.5" fill="#3A3A3A">Ask any staff member.</text>
+            <rect x="274" y="234" width="86" height="3" fill="#6B4B9E"/>
+          </g>
+
+          <!-- privacy statement on the frame -->
+          <g font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="#E4E1DB" letter-spacing=".02em">
+            <text x="260" y="345" text-anchor="middle">No camera. No microphone. No sensors.</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <p class="pull">Your visitors are already looking at this door. We simply give them something worth reading.</p>
+  </section>
+
+  <!-- ============ SPECS ============ -->
+  <section class="pad">
+    <h2>No power. No wiring. No work.</h2>
+
+    <div class="specs">
+
+      <div class="spec">
+        <h3>Power<em>None required</em></h3>
+        <div>
+          <p>Integrated solar cells harvest your existing room lighting; that is enough for the single update the screen makes each day. There is no wired power connection, no cable, no plug and no electrical inspection. Nothing is added to your power bill.</p>
+        </div>
+      </div>
+
+      <div class="spec">
+        <h3>Network<em>A few kB per day</em></h3>
+        <div>
+          <p>Content reaches the unit over your guest network, a few kilobytes a day. The device cannot see or reach anything else on your network. A full IT security summary is available on request.</p>
+          <p>Where network access isn&#8217;t permitted, as in many healthcare, aviation and financial settings, we supply a cellular version that connects independently and asks nothing of your IT team at all.</p>
+        </div>
+      </div>
+
+      <div class="spec">
+        <h3>Fitting<em>Under 60 seconds per unit</em></h3>
+        <div>
+          <p>The installer lifts the backing from the high-strength adhesive mount and positions the unit; almost all of that minute is spent on alignment rather than fitting. No drilling, no fixings, no damage to the door, no contractor and nothing taken out of service.</p>
+          <p>A whole site is typically finished in a single visit, outside your busiest hours if you prefer.</p>
+        </div>
+      </div>
+
+      <div class="spec">
+        <h3>Cleaning<em>One wipe</em></h3>
+        <div>
+          <p>The housing comes in high-strength engineered plastic or brushed metal to suit your interior, treated to resist bacterial growth on the surface of the unit. Edges are rounded and there are no flat ledges to collect dust or moisture. A single wipe is all your cleaning team ever needs to do.</p>
+        </div>
+      </div>
+
+      <div class="spec">
+        <h3>Upkeep<em>Ours, not yours</em></h3>
+        <div>
+          <p>No servicing, no consumables and no involvement from your staff whatsoever. Each unit reports its own status to us, so on the rare occasion one needs attention we usually know before you do, and we deal with it at our cost. Any unit damaged or stolen is replaced at our expense.</p>
+        </div>
+      </div>
+
+      <div class="spec">
+        <h3>Removal<em>No trace</em></h3>
+        <div>
+          <p>If you decide the wall units aren&#8217;t right for your site, they lift away and a solvent wipe leaves each door exactly as we found it. We collect at our expense, whenever you ask.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ CONTROL ============ -->
+  <section class="pad">
+    <h2>You decide what appears on your own doors.</h2>
+    <p>You hold a full veto over every advertiser and every content category, for any reason and at any time. Nothing goes on your wall that you would not have put there yourself.</p>
+    <ul class="quiet-list">
+      <li>Approve or block any advertiser, and rule out whole categories in advance.</li>
+      <li>Use the same screen free of charge for your own promotions: events, offers, hours.</li>
+      <li>Post staff notices, safety information and wellness messaging to a genuinely captive readership.</li>
+      <li>Change your mind about any of it, and tell us to take the units away.</li>
+    </ul>
+  </section>
+
+  <!-- ============ LEDGER ============ -->
+  <section class="pad">
+    <h2>You provide a door and a connection. We provide everything else.</h2>
+
+    <div class="ledger">
+      <div>
+        <h3>What we ask of you</h3>
+        <ul>
+          <li>Space on the inside face of the doors you nominate.</li>
+          <li>Guest network access; or nothing at all, if you take the cellular version.</li>
+          <li>One visit from our installer, at a time that suits you.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>What you receive</h3>
+        <ul>
+          <li>30% of all revenue generated by every unit on your site.</li>
+          <li>Reporting and payment monthly, broken out unit by unit.</li>
+          <li>Hardware, fitting, servicing, replacement and removal at no cost, ever.</li>
+          <li>Free use of the screen for your own messaging.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CLOSE ============ -->
+  <div class="close">
+    <h2>Start with one door.</h2>
+    <p>There is no minimum, no term and no cost. Put a wall unit on a single door, look at the first month&#8217;s revenue report, and decide from there. If the answer is no, we collect at our expense and leave the door exactly as it was.</p>
+
+    <p>To get started, email us. We will set up a short video call to walk your site, agree which doors are worth fitting and book the installation.</p>
+
+    <div class="contact">
+      <div><span>Email</span><strong>hello@wallmarketing.com</strong></div>
+      <div><span>Site review</span><strong>Free, by video call, about 15 minutes</strong></div>
+    </div>
+
+    <p class="colophon">IT security summary, insurance certificates and installer credentials available on request.</p>
+  </div>
+
+</div>
+
+</body>
+</html>

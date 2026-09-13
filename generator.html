@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Artwork generator — WALL</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#E6E9E4">
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231B1D1F'/><rect x='11' y='6' width='10' height='19' rx='2' fill='%235C4BFF'/></svg>">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&display=swap" rel="stylesheet">
+
+<style>
+/* ============ tokens (shared with index.html) ============ */
+:root{
+  --panel:#E6E9E4;
+  --panel-2:#F4F6F2;
+  --graphite:#1B1D1F;
+  --ink:#1F2225;
+  --steel:#5C625E;
+  --hair:#CBD1CA;
+  --hair-dark:#33373A;
+  --volt:#3826F0;
+  --volt-2:#8878FF;
+  --live:#37C77E;
+  --chalk:#EDEFEC;
+  --warn:#C8202C;
+  --solar:#6F4C9B;
+}
+
+/* ============ reset ============ */
+*,*::before,*::after{box-sizing:border-box;}
+body,h1,h2,h3,p,figure,dl,dd,ul{margin:0;}
+ul{padding:0;list-style:none;}
+img,svg,canvas{display:block;max-width:100%;}
+button,input,textarea,select{font:inherit;color:inherit;}
+html{-webkit-text-size-adjust:100%;}
+body{
+  background:var(--panel);
+  color:var(--ink);
+  font-family:Archivo,"Helvetica Neue",Arial,system-ui,sans-serif;
+  font-size:clamp(16px,1.05vw,17.5px);
+  line-height:1.55;
+  font-variation-settings:"wdth" 100,"wght" 400;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+a{color:inherit;text-decoration:none;}
+:focus-visible{outline:2px solid var(--volt);outline-offset:3px;border-radius:2px;}
+
+/* ============ type ============ */
+h1,h2,h3,.wordmark{
+  font-variation-settings:"wdth" 118,"wght" 800;
+  letter-spacing:-0.022em;line-height:0.98;text-wrap:balance;
+}
+h1{font-size:clamp(2.1rem,4.4vw,3.3rem);line-height:0.94;letter-spacing:-0.03em;}
+h2{font-size:clamp(1.5rem,2.6vw,2rem);}
+h3{font-size:clamp(1rem,1.4vw,1.12rem);font-variation-settings:"wdth" 112,"wght" 700;letter-spacing:-0.015em;}
+.lede{font-size:clamp(1rem,1.3vw,1.15rem);line-height:1.5;max-width:58ch;color:#2E3235;}
+.meta{font-size:0.82rem;color:var(--steel);}
+
+.shell{max-width:1180px;margin-inline:auto;padding-inline:clamp(20px,5vw,48px);}
+.band{padding-block:clamp(48px,6vw,84px);border-top:1px solid var(--hair);}
+.skip{position:absolute;left:-9999px;top:0;background:var(--ink);color:var(--panel);padding:12px 18px;z-index:100;}
+.skip:focus{left:12px;top:12px;}
+
+/* ============ header ============ */
+header{
+  position:sticky;top:0;z-index:60;
+  background:rgba(230,233,228,.9);
+  background:color-mix(in srgb,var(--panel) 88%,transparent);
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--hair);
+}
+.nav{
+  display:flex;align-items:center;justify-content:space-between;gap:20px;
+  max-width:1180px;margin-inline:auto;padding:16px clamp(20px,5vw,48px);
+}
+.wordmark{font-size:1.5rem;font-variation-settings:"wdth" 125,"wght" 800;letter-spacing:-0.03em;}
+.wordmark b{font-weight:inherit;color:var(--volt);}
+.nav-right{display:flex;align-items:center;gap:16px;}
+.tag{
+  font-size:0.78rem;color:var(--steel);border:1px solid var(--hair);
+  border-radius:3px;padding:4px 9px;white-space:nowrap;
+}
+.nav-right a{font-size:0.92rem;color:#3A3E40;border-bottom:1px solid transparent;padding:4px 0;}
+.nav-right a:hover{color:var(--ink);border-bottom-color:var(--volt);}
+
+/* ============ buttons ============ */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  padding:13px 24px;border-radius:3px;border:1px solid transparent;background:none;
+  font-size:0.95rem;font-variation-settings:"wdth" 108,"wght" 600;cursor:pointer;
+  transition:background .18s ease,color .18s ease,border-color .18s ease;
+}
+.btn--solid{background:var(--ink);color:var(--panel-2);}
+.btn--solid:hover{background:var(--volt);}
+.btn--line{border-color:currentColor;}
+.btn--line:hover{background:var(--ink);color:var(--panel-2);border-color:var(--ink);}
+.btn[disabled]{opacity:.45;pointer-events:none;}
+.btn--sm{padding:9px 15px;font-size:0.88rem;}
+
+/* ============ intro ============ */
+.intro{padding-block:clamp(30px,4vw,52px) clamp(22px,3vw,34px);}
+.intro .lede{margin-top:14px;}
+
+/* ============ app ============ */
+.app{
+  display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);
+  gap:clamp(24px,4vw,52px);align-items:start;
+  padding-bottom:clamp(48px,6vw,80px);
+}
+
+/* form side */
+.form{display:grid;gap:20px;}
+.field{display:grid;gap:8px;}
+.field label{font-size:0.88rem;font-variation-settings:"wdth" 104,"wght" 600;}
+.field .hint{font-size:0.82rem;color:var(--steel);}
+input[type=password],input[type=text],textarea,select{
+  width:100%;background:var(--panel-2);border:1px solid var(--hair);border-radius:3px;
+  padding:12px 14px;font-size:0.96rem;line-height:1.45;
+}
+input:hover,textarea:hover,select:hover{border-color:#AEB5AD;}
+textarea{resize:vertical;min-height:132px;}
+select{cursor:pointer;}
+
+.key-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:start;}
+.key-row .btn{padding:12px 14px;font-size:0.86rem;}
+.keynote{
+  display:grid;gap:6px;padding:12px 14px;border-radius:3px;
+  background:var(--panel-2);border:1px solid var(--hair);border-left:3px solid var(--warn);
+  font-size:0.84rem;color:#3C4144;
+}
+.keynote b{font-weight:inherit;font-variation-settings:"wdth" 104,"wght" 600;color:var(--ink);}
+
+.examples{display:flex;flex-wrap:wrap;gap:6px;}
+.ex{
+  border:1px solid var(--hair);background:var(--panel-2);border-radius:3px;
+  padding:7px 11px;font-size:0.85rem;cursor:pointer;text-align:left;
+  transition:border-color .15s ease,background .15s ease;
+}
+.ex:hover{border-color:var(--ink);background:#fff;}
+
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+.status{font-size:0.88rem;color:var(--steel);min-height:1.5em;}
+.status.err{color:var(--warn);}
+.status .dot{
+  display:inline-block;width:7px;height:7px;border-radius:50%;
+  background:var(--live);margin-right:8px;vertical-align:middle;
+}
+@media (prefers-reduced-motion: no-preference){
+  .status.busy .dot{animation:pulse 1.3s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+}
+
+/* preview side */
+.preview{display:grid;gap:16px;position:sticky;top:96px;}
+.unit{
+  position:relative;display:flex;flex-direction:column;justify-content:space-between;
+  padding:3.4%;border-radius:6px;width:100%;
+  background-color:#25282A;
+  background-image:
+    radial-gradient(rgba(255,255,255,.055) .5px,transparent .6px),
+    linear-gradient(152deg,#3B3F43 0%,#242729 55%,#15171A 100%);
+  background-size:3px 3px,100% 100%;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16),inset 0 -1px 0 rgba(0,0,0,.55),
+             0 28px 46px -28px rgba(18,24,22,.8);
+}
+.solar{
+  flex:none;width:100%;aspect-ratio:12/1;border-radius:2px;
+  background-color:var(--solar);
+  background-image:radial-gradient(rgba(0,0,0,.55) 42%,transparent 44%);
+  background-size:4px 4px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.45);
+  margin-block:1.6%;
+}
+.screen{
+  position:relative;flex:none;width:100%;aspect-ratio:3/2;overflow:hidden;
+  background:#F2F0E9;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.6);
+}
+.screen > *{position:absolute;inset:0;width:100%;height:100%;}
+.screen svg{width:100%;height:100%;}
+.placeholder{
+  display:grid;place-content:center;gap:6px;text-align:center;padding:24px;
+  color:#8A9088;font-size:0.9rem;
+}
+.placeholder b{font-weight:inherit;font-variation-settings:"wdth" 110,"wght" 700;color:#6E746D;font-size:1.05rem;}
+#work{display:none;}
+
+.shade{
+  position:absolute;inset:0;display:grid;place-content:center;
+  background:rgba(242,240,233,.86);color:#3C4144;font-size:0.9rem;
+}
+.shade[hidden]{display:none;}
+
+.pv-bar{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;}
+.seg{display:flex;border:1px solid var(--hair);border-radius:3px;overflow:hidden;}
+.seg button{
+  background:var(--panel-2);border:0;padding:8px 13px;font-size:0.85rem;cursor:pointer;
+  border-right:1px solid var(--hair);
+}
+.seg button:last-child{border-right:0;}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--panel-2);}
+.pv-meta{font-size:0.82rem;color:var(--steel);}
+
+.downloads{display:flex;gap:10px;flex-wrap:wrap;}
+.downloads .btn{flex:1;min-width:150px;}
+
+.refine{display:grid;gap:8px;padding-top:16px;border-top:1px solid var(--hair);}
+.refine-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;}
+
+/* ============ palette + spec strip ============ */
+.inks{display:flex;gap:1px;background:var(--hair);border:1px solid var(--hair);border-radius:3px;overflow:hidden;}
+.ink{flex:1;padding:12px 10px 14px;background:var(--panel-2);display:grid;gap:9px;justify-items:start;}
+.ink i{width:100%;height:34px;border-radius:2px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.16);}
+.ink span{font-size:0.78rem;color:var(--steel);line-height:1.25;}
+.ink b{display:block;font-weight:inherit;font-variation-settings:"wdth" 104,"wght" 600;color:var(--ink);font-size:0.84rem;}
+
+.spec{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(28px,5vw,64px);align-items:start;}
+.spec dl{display:grid;grid-template-columns:minmax(120px,auto) minmax(0,1fr);}
+.spec dt,.spec dd{padding:13px 0;border-top:1px solid var(--hair);}
+.spec dt{font-variation-settings:"wdth" 108,"wght" 600;font-size:0.9rem;padding-right:20px;}
+.spec dd{font-size:0.94rem;color:#3C4144;}
+.aside{background:var(--panel-2);border:1px solid var(--hair);padding:clamp(22px,3vw,30px);border-radius:3px;}
+.aside h3{margin-bottom:12px;}
+.aside p{font-size:0.94rem;color:#3C4144;}
+.aside p + p{margin-top:12px;}
+.aside ul{display:grid;gap:12px;margin-top:4px;}
+.aside li{position:relative;padding-left:22px;font-size:0.94rem;color:#3C4144;}
+.aside li::before{content:"";position:absolute;left:0;top:.62em;width:11px;height:2px;background:var(--volt);}
+
+footer{padding-block:30px;border-top:1px solid var(--hair);}
+.foot{display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;font-size:0.86rem;color:var(--steel);}
+.foot a:hover{color:var(--volt);}
+
+@media (max-width:980px){
+  .app{grid-template-columns:1fr;}
+  .preview{position:static;}
+  .spec{grid-template-columns:1fr;}
+}
+@media (max-width:700px){
+  .inks{flex-wrap:wrap;}
+  .ink{flex:1 1 32%;}
+  .nav-right .tag{display:none;}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;}}
+</style>
+</head>
+<body>
+
+<a class="skip" href="#brief">Skip to the brief</a>
+
+<header>
+  <nav class="nav">
+    <a href="index.html" class="wordmark">WALL<b>.</b></a>
+    <div class="nav-right">
+      <span class="tag">Internal tool</span>
+      <a href="index.html">Back to the site</a>
+    </div>
+  </nav>
+</header>
+
+<main>
+
+<section class="intro shell">
+  <h1>Make a slot for the panel.</h1>
+  <p class="lede">Describe the advert in plain words. Claude draws it as flat vector artwork in the six inks the WALL screen can print, and you get a 600 × 400 file ready to schedule.</p>
+</section>
+
+<section class="app shell">
+
+  <!-- ============ form ============ -->
+  <div class="form">
+
+    <div class="field">
+      <label for="key">Anthropic API key</label>
+      <div class="key-row">
+        <input type="password" id="key" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+        <button type="button" class="btn btn--line" id="keyShow" aria-pressed="false">Show</button>
+      </div>
+      <p class="hint">Held in this tab only. It is cleared when you close the page.</p>
+      <div class="keynote">
+        <b>Keep this page off the public site.</b>
+        <span>Anyone who can open it can spend your key. Host it behind a login, or move the key to a small server of your own that the page calls instead.</span>
+      </div>
+    </div>
+
+    <div class="field" id="brief">
+      <label for="prompt">What should the slot say?</label>
+      <textarea id="prompt" placeholder="Create an advertisement for a coffee shop called Jim's Coffee, address 123 Smith Street, website www.jims.com"></textarea>
+      <p class="hint">Name, one offer or line worth reading, and how to find them. Six or seven words carry best at this size.</p>
+    </div>
+
+    <div class="field">
+      <label>Start from an example</label>
+      <div class="examples" id="examples"></div>
+    </div>
+
+    <div class="field">
+      <label for="model">Model</label>
+      <select id="model">
+        <option value="claude-sonnet-4-6" selected>Claude Sonnet 4.6 — quick, good for most slots</option>
+        <option value="claude-opus-4-6">Claude Opus 4.6 — slower, stronger layouts</option>
+      </select>
+    </div>
+
+    <div class="row">
+      <button type="button" class="btn btn--solid" id="go">Generate artwork</button>
+      <button type="button" class="btn btn--line" id="again" hidden>Another version</button>
+    </div>
+    <p class="status" id="status" role="status"></p>
+  </div>
+
+  <!-- ============ preview ============ -->
+  <div class="preview">
+    <div class="unit" aria-hidden="true">
+      <span class="solar"></span>
+      <div class="screen">
+        <div class="placeholder" id="placeholder">
+          <b>600 × 400</b>
+          <span>Your artwork appears here</span>
+        </div>
+        <div id="art"></div>
+        <canvas id="work" width="600" height="400"></canvas>
+        <div class="shade" id="shade" hidden>Drawing…</div>
+      </div>
+      <span class="solar"></span>
+    </div>
+
+    <div class="pv-bar">
+      <div class="seg" role="group" aria-label="Preview mode">
+        <button type="button" id="mDesign" aria-pressed="false">As drawn</button>
+        <button type="button" id="mPanel" aria-pressed="true">As the panel prints it</button>
+      </div>
+      <span class="pv-meta" id="pvMeta">Six inks, no backlight</span>
+    </div>
+
+    <div class="downloads">
+      <button type="button" class="btn btn--solid" id="dlPng" disabled>Download PNG, 600 × 400</button>
+      <button type="button" class="btn btn--line" id="dlSvg" disabled>Download SVG</button>
+    </div>
+
+    <div class="refine">
+      <label class="hint" for="tweak">Change something</label>
+      <div class="refine-row">
+        <input type="text" id="tweak" placeholder="Make the shop name bigger and drop the website" disabled>
+        <button type="button" class="btn btn--line" id="applyTweak" disabled>Apply</button>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ============ what the panel can print ============ -->
+<section class="band">
+  <div class="shell">
+    <h2>What the panel can print.</h2>
+    <p class="lede" style="margin-top:12px;margin-bottom:26px;">The screen mixes six pigments and nothing else. Every generated slot is snapped to these inks, so the preview above is what goes on the door.</p>
+    <div class="inks" id="inkStrip"></div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="shell spec">
+    <dl>
+      <dt>Artwork</dt><dd>PNG at 600 × 400 pixels, landscape</dd>
+      <dt>Panel</dt><dd>4-inch E Ink Spectra 6, 84.6 × 56.4 mm visible, 180 dpi</dd>
+      <dt>Colours</dt><dd>Black, white, red, yellow, blue and green pigment</dd>
+      <dt>Refresh</dt><dd>14 to 19 seconds for a full page, so the image holds still</dd>
+      <dt>Lead time</dt><dd>24 hours from approved artwork to first play</dd>
+    </dl>
+    <div class="aside">
+      <h3>Why the artwork looks like this</h3>
+      <p>E-paper prints rather than glows. There is no backlight to carry a dim colour, so flat blocks of one ink read cleanly and gradients turn to grain.</p>
+      <ul>
+        <li>Anything between the six inks is mixed by dithering, which shows as speckle at arm's length.</li>
+        <li>Thin strokes and small type break up. Nothing below about two pixels survives.</li>
+        <li>Photographs reproduce poorly. Drawn shapes and heavy type hold at four inches.</li>
+        <li>One idea per slot. A second line of explanation belongs somewhere else.</li>
+      </ul>
+      <p>Send anything you make here to <a href="mailto:hello@wall.marketing" style="border-bottom:1px solid var(--hair);">hello@wall.marketing</a> with the sites you want it on.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="shell foot">
+    <span>© 2026 WALL</span>
+    <nav><a href="index.html">Back to the site</a> <a href="sites.html">Find a site</a></nav>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- the six E Ink Spectra 6 pigments, as they read on the panel ---------- */
+  var INKS = [
+    {name:"Black",  hex:"#1B1B1B", note:"Type and rules"},
+    {name:"White",  hex:"#F2F0E9", note:"The paper itself"},
+    {name:"Red",    hex:"#C0202C", note:"One accent, used sparingly"},
+    {name:"Yellow", hex:"#E8C22A", note:"Bright fills and flags"},
+    {name:"Blue",   hex:"#23459B", note:"Large calm areas"},
+    {name:"Green",  hex:"#3A7D44", note:"Second accent"}
+  ];
+  var RGB = INKS.map(function(i){
+    return [parseInt(i.hex.slice(1,3),16), parseInt(i.hex.slice(3,5),16), parseInt(i.hex.slice(5,7),16)];
+  });
+
+  var SYSTEM =
+    "You draw advertising artwork for a 4-inch E Ink Spectra 6 panel, 600x400 pixels, read from arm's length on the inside of a venue door.\n\n" +
+    "Reply with a single SVG element and nothing else: no explanation, no markdown fences, no comments.\n\n" +
+    "Hard rules:\n" +
+    "1. Root element exactly: <svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 600 400\" width=\"600\" height=\"400\">\n" +
+    "2. Use only these six fills and strokes, by exact hex: " + INKS.map(function(i){return i.name+" "+i.hex;}).join(", ") + ". No other colour, no opacity, no gradients, no filters, no blend modes, no shadows.\n" +
+    "3. Cover the full 600x400 with a background rectangle in one ink.\n" +
+    "4. No <image>, <script>, <foreignObject>, no external references, no web fonts. Set font-family to \"Helvetica, Arial, sans-serif\" on every text element.\n" +
+    "5. Text: the largest line at least 54px, secondary lines at least 28px, nothing below 20px. Weight bold or 700 for headlines. No letter-spacing below 0. Keep a 28px margin clear on every edge.\n" +
+    "6. Strokes 3px or thicker. No hairlines, no dashes finer than 6px.\n" +
+    "7. Draw shapes with paths, rects, circles and polygons. Simple, flat, poster-like. No photographic detail, no fine illustration, no texture.\n\n" +
+    "Craft:\n" +
+    "- One idea. Put the single most useful line largest: what is on offer, or the name if there is no offer.\n" +
+    "- Set the exact names, addresses, prices and web addresses the brief gives you, spelled as written. Never invent a detail the brief does not contain.\n" +
+    "- Build a clear hierarchy: one dominant line, one supporting line, one small line for the address or web address.\n" +
+    "- Use flat blocks of ink and generous empty paper. Two or three inks usually beat six.\n" +
+    "- A simple drawn mark (a cup, a leaf, a ticket) helps recognition. Keep it geometric and large.\n" +
+    "- Estimate text width at roughly 0.55 x font-size per character in bold, and keep every line inside the margins.\n" +
+    "- Do not draw a QR code; bar patterns render as noise at this size.";
+
+  var EXAMPLES = [
+    "Advert for a coffee shop called Jim's Coffee, 123 Smith Street, www.jims.com",
+    "Late kitchen until 1am at Ortega's, two doors down",
+    "Student bank account, no fees for three years, apply at northbank.com/student",
+    "Physio clinic: free 15 minute assessment this month, call 555 0199",
+    "Sunday roast, £16, booking at the bar"
+  ];
+
+  /* ---------- elements ---------- */
+  var $ = function(id){ return document.getElementById(id); };
+  var keyEl=$("key"), promptEl=$("prompt"), statusEl=$("status"), goEl=$("go"), againEl=$("again"),
+      artEl=$("art"), canvas=$("work"), shade=$("shade"), placeholder=$("placeholder"),
+      dlPng=$("dlPng"), dlSvg=$("dlSvg"), tweakEl=$("tweak"), applyTweak=$("applyTweak"),
+      mDesign=$("mDesign"), mPanel=$("mPanel"), pvMeta=$("pvMeta");
+
+  var state = {svg:null, brief:"", mode:"panel", busy:false};
+
+  /* ---------- ink strip ---------- */
+  $("inkStrip").innerHTML = INKS.map(function(i){
+    return '<div class="ink"><i style="background:'+i.hex+'"></i><span><b>'+i.name+'</b>'+i.note+'</span></div>';
+  }).join("");
+
+  /* ---------- examples ---------- */
+  $("examples").innerHTML = EXAMPLES.map(function(t,n){
+    return '<button type="button" class="ex" data-n="'+n+'">'+t.replace(/&/g,"&amp;").replace(/</g,"&lt;")+'</button>';
+  }).join("");
+  $("examples").addEventListener("click", function(e){
+    var b = e.target.closest(".ex"); if (!b) return;
+    promptEl.value = EXAMPLES[+b.dataset.n]; promptEl.focus();
+  });
+
+  $("keyShow").addEventListener("click", function(){
+    var show = keyEl.type === "password";
+    keyEl.type = show ? "text" : "password";
+    this.textContent = show ? "Hide" : "Show";
+    this.setAttribute("aria-pressed", show);
+  });
+
+  /* ---------- status ---------- */
+  function say(text, kind){
+    statusEl.className = "status" + (kind ? " " + kind : "");
+    statusEl.innerHTML = text ? (kind === "busy" ? '<span class="dot"></span>' : "") + text : "";
+  }
+
+  /* ---------- calling the API ---------- */
+  function ask(messages){
+    return fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{
+        "content-type":"application/json",
+        "x-api-key":keyEl.value.trim(),
+        "anthropic-version":"2023-06-01",
+        "anthropic-dangerous-direct-browser-access":"true"
+      },
+      body:JSON.stringify({
+        model:$("model").value,
+        max_tokens:4000,
+        system:SYSTEM,
+        messages:messages
+      })
+    }).then(function(r){
+      return r.json().then(function(data){
+        if (!r.ok){
+          var msg = (data && data.error && data.error.message) || ("Request failed, status " + r.status);
+          if (r.status === 401) msg = "That key was refused. Check it and try again.";
+          if (r.status === 429) msg = "Rate limited. Wait a moment and generate again.";
+          throw new Error(msg);
+        }
+        return data;
+      });
+    });
+  }
+
+  function textOf(data){
+    return (data.content || []).filter(function(b){ return b.type === "text"; })
+      .map(function(b){ return b.text; }).join("\n");
+  }
+
+  /* ---------- keep only what the panel can render ---------- */
+  function cleanSVG(raw){
+    var m = raw.match(/<svg[\s\S]*<\/svg>/i);
+    if (!m) throw new Error("No artwork came back. Try generating again.");
+    var doc = new DOMParser().parseFromString(m[0], "image/svg+xml");
+    if (doc.querySelector("parsererror")) throw new Error("The artwork came back malformed. Try generating again.");
+    var svg = doc.documentElement;
+
+    svg.querySelectorAll("script,foreignObject,image,iframe,style,animate,animateTransform,set").forEach(function(n){ n.remove(); });
+    svg.querySelectorAll("*").forEach(function(n){
+      Array.prototype.slice.call(n.attributes).forEach(function(a){
+        var v = (a.value || "").toLowerCase();
+        if (/^on/i.test(a.name) || v.indexOf("javascript:") === 0 || /url\(\s*['"]?https?:/.test(v)) n.removeAttribute(a.name);
+      });
+      if (n.tagName.toLowerCase() === "text" || n.tagName.toLowerCase() === "tspan"){
+        var f = n.getAttribute("font-family");
+        if (!f || /var\(|url\(/.test(f)) n.setAttribute("font-family", "Helvetica, Arial, sans-serif");
+      }
+    });
+
+    svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    if (!svg.getAttribute("viewBox")) svg.setAttribute("viewBox", "0 0 600 400");
+    svg.setAttribute("width", "600");
+    svg.setAttribute("height", "400");
+    svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+    return new XMLSerializer().serializeToString(svg);
+  }
+
+  /* ---------- snap to the six inks, Floyd–Steinberg ---------- */
+  function toPanel(img){
+    var ctx = canvas.getContext("2d", {willReadFrequently:true});
+    ctx.fillStyle = INKS[1].hex;
+    ctx.fillRect(0,0,600,400);
+    ctx.drawImage(img, 0, 0, 600, 400);
+
+    var d = ctx.getImageData(0,0,600,400), p = d.data;
+    var buf = new Float32Array(600*400*3);
+    for (var i=0,j=0;i<p.length;i+=4,j+=3){ buf[j]=p[i]; buf[j+1]=p[i+1]; buf[j+2]=p[i+2]; }
+
+    function push(idx, er, eg, eb, f){
+      buf[idx] += er*f; buf[idx+1] += eg*f; buf[idx+2] += eb*f;
+    }
+    for (var y=0; y<400; y++){
+      for (var x=0; x<600; x++){
+        var k = (y*600+x)*3;
+        var r=buf[k], g=buf[k+1], b=buf[k+2];
+        var best=0, bd=Infinity;
+        for (var c=0;c<6;c++){
+          var dr=r-RGB[c][0], dg=g-RGB[c][1], db=b-RGB[c][2];
+          var dist = 0.299*dr*dr + 0.587*dg*dg + 0.114*db*db;
+          if (dist < bd){ bd = dist; best = c; }
+        }
+        var er=r-RGB[best][0], eg=g-RGB[best][1], eb=b-RGB[best][2];
+        var o=(y*600+x)*4;
+        p[o]=RGB[best][0]; p[o+1]=RGB[best][1]; p[o+2]=RGB[best][2]; p[o+3]=255;
+        if (x+1<600)              push(k+3, er,eg,eb, 7/16);
+        if (y+1<400){
+          if (x>0)                push(k+(600-1)*3, er,eg,eb, 3/16);
+                                  push(k+600*3,     er,eg,eb, 5/16);
+          if (x+1<600)            push(k+(600+1)*3, er,eg,eb, 1/16);
+        }
+      }
+    }
+    ctx.putImageData(d,0,0);
+  }
+
+  function rasterise(svgText){
+    return new Promise(function(resolve, reject){
+      var img = new Image();
+      var url = URL.createObjectURL(new Blob([svgText], {type:"image/svg+xml;charset=utf-8"}));
+      img.onload = function(){
+        try { toPanel(img); resolve(); } catch(e){ reject(e); }
+        finally { URL.revokeObjectURL(url); }
+      };
+      img.onerror = function(){ URL.revokeObjectURL(url); reject(new Error("The artwork could not be drawn. Try generating again.")); };
+      img.src = url;
+    });
+  }
+
+  /* ---------- show it ---------- */
+  function show(){
+    placeholder.style.display = "none";
+    artEl.innerHTML = state.svg || "";
+    var panel = state.mode === "panel";
+    canvas.style.display = panel ? "block" : "none";
+    artEl.style.display  = panel ? "none"  : "block";
+    mPanel.setAttribute("aria-pressed", panel);
+    mDesign.setAttribute("aria-pressed", !panel);
+    pvMeta.textContent = panel ? "Six inks, no backlight" : "Before the panel mixes the inks";
+  }
+  mPanel.addEventListener("click", function(){ state.mode="panel"; if (state.svg) show(); });
+  mDesign.addEventListener("click", function(){ state.mode="design"; if (state.svg) show(); });
+
+  /* ---------- generate ---------- */
+  function run(messages, note){
+    if (!keyEl.value.trim()){ say("Add your API key first.", "err"); keyEl.focus(); return; }
+    if (state.busy) return;
+    state.busy = true;
+    goEl.disabled = againEl.disabled = applyTweak.disabled = true;
+    shade.hidden = false;
+    shade.textContent = note;
+    say(note + " This takes about twenty seconds.", "busy");
+
+    ask(messages)
+      .then(function(data){ return cleanSVG(textOf(data)); })
+      .then(function(svg){
+        state.svg = svg;
+        return rasterise(svg);
+      })
+      .then(function(){
+        show();
+        say("Ready. Check the small type, then download the PNG.");
+        if (window.matchMedia("(max-width:980px)").matches){
+          document.querySelector(".preview").scrollIntoView({block:"start", behavior:"smooth"});
+        }
+        againEl.hidden = false;
+        dlPng.disabled = dlSvg.disabled = false;
+        tweakEl.disabled = false;
+      })
+      .catch(function(e){
+        say(e.message || "Something went wrong. Try again.", "err");
+      })
+      .then(function(){
+        state.busy = false;
+        goEl.disabled = againEl.disabled = false;
+        applyTweak.disabled = !state.svg;
+        shade.hidden = true;
+      });
+  }
+
+  function briefMessage(){
+    return "Brief: " + state.brief + "\n\nDraw the slot as a single SVG.";
+  }
+
+  goEl.addEventListener("click", function(){
+    var v = promptEl.value.trim();
+    if (!v){ say("Describe what the slot should say.", "err"); promptEl.focus(); return; }
+    state.brief = v;
+    run([{role:"user", content:briefMessage()}], "Drawing the slot.");
+  });
+
+  againEl.addEventListener("click", function(){
+    run([
+      {role:"user", content:briefMessage()},
+      {role:"assistant", content:state.svg},
+      {role:"user", content:"Draw a different version of the same brief: a new layout and a different use of the inks. Same details, same rules. Reply with the SVG only."}
+    ], "Drawing another version.");
+  });
+
+  applyTweak.addEventListener("click", function(){
+    var t = tweakEl.value.trim();
+    if (!t){ tweakEl.focus(); return; }
+    run([
+      {role:"user", content:briefMessage()},
+      {role:"assistant", content:state.svg},
+      {role:"user", content:"Change this: " + t + "\n\nKeep everything else. Reply with the full SVG only."}
+    ], "Applying the change.");
+    tweakEl.value = "";
+  });
+
+  promptEl.addEventListener("keydown", function(e){
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") goEl.click();
+  });
+  tweakEl.addEventListener("keydown", function(e){ if (e.key === "Enter") applyTweak.click(); });
+
+  /* ---------- downloads ---------- */
+  function slug(){
+    return (state.brief.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40) || "wall-slot");
+  }
+  function save(href, ext){
+    var a = document.createElement("a");
+    a.href = href; a.download = "wall-" + slug() + "." + ext;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  dlPng.addEventListener("click", function(){ save(canvas.toDataURL("image/png"), "png"); });
+  dlSvg.addEventListener("click", function(){
+    save(URL.createObjectURL(new Blob([state.svg], {type:"image/svg+xml"})), "svg");
+  });
+})();
+</script>
+
+</body>
+</html>
