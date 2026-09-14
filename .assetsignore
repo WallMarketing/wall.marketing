@@ -1,0 +1,13 @@
+# Tells the Cloudflare deploy step which files NOT to publish as public
+# static assets. Your build log showed .git internals being uploaded
+# publicly — this stops that, along with other things that should never
+# be served.
+
+.git
+.gitignore
+.wrangler
+node_modules
+wrangler.jsonc
+worker.js
+functions
+README.md
