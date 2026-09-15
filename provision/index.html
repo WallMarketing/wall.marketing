@@ -71,7 +71,28 @@
   }
   .status.ok { color: #4ade80; }
   .status.err { color: #f87171; }
-  .status.busy { color: #94a3b8; }
+  .status.busy {
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  /* A small spinner on every "busy" status message (scanning, connecting,
+     sending) — easy to miss a line of text changing, much harder to miss
+     something visibly moving. */
+  .status.busy::before {
+    content: "";
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+    border: 2px solid #334155;
+    border-top-color: #94a3b8;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
   .step-label {
     display: inline-flex;
     align-items: center;
