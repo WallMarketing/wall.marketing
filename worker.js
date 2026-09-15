@@ -2,6 +2,41 @@
 // Static site + whoami + checkin (unchanged) + new image generate/history
 // endpoints, all in one place.
 
+// Plain === on secrets leaks timing information (a mismatch on the first
+// byte returns faster than a mismatch on the last byte). This is a lot of
+// ceremony for a bench-testing shared secret, but it's cheap to do right
+// and it's the one check standing between the internet and this D1 table.
+function timingSafeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const enc = new TextEncoder();
+  const aBytes = enc.encode(a);
+  const bBytes = enc.encode(b);
+  if (aBytes.length !== bBytes.length) return false;
+  let diff = 0;
+  for (let i = 0; i < aBytes.length; i++) diff |= aBytes[i] ^ bBytes[i];
+  return diff === 0;
+}
+
+// Devices can't do a Cloudflare Access login, so /api/checkin and
+// /api/images/latest/raw have to stay reachable without an Access session.
+// This is the substitute: a shared secret only real devices know, sent as
+// a header. Fails closed — if the secret isn't configured server-side,
+// nothing gets through, rather than accidentally waving everyone in.
+function isAuthorizedDevice(request, env) {
+  const expected = env.DEVICE_SHARED_SECRET;
+  if (!expected) return false;
+  const provided = request.headers.get('X-Device-Key');
+  if (!provided) return false;
+  return timingSafeEqual(provided, expected);
+}
+
+function unauthorizedResponse() {
+  return new Response(JSON.stringify({ error: 'unauthorized' }), {
+    status: 401,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -18,6 +53,8 @@ export default {
 
     // --- ESP32 check-in: telemetry history ---
     if (url.pathname === '/api/checkin') {
+      if (!isAuthorizedDevice(request, env)) return unauthorizedResponse();
+
       const params = url.searchParams;
       const deviceId = params.get('device_id');
 
@@ -116,6 +153,8 @@ export default {
     //     skip re-downloading (and re-flickering the panel) when nothing
     //     has changed since its last successful fetch. ---
     if (url.pathname === '/api/images/latest/raw' && request.method === 'GET') {
+      if (!isAuthorizedDevice(request, env)) return unauthorizedResponse();
+
       const row = await env.DB.prepare(
         `SELECT id, r2_key FROM images ORDER BY id DESC LIMIT 1`
       ).first();
