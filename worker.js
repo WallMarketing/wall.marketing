@@ -154,6 +154,53 @@ export default {
       });
     }
 
+    // --- Devices: fleet overview — most recent check-in per device,
+    //     joined from `devices` (identity) and `checkins` (telemetry) ---
+    if (url.pathname === '/api/devices' && request.method === 'GET') {
+      const { results } = await env.DB.prepare(
+        `SELECT
+           d.device_id,
+           d.friendly_name,
+           d.target_firmware_version,
+           d.created_at AS device_created_at,
+           d.last_seen_at,
+           c.checked_in_at,
+           c.uptime_seconds,
+           c.rssi,
+           c.free_heap,
+           c.image_hash,
+           c.error_count,
+           c.firmware_version
+         FROM devices d
+         LEFT JOIN checkins c ON c.id = (
+           SELECT id FROM checkins WHERE device_id = d.device_id ORDER BY id DESC LIMIT 1
+         )
+         ORDER BY d.last_seen_at DESC`
+      ).all();
+
+      return new Response(JSON.stringify(results), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // --- Devices: full check-in history for one device (admin page's
+    //     click-through from the fleet overview row) ---
+    const deviceHistoryMatch = url.pathname.match(/^\/api\/devices\/([^/]+)\/checkins$/);
+    if (deviceHistoryMatch && request.method === 'GET') {
+      const deviceId = decodeURIComponent(deviceHistoryMatch[1]);
+      const limitParam = url.searchParams.get('limit');
+      const limit = limitParam ? Math.min(parseInt(limitParam, 10) || 50, 200) : 50;
+
+      const { results } = await env.DB.prepare(
+        `SELECT id, checked_in_at, uptime_seconds, rssi, free_heap, image_hash, error_count, firmware_version
+           FROM checkins WHERE device_id = ? ORDER BY id DESC LIMIT ?`
+      ).bind(deviceId, limit).all();
+
+      return new Response(JSON.stringify(results), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     // Everything else: serve the static site exactly as before.
     return env.ASSETS.fetch(request);
   },
