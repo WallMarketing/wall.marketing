@@ -90,6 +90,68 @@
     padding: 20px;
     line-height: 1.6;
   }
+  .network-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .network-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin: 0;
+    background: #0f172a;
+    border: 1px solid #334155;
+    color: #e2e8f0;
+    font-size: 0.9rem;
+    font-weight: 400;
+    text-align: left;
+    padding: 10px 12px;
+    border-radius: 8px;
+  }
+  .network-row:hover { border-color: #4f46e5; }
+  .network-row.selected {
+    border-color: #4f46e5;
+    background: #1e1b4b;
+  }
+  .network-row .lock { color: #94a3b8; font-size: 0.85rem; }
+  .link-btn {
+    background: none;
+    color: #a5b4fc;
+    width: auto;
+    padding: 0;
+    margin: 12px 0 0;
+    font-size: 0.85rem;
+    text-decoration: underline;
+  }
+  .link-btn:hover { background: none; color: #c7d2fe; }
+  #rescanBtn {
+    background: #334155;
+  }
+  #rescanBtn:hover { background: #3f4c63; }
+  .password-field {
+    position: relative;
+  }
+  .password-field input {
+    padding-right: 44px;
+  }
+  .password-toggle {
+    position: absolute;
+    right: 4px;
+    top: 4px;
+    bottom: 4px;
+    width: 36px;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .password-toggle:hover { background: #1e293b; }
+  .password-toggle svg { width: 18px; height: 18px; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -121,15 +183,41 @@
       </div>
 
       <div class="card" id="wifiCard" hidden>
-        <h2><span class="step-label">2</span>Enter WiFi details</h2>
+        <h2><span class="step-label">2</span>Choose your network</h2>
         <p class="hint">
           These are sent directly to the display over Bluetooth — they
           don't go through this website or get stored anywhere else.
         </p>
-        <label for="ssidInput">Network name (SSID)</label>
-        <input type="text" id="ssidInput" autocomplete="off" autocapitalize="off">
-        <label for="passwordInput">Password</label>
-        <input type="password" id="passwordInput" autocomplete="off">
+
+        <div class="status busy" id="scanStatus">Scanning for nearby networks...</div>
+        <div class="network-list" id="networkList"></div>
+        <button id="rescanBtn" type="button">Scan again</button>
+        <button id="manualEntryToggle" type="button" class="link-btn">
+          Can't find your network? Enter its name manually
+        </button>
+
+        <div id="manualSsidWrap" hidden>
+          <label for="ssidInput">Network name (SSID)</label>
+          <input type="text" id="ssidInput" autocomplete="off" autocapitalize="off">
+        </div>
+
+        <div id="passwordWrap">
+          <label for="passwordInput">Password</label>
+          <div class="password-field">
+            <input type="password" id="passwordInput" autocomplete="off">
+            <button type="button" class="password-toggle" id="togglePasswordBtn" aria-label="Show password">
+              <svg id="eyeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg id="eyeOffIcon" hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a20.3 20.3 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a20.4 20.4 0 0 1-2.44 3.34M14.12 14.12a3 3 0 1 1-4.24-4.24"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
         <button id="sendBtn">Send WiFi details</button>
         <div class="status" id="sendStatus"></div>
       </div>
@@ -144,12 +232,25 @@
   const connectBtn = document.getElementById('connectBtn');
   const connectStatus = document.getElementById('connectStatus');
   const wifiCard = document.getElementById('wifiCard');
+  const scanStatus = document.getElementById('scanStatus');
+  const networkList = document.getElementById('networkList');
+  const rescanBtn = document.getElementById('rescanBtn');
+  const manualEntryToggle = document.getElementById('manualEntryToggle');
+  const manualSsidWrap = document.getElementById('manualSsidWrap');
+  const passwordWrap = document.getElementById('passwordWrap');
   const ssidInput = document.getElementById('ssidInput');
   const passwordInput = document.getElementById('passwordInput');
+  const togglePasswordBtn = document.getElementById('togglePasswordBtn');
+  const eyeIcon = document.getElementById('eyeIcon');
+  const eyeOffIcon = document.getElementById('eyeOffIcon');
   const sendBtn = document.getElementById('sendBtn');
   const sendStatus = document.getElementById('sendStatus');
 
   let rxCharacteristic = null;
+  let selectedSsid = null;
+  // Keyed by SSID so repeat scans (or the same network heard on multiple
+  // channels/APs) collapse into one entry, keeping the strongest signal.
+  let discoveredNetworks = new Map();
 
   function setStatus(el, text, kind) {
     el.textContent = text;
@@ -186,15 +287,111 @@
 
       setStatus(connectStatus, `Connected to ${device.name || 'display'}.`, 'ok');
       wifiCard.hidden = false;
-      ssidInput.focus();
+      requestScan();
     } catch (err) {
       setStatus(connectStatus, 'Could not connect: ' + err.message, 'err');
       connectBtn.disabled = false;
     }
   });
 
+  async function requestScan() {
+    if (!rxCharacteristic) return;
+    discoveredNetworks.clear();
+    renderNetworkList();
+    setStatus(scanStatus, 'Scanning for nearby networks...', 'busy');
+    rescanBtn.disabled = true;
+    try {
+      await rxCharacteristic.writeValue(new TextEncoder().encode('SCAN'));
+    } catch (err) {
+      setStatus(scanStatus, 'Could not start scan: ' + err.message, 'err');
+      rescanBtn.disabled = false;
+    }
+  }
+
+  function renderNetworkList() {
+    networkList.innerHTML = '';
+    const sorted = [...discoveredNetworks.entries()].sort((a, b) => b[1].rssi - a[1].rssi);
+    for (const [ssid, info] of sorted) {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'network-row' + (ssid === selectedSsid ? ' selected' : '');
+
+      // Built with textContent, not innerHTML — an SSID is a broadcast
+      // string anyone nearby can set to anything, including HTML, so it
+      // must never be interpolated into markup.
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = ssid;
+      row.appendChild(nameSpan);
+
+      if (info.secure) {
+        const lock = document.createElement('span');
+        lock.className = 'lock';
+        lock.textContent = '🔒';
+        row.appendChild(lock);
+      }
+
+      row.addEventListener('click', () => selectNetwork(ssid, info.secure));
+      networkList.appendChild(row);
+    }
+  }
+
+  function selectNetwork(ssid, secure) {
+    selectedSsid = ssid;
+    ssidInput.value = ssid;
+    manualSsidWrap.hidden = true;
+    renderNetworkList();
+
+    // Open networks need no password — skip straight to sending rather
+    // than asking for one, same as a phone's WiFi picker would.
+    passwordWrap.hidden = !secure;
+    if (!secure) passwordInput.value = '';
+    setStatus(sendStatus, '', '');
+  }
+
+  rescanBtn.addEventListener('click', requestScan);
+
+  manualEntryToggle.addEventListener('click', () => {
+    selectedSsid = null;
+    renderNetworkList();
+    manualSsidWrap.hidden = false;
+    passwordWrap.hidden = false;
+    ssidInput.value = '';
+    ssidInput.focus();
+  });
+
+  togglePasswordBtn.addEventListener('click', () => {
+    const showing = passwordInput.type === 'text';
+    passwordInput.type = showing ? 'password' : 'text';
+    eyeIcon.hidden = showing;
+    eyeOffIcon.hidden = !showing;
+    togglePasswordBtn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+  });
+
   function handleDeviceStatus(event) {
     const value = new TextDecoder().decode(event.target.value);
+
+    if (value.startsWith('NET:')) {
+      const [ssid, rssiStr, secureStr] = value.slice(4).split('|');
+      if (!ssid) return;
+      const rssi = parseInt(rssiStr, 10);
+      const existing = discoveredNetworks.get(ssid);
+      if (!existing || rssi > existing.rssi) {
+        discoveredNetworks.set(ssid, { rssi, secure: secureStr === '1' });
+      }
+      renderNetworkList();
+      return;
+    }
+
+    if (value === 'SCAN_DONE') {
+      rescanBtn.disabled = false;
+      setStatus(
+        scanStatus,
+        discoveredNetworks.size ? '' : 'No networks found nearby — try scanning again or enter one manually.',
+        discoveredNetworks.size ? '' : 'err'
+      );
+      return;
+    }
+
     if (value === 'CONNECTING') {
       setStatus(sendStatus, 'Display is trying to connect to that network...', 'busy');
     } else if (value.startsWith('CONNECTED:')) {
