@@ -79,6 +79,12 @@
     justify-content: center;
     padding: 20px;
   }
+  /* Without this, the rule above (an ID selector) beats the browser's
+     own default styling for [hidden], and the modal shows up on load
+     instead of staying hidden until a Preview button is clicked. */
+  #previewModal[hidden] {
+    display: none;
+  }
   #previewModal canvas {
     max-width: 90vw;
     margin-bottom: 12px;
