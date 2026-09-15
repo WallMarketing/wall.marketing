@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Set up your display</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: #0f172a;
+    color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 16px 60px;
+  }
+  .wrap { max-width: 480px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; margin: 0 0 8px; }
+  p.lead { color: #94a3b8; margin: 0 0 24px; line-height: 1.5; }
+  .card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card h2 {
+    font-size: 1rem;
+    margin: 0 0 6px;
+  }
+  .card .hint {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    margin: 0 0 16px;
+    line-height: 1.5;
+  }
+  label {
+    display: block;
+    font-size: 0.85rem;
+    color: #cbd5e1;
+    margin: 14px 0 6px;
+  }
+  input[type=text], input[type=password] {
+    width: 100%;
+    box-sizing: border-box;
+    background: #0f172a;
+    border: 1px solid #334155;
+    color: #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.95rem;
+  }
+  button {
+    background: #4f46e5;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 18px;
+  }
+  button:hover { background: #4338ca; }
+  button:disabled { background: #475569; cursor: default; }
+  .status {
+    margin-top: 14px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    min-height: 1.3em;
+  }
+  .status.ok { color: #4ade80; }
+  .status.err { color: #f87171; }
+  .status.busy { color: #94a3b8; }
+  .step-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #334155;
+    font-size: 0.8rem;
+    margin-right: 8px;
+  }
+  .unsupported {
+    background: #3f1d1d;
+    border: 1px solid #7f1d1d;
+    border-radius: 12px;
+    padding: 20px;
+    line-height: 1.6;
+  }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Set up your Wall Marketing display</h1>
+    <p class="lead">
+      This connects to a display over Bluetooth so you can give it your
+      WiFi details — no need to plug it into a computer.
+    </p>
+
+    <div id="unsupportedNotice" class="unsupported" hidden>
+      <strong>This browser can't do that.</strong><br>
+      Bluetooth setup only works in Chrome or Edge, on a computer or an
+      Android phone. Safari, iPhone/iPad, and Firefox aren't supported yet
+      — please switch browsers or devices to continue.
+    </div>
+
+    <div id="setupFlow">
+      <div class="card">
+        <h2><span class="step-label">1</span>Connect to the display</h2>
+        <p class="hint">
+          Make sure you're standing near the display, then tap the button
+          below and choose it from the list that appears. It'll show up
+          with a name like "WallDisplay-XXXXXXXXXXXX".
+        </p>
+        <button id="connectBtn">Find nearby display</button>
+        <div class="status" id="connectStatus"></div>
+      </div>
+
+      <div class="card" id="wifiCard" hidden>
+        <h2><span class="step-label">2</span>Enter WiFi details</h2>
+        <p class="hint">
+          These are sent directly to the display over Bluetooth — they
+          don't go through this website or get stored anywhere else.
+        </p>
+        <label for="ssidInput">Network name (SSID)</label>
+        <input type="text" id="ssidInput" autocomplete="off" autocapitalize="off">
+        <label for="passwordInput">Password</label>
+        <input type="password" id="passwordInput" autocomplete="off">
+        <button id="sendBtn">Send WiFi details</button>
+        <div class="status" id="sendStatus"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+  const RX_CHAR_UUID  = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // write: browser -> device
+  const TX_CHAR_UUID  = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // notify: device -> browser
+
+  const connectBtn = document.getElementById('connectBtn');
+  const connectStatus = document.getElementById('connectStatus');
+  const wifiCard = document.getElementById('wifiCard');
+  const ssidInput = document.getElementById('ssidInput');
+  const passwordInput = document.getElementById('passwordInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const sendStatus = document.getElementById('sendStatus');
+
+  let rxCharacteristic = null;
+
+  function setStatus(el, text, kind) {
+    el.textContent = text;
+    el.className = 'status' + (kind ? ' ' + kind : '');
+  }
+
+  if (!navigator.bluetooth) {
+    document.getElementById('unsupportedNotice').hidden = false;
+    document.getElementById('setupFlow').hidden = true;
+  }
+
+  connectBtn.addEventListener('click', async () => {
+    connectBtn.disabled = true;
+    setStatus(connectStatus, 'Opening Bluetooth device picker...', 'busy');
+    try {
+      const device = await navigator.bluetooth.requestDevice({
+        filters: [{ services: [SERVICE_UUID] }],
+      });
+
+      setStatus(connectStatus, `Connecting to ${device.name || 'display'}...`, 'busy');
+      const server = await device.gatt.connect();
+      const service = await server.getPrimaryService(SERVICE_UUID);
+      rxCharacteristic = await service.getCharacteristic(RX_CHAR_UUID);
+      const txCharacteristic = await service.getCharacteristic(TX_CHAR_UUID);
+
+      await txCharacteristic.startNotifications();
+      txCharacteristic.addEventListener('characteristicvaluechanged', handleDeviceStatus);
+
+      device.addEventListener('gattserverdisconnected', () => {
+        setStatus(connectStatus, 'Display disconnected. Reload this page and try again.', 'err');
+        wifiCard.hidden = true;
+        connectBtn.disabled = false;
+      });
+
+      setStatus(connectStatus, `Connected to ${device.name || 'display'}.`, 'ok');
+      wifiCard.hidden = false;
+      ssidInput.focus();
+    } catch (err) {
+      setStatus(connectStatus, 'Could not connect: ' + err.message, 'err');
+      connectBtn.disabled = false;
+    }
+  });
+
+  function handleDeviceStatus(event) {
+    const value = new TextDecoder().decode(event.target.value);
+    if (value === 'CONNECTING') {
+      setStatus(sendStatus, 'Display is trying to connect to that network...', 'busy');
+    } else if (value.startsWith('CONNECTED:')) {
+      const ip = value.slice('CONNECTED:'.length);
+      setStatus(sendStatus, `Success! The display is online at ${ip}. Setup is complete — you can close this page.`, 'ok');
+      sendBtn.disabled = false;
+    } else if (value.startsWith('FAILED:')) {
+      const reason = value.slice('FAILED:'.length);
+      setStatus(sendStatus, `Couldn't connect: ${reason}`, 'err');
+      sendBtn.disabled = false;
+    }
+  }
+
+  sendBtn.addEventListener('click', async () => {
+    const ssid = ssidInput.value.trim();
+    const password = passwordInput.value;
+    if (!ssid) {
+      setStatus(sendStatus, 'Enter the network name first.', 'err');
+      return;
+    }
+    if (!rxCharacteristic) {
+      setStatus(sendStatus, 'Not connected to a display — go back to step 1.', 'err');
+      return;
+    }
+    // '|' separates SSID from password in the on-the-wire command, so a
+    // network name containing one would corrupt the message — vanishingly
+    // rare in practice, but worth catching with a clear error rather than
+    // silently sending something the device will misparse.
+    if (ssid.includes('|')) {
+      setStatus(sendStatus, "Network names containing '|' aren't supported.", 'err');
+      return;
+    }
+
+    sendBtn.disabled = true;
+    setStatus(sendStatus, 'Sending...', 'busy');
+    try {
+      const payload = `WIFI:${ssid}|${password}`;
+      await rxCharacteristic.writeValue(new TextEncoder().encode(payload));
+      setStatus(sendStatus, 'Sent — waiting for the display to connect...', 'busy');
+    } catch (err) {
+      setStatus(sendStatus, 'Failed to send: ' + err.message, 'err');
+      sendBtn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
