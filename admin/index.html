@@ -70,7 +70,7 @@
     padding: 5px 12px;
     font-size: 0.8rem;
   }
-  #previewModal {
+  .modal-overlay {
     position: fixed;
     inset: 0;
     background: rgba(0,0,0,0.7);
@@ -79,22 +79,43 @@
     justify-content: center;
     padding: 20px;
   }
-  /* Without this, the rule above (an ID selector) beats the browser's
-     own default styling for [hidden], and the modal shows up on load
-     instead of staying hidden until a Preview button is clicked. */
-  #previewModal[hidden] {
+  /* Without this, the rule above beats the browser's own default styling
+     for [hidden], and the modal shows up on load instead of staying
+     hidden until something opens it. (Shared class now, not an ID, so
+     every modal on this page gets the fix — not just the first one.) */
+  .modal-overlay[hidden] {
     display: none;
   }
   #previewModal canvas {
     max-width: 90vw;
     margin-bottom: 12px;
   }
-  #previewModal .box {
+  .modal-overlay .box {
     background: #1e293b;
     border-radius: 12px;
     padding: 20px;
     text-align: center;
+    max-height: 85vh;
+    overflow-y: auto;
   }
+  .modal-overlay .box.wide {
+    text-align: left;
+    max-width: 640px;
+    width: 90vw;
+  }
+  .modal-overlay .box h2 {
+    margin-top: 0;
+    font-size: 1.05rem;
+  }
+  .status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+  .status-dot.online { background: #22c55e; }
+  .status-dot.stale { background: #475569; }
 </style>
 </head>
 <body>
@@ -119,12 +140,42 @@
       </table>
       <div class="status" id="historyStatus"></div>
     </div>
+
+    <div class="card">
+      <h2>Devices</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Device</th><th>Last seen</th><th>Uptime</th><th>RSSI</th>
+            <th>Heap</th><th>FW</th><th>Errors</th><th>Image</th>
+          </tr>
+        </thead>
+        <tbody id="devicesBody"></tbody>
+      </table>
+      <div class="status" id="devicesStatus"></div>
+    </div>
   </div>
 
-  <div id="previewModal" hidden>
+  <div id="previewModal" class="modal-overlay" hidden>
     <div class="box">
       <canvas id="previewCanvas" width="800" height="480"></canvas>
       <button id="closePreview">Close</button>
+    </div>
+  </div>
+
+  <div id="deviceHistoryModal" class="modal-overlay" hidden>
+    <div class="box wide">
+      <h2 id="deviceHistoryTitle"></h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Checked in</th><th>Uptime</th><th>RSSI</th>
+            <th>Heap</th><th>FW</th><th>Errors</th><th>Image</th>
+          </tr>
+        </thead>
+        <tbody id="deviceHistoryBody"></tbody>
+      </table>
+      <button id="closeDeviceHistory" style="margin-top: 12px;">Close</button>
     </div>
   </div>
 
@@ -309,6 +360,95 @@
     previewModal.hidden = true;
   });
 
+  // D1's datetime('now') gives UTC with no timezone suffix, so we have to
+  // tell the Date constructor it's UTC ourselves or it gets parsed as local
+  // time and every "last seen" ends up hours off.
+  function parseUtc(sqliteTimestamp) {
+    return new Date(sqliteTimestamp.replace(' ', 'T') + 'Z').getTime();
+  }
+
+  function formatRelativeTime(sqliteTimestamp) {
+    if (!sqliteTimestamp) return 'never';
+    const diffSec = Math.max(0, Math.round((Date.now() - parseUtc(sqliteTimestamp)) / 1000));
+    if (diffSec < 60) return `${diffSec}s ago`;
+    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+    return `${Math.floor(diffSec / 86400)}d ago`;
+  }
+
+  const devicesBody = document.getElementById('devicesBody');
+  const devicesStatus = document.getElementById('devicesStatus');
+
+  async function loadDevices() {
+    try {
+      const resp = await fetch('/api/devices');
+      const rows = await resp.json();
+      devicesBody.innerHTML = '';
+      for (const row of rows) {
+        const tr = document.createElement('tr');
+        tr.style.cursor = 'pointer';
+        // Poll cycle is ~1 minute — call it stale after three missed cycles
+        // rather than flagging a device offline over one slow check-in.
+        const secSinceSeen = row.last_seen_at ? (Date.now() - parseUtc(row.last_seen_at)) / 1000 : Infinity;
+        const dotClass = secSinceSeen < 180 ? 'online' : 'stale';
+        const name = row.friendly_name ? `${row.device_id} (${row.friendly_name})` : row.device_id;
+        tr.innerHTML = `
+          <td>${name}</td>
+          <td><span class="status-dot ${dotClass}"></span>${formatRelativeTime(row.last_seen_at)}</td>
+          <td>${row.uptime_seconds ?? '—'}s</td>
+          <td>${row.rssi ?? '—'}</td>
+          <td>${row.free_heap ?? '—'}</td>
+          <td>${row.firmware_version ?? '—'}</td>
+          <td>${row.error_count ?? '—'}</td>
+          <td>${row.image_hash ?? '—'}</td>
+        `;
+        tr.addEventListener('click', () => openDeviceHistory(row.device_id));
+        devicesBody.appendChild(tr);
+      }
+      devicesStatus.textContent = rows.length ? '' : 'No devices have checked in yet.';
+    } catch (err) {
+      devicesStatus.textContent = 'Failed to load devices: ' + err.message;
+    }
+  }
+
+  const deviceHistoryModal = document.getElementById('deviceHistoryModal');
+  const deviceHistoryTitle = document.getElementById('deviceHistoryTitle');
+  const deviceHistoryBody = document.getElementById('deviceHistoryBody');
+
+  async function openDeviceHistory(deviceId) {
+    deviceHistoryTitle.textContent = deviceId;
+    deviceHistoryBody.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
+    deviceHistoryModal.hidden = false;
+    try {
+      const resp = await fetch(`/api/devices/${encodeURIComponent(deviceId)}/checkins`);
+      const rows = await resp.json();
+      deviceHistoryBody.innerHTML = '';
+      for (const row of rows) {
+        const tr = document.createElement('tr');
+        const checkedIn = row.checked_in_at ? row.checked_in_at.replace('T', ' ') : '';
+        tr.innerHTML = `
+          <td>${checkedIn}</td>
+          <td>${row.uptime_seconds ?? '—'}s</td>
+          <td>${row.rssi ?? '—'}</td>
+          <td>${row.free_heap ?? '—'}</td>
+          <td>${row.firmware_version ?? '—'}</td>
+          <td>${row.error_count ?? '—'}</td>
+          <td>${row.image_hash ?? '—'}</td>
+        `;
+        deviceHistoryBody.appendChild(tr);
+      }
+      if (!rows.length) {
+        deviceHistoryBody.innerHTML = '<tr><td colspan="7">No check-ins recorded.</td></tr>';
+      }
+    } catch (err) {
+      deviceHistoryBody.innerHTML = `<tr><td colspan="7">Failed to load: ${err.message}</td></tr>`;
+    }
+  }
+
+  document.getElementById('closeDeviceHistory').addEventListener('click', () => {
+    deviceHistoryModal.hidden = true;
+  });
+
   // Access identity check, same as before — just a quiet status line now.
   fetch('/api/whoami')
     .then((r) => r.json())
@@ -322,6 +462,11 @@
     });
 
   loadHistory();
+  loadDevices();
+  // Fleet status should feel roughly live without the page constantly
+  // refetching images — 30s is frequent enough to feel current without
+  // hammering D1 on every open admin tab.
+  setInterval(loadDevices, 30000);
 </script>
 </body>
 </html>
