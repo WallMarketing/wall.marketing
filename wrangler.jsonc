@@ -16,5 +16,11 @@
       "database_name": "bots",
       "database_id": "3736dfa4-cbce-4195-96d2-dc5eb566925b"
     }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "IMAGES",
+      "bucket_name": "wall-images"
+    }
   ]
 }
