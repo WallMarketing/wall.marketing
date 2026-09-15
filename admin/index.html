@@ -3,86 +3,319 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin - Access Check</title>
+<title>Admin</title>
 <style>
   :root { color-scheme: light dark; }
   body {
     margin: 0;
     min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     background: #0f172a;
     color: #e2e8f0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 16px 60px;
   }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  .whoami {
+    font-size: 0.8rem;
+    color: #64748b;
+    margin-bottom: 20px;
+  }
+  h1 { font-size: 1.4rem; margin: 0 0 20px; }
   .card {
-    max-width: 480px;
-    width: 90%;
     background: #1e293b;
     border: 1px solid #334155;
     border-radius: 12px;
-    padding: 32px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    padding: 24px;
+    margin-bottom: 24px;
   }
-  h1 {
-    font-size: 1.4rem;
-    margin: 0 0 8px;
+  .card h2 {
+    font-size: 1.05rem;
+    margin: 0 0 16px;
+  }
+  canvas {
+    width: 100%;
+    max-width: 480px;
+    aspect-ratio: 800 / 480;
+    border-radius: 6px;
+    border: 1px solid #334155;
+    image-rendering: pixelated;
+    display: block;
+    margin: 0 auto 16px;
+  }
+  button {
+    background: #4f46e5;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  button:hover { background: #4338ca; }
+  button:disabled { background: #475569; cursor: default; }
+  .status {
+    margin-top: 12px;
+    font-size: 0.85rem;
+    color: #94a3b8;
+    min-height: 1.2em;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid #334155;
+  }
+  th { color: #94a3b8; font-weight: 600; }
+  .preview-btn {
+    padding: 5px 12px;
+    font-size: 0.8rem;
+  }
+  #previewModal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    padding: 20px;
   }
-  .status {
-    font-size: 0.95rem;
-    color: #94a3b8;
-    margin-bottom: 20px;
+  #previewModal canvas {
+    max-width: 90vw;
+    margin-bottom: 12px;
   }
-  .row {
-    background: #0f172a;
-    border: 1px solid #334155;
-    border-radius: 8px;
-    padding: 14px 16px;
-    font-size: 0.9rem;
-    line-height: 1.6;
+  #previewModal .box {
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
   }
-  .row div { display: flex; justify-content: space-between; gap: 12px; }
-  .row span.label { color: #94a3b8; }
-  .row span.val { font-family: ui-monospace, monospace; word-break: break-all; text-align: right; }
-  .ok { color: #4ade80; }
-  .warn { color: #fbbf24; }
-  footer { margin-top: 20px; font-size: 0.8rem; color: #64748b; }
 </style>
 </head>
 <body>
-  <div class="card">
-    <h1>🔒 Admin — Hello World</h1>
-    <p class="status" id="status">Checking Cloudflare Access...</p>
-    <div class="row">
-      <div><span class="label">Authenticated as</span><span class="val" id="email">—</span></div>
-      <div><span class="label">Access JWT present</span><span class="val" id="jwt">—</span></div>
+  <div class="wrap">
+    <div class="whoami" id="whoami">Checking access...</div>
+    <h1>Wall Marketing — Admin</h1>
+
+    <div class="card">
+      <h2>Generate test image</h2>
+      <canvas id="canvas" width="800" height="480"></canvas>
+      <button id="generateBtn">Generate new test image</button>
+      <div class="status" id="genStatus"></div>
     </div>
-    <footer>This page just confirms Cloudflare Access is gating <code>/admin</code> and passing identity through. No display controls live here yet.</footer>
+
+    <div class="card">
+      <h2>Image history</h2>
+      <table>
+        <thead>
+          <tr><th>#</th><th>Created</th><th>Size</th><th></th></tr>
+        </thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+      <div class="status" id="historyStatus"></div>
+    </div>
+  </div>
+
+  <div id="previewModal" hidden>
+    <div class="box">
+      <canvas id="previewCanvas" width="800" height="480"></canvas>
+      <button id="closePreview">Close</button>
+    </div>
   </div>
 
 <script>
-  fetch('/api/whoami')
-    .then(r => r.json())
-    .then(data => {
-      document.getElementById('email').textContent = data.email || '(not provided)';
-      document.getElementById('jwt').textContent = data.hasJwt ? 'yes' : 'no';
-      const statusEl = document.getElementById('status');
-      if (data.email) {
-        statusEl.textContent = 'Access is working — identity confirmed.';
-        statusEl.className = 'ok';
-      } else {
-        statusEl.textContent = 'Page loaded, but no Access identity header was found (Access may not be enabled on this path yet, or the function isn\'t deployed).';
-        statusEl.className = 'warn';
-      }
-    })
-    .catch(err => {
-      document.getElementById('status').textContent = 'Could not reach /api/whoami — is the function deployed?';
-      document.getElementById('status').className = 'warn';
+  const EPD_WIDTH = 800;
+  const EPD_HEIGHT = 480;
+
+  // Matches the Spectra 6 codes used in the firmware's epdColorBarsTest.
+  const PALETTE = [
+    { code: 0x0, rgb: [0, 0, 0] },       // black
+    { code: 0x1, rgb: [255, 255, 255] }, // white
+    { code: 0x2, rgb: [255, 255, 0] },   // yellow
+    { code: 0x3, rgb: [255, 0, 0] },     // red
+    { code: 0x5, rgb: [0, 0, 255] },     // blue
+    { code: 0x6, rgb: [0, 255, 0] },     // green
+  ];
+
+  function nearestPaletteCode(r, g, b) {
+    let bestCode = PALETTE[0].code;
+    let bestDist = Infinity;
+    for (const p of PALETTE) {
+      const dr = r - p.rgb[0], dg = g - p.rgb[1], db = b - p.rgb[2];
+      const dist = dr * dr + dg * dg + db * db;
+      if (dist < bestDist) { bestDist = dist; bestCode = p.code; }
+    }
+    return bestCode;
+  }
+
+  function codeToRgb(code) {
+    const p = PALETTE.find((p) => p.code === code);
+    return p ? p.rgb : [128, 128, 128];
+  }
+
+  function drawTestPattern(ctx, number) {
+    const colors = ['#000000', '#ffffff', '#ffff00', '#ff0000', '#0000ff', '#00ff00'];
+    const barWidth = EPD_WIDTH / colors.length;
+    colors.forEach((c, i) => {
+      ctx.fillStyle = c;
+      ctx.fillRect(i * barWidth, 0, barWidth, EPD_HEIGHT);
     });
+
+    const text = String(number);
+    ctx.font = 'bold 160px monospace';
+    const textWidth = ctx.measureText(text).width;
+    const boxW = textWidth + 80;
+    const boxH = 200;
+    const boxX = (EPD_WIDTH - boxW) / 2;
+    const boxY = (EPD_HEIGHT - boxH) / 2;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(boxX, boxY, boxW, boxH);
+    ctx.fillStyle = '#000000';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, EPD_WIDTH / 2, boxY + boxH / 2 + 8);
+  }
+
+  // Packs canvas pixels into the same 4-bit-per-pixel, 2-pixels-per-byte
+  // format the firmware streams directly to the panel — this Uint8Array
+  // is exactly what a future device-side update would fetch and display.
+  function canvasToPackedBytes(ctx) {
+    const data = ctx.getImageData(0, 0, EPD_WIDTH, EPD_HEIGHT).data;
+    const bytesPerRow = EPD_WIDTH / 2;
+    const packed = new Uint8Array(bytesPerRow * EPD_HEIGHT);
+    let out = 0;
+    for (let y = 0; y < EPD_HEIGHT; y++) {
+      for (let bx = 0; bx < bytesPerRow; bx++) {
+        const x0 = bx * 2, x1 = bx * 2 + 1;
+        const i0 = (y * EPD_WIDTH + x0) * 4;
+        const i1 = (y * EPD_WIDTH + x1) * 4;
+        const c0 = nearestPaletteCode(data[i0], data[i0 + 1], data[i0 + 2]);
+        const c1 = nearestPaletteCode(data[i1], data[i1 + 1], data[i1 + 2]);
+        packed[out++] = (c0 << 4) | c1;
+      }
+    }
+    return packed;
+  }
+
+  function unpackBytesToCanvas(bytes, ctx) {
+    const bytesPerRow = EPD_WIDTH / 2;
+    const imgData = ctx.createImageData(EPD_WIDTH, EPD_HEIGHT);
+    for (let y = 0; y < EPD_HEIGHT; y++) {
+      for (let bx = 0; bx < bytesPerRow; bx++) {
+        const byte = bytes[y * bytesPerRow + bx];
+        const c0 = (byte >> 4) & 0xf;
+        const c1 = byte & 0xf;
+        const [r0, g0, b0] = codeToRgb(c0);
+        const [r1, g1, b1] = codeToRgb(c1);
+        const x0 = bx * 2, x1 = bx * 2 + 1;
+        let i = (y * EPD_WIDTH + x0) * 4;
+        imgData.data[i] = r0; imgData.data[i + 1] = g0; imgData.data[i + 2] = b0; imgData.data[i + 3] = 255;
+        i = (y * EPD_WIDTH + x1) * 4;
+        imgData.data[i] = r1; imgData.data[i + 1] = g1; imgData.data[i + 2] = b1; imgData.data[i + 3] = 255;
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  const genStatus = document.getElementById('genStatus');
+  const generateBtn = document.getElementById('generateBtn');
+
+  async function generateImage() {
+    generateBtn.disabled = true;
+    genStatus.textContent = 'Generating...';
+    try {
+      const historyResp = await fetch('/api/images?limit=1');
+      const history = await historyResp.json();
+      const nextNumber = (history[0]?.number ?? 0) + 1;
+
+      drawTestPattern(ctx, nextNumber);
+      const packed = canvasToPackedBytes(ctx);
+
+      const uploadResp = await fetch(`/api/images?number=${nextNumber}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: packed,
+      });
+
+      if (!uploadResp.ok) {
+        genStatus.textContent = 'Upload failed: ' + (await uploadResp.text());
+        return;
+      }
+
+      const row = await uploadResp.json();
+      genStatus.textContent = `Image #${row.number} generated and stored (${row.byte_size} bytes).`;
+      loadHistory();
+    } catch (err) {
+      genStatus.textContent = 'Error: ' + err.message;
+    } finally {
+      generateBtn.disabled = false;
+    }
+  }
+
+  generateBtn.addEventListener('click', generateImage);
+
+  const historyBody = document.getElementById('historyBody');
+  const historyStatus = document.getElementById('historyStatus');
+
+  async function loadHistory() {
+    historyStatus.textContent = 'Loading...';
+    try {
+      const resp = await fetch('/api/images');
+      const rows = await resp.json();
+      historyBody.innerHTML = '';
+      for (const row of rows) {
+        const tr = document.createElement('tr');
+        const created = row.created_at ? row.created_at.replace('T', ' ') : '';
+        tr.innerHTML = `
+          <td>${row.number}</td>
+          <td>${created}</td>
+          <td>${row.byte_size ?? '—'} bytes</td>
+          <td><button class="preview-btn" data-id="${row.id}">Preview</button></td>
+        `;
+        historyBody.appendChild(tr);
+      }
+      historyStatus.textContent = rows.length ? '' : 'No images generated yet.';
+      historyBody.querySelectorAll('.preview-btn').forEach((btn) => {
+        btn.addEventListener('click', () => previewImage(btn.dataset.id));
+      });
+    } catch (err) {
+      historyStatus.textContent = 'Failed to load history: ' + err.message;
+    }
+  }
+
+  const previewModal = document.getElementById('previewModal');
+  const previewCanvas = document.getElementById('previewCanvas');
+  const previewCtx = previewCanvas.getContext('2d');
+
+  async function previewImage(id) {
+    const resp = await fetch(`/api/images/${id}/raw`);
+    if (!resp.ok) return;
+    const bytes = new Uint8Array(await resp.arrayBuffer());
+    unpackBytesToCanvas(bytes, previewCtx);
+    previewModal.hidden = false;
+  }
+
+  document.getElementById('closePreview').addEventListener('click', () => {
+    previewModal.hidden = true;
+  });
+
+  // Access identity check, same as before — just a quiet status line now.
+  fetch('/api/whoami')
+    .then((r) => r.json())
+    .then((data) => {
+      document.getElementById('whoami').textContent = data.email
+        ? `Signed in as ${data.email}`
+        : 'Access identity not detected';
+    })
+    .catch(() => {
+      document.getElementById('whoami').textContent = 'Could not reach /api/whoami';
+    });
+
+  loadHistory();
 </script>
 </body>
 </html>
