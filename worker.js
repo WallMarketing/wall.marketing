@@ -111,20 +111,27 @@ export default {
       );
     }
 
-    // --- Images: raw bytes for the most recent one (this is what the
-    //     ESP32 will eventually poll once the device side is built) ---
+    // --- Images: raw bytes for the most recent one — this is what the
+    //     ESP32 actually polls. Supports If-None-Match so the device can
+    //     skip re-downloading (and re-flickering the panel) when nothing
+    //     has changed since its last successful fetch. ---
     if (url.pathname === '/api/images/latest/raw' && request.method === 'GET') {
       const row = await env.DB.prepare(
-        `SELECT r2_key FROM images ORDER BY id DESC LIMIT 1`
+        `SELECT id, r2_key FROM images ORDER BY id DESC LIMIT 1`
       ).first();
 
       if (!row) return new Response('No images yet', { status: 404 });
+
+      const etag = `img-${row.id}`;
+      if (request.headers.get('If-None-Match') === etag) {
+        return new Response(null, { status: 304, headers: { ETag: etag } });
+      }
 
       const object = await env.IMAGES.get(row.r2_key);
       if (!object) return new Response('Image data missing from storage', { status: 404 });
 
       return new Response(object.body, {
-        headers: { 'Content-Type': 'application/octet-stream' },
+        headers: { 'Content-Type': 'application/octet-stream', ETag: etag },
       });
     }
 
