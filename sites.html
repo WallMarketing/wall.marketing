@@ -13,7 +13,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 
 <style>
 /* ============ tokens (shared with index.html) ============ */
@@ -207,22 +206,7 @@ header{
 /* ============ map ============ */
 .mapwrap{position:relative;min-height:0;}
 #map{position:absolute;inset:0;background:var(--panel);}
-.leaflet-container{font-family:inherit;background:var(--panel);}
-/* grey the OpenStreetMap tiles into the laminate palette so the pins carry the colour */
-.leaflet-tile-pane{filter:grayscale(1) contrast(.88) brightness(1.06) sepia(.08) hue-rotate(50deg);}
-.leaflet-control-attribution{font-size:10.5px;background:rgba(244,246,242,.85)!important;color:var(--steel);}
-.leaflet-control-attribution a{color:var(--ink);}
-.leaflet-bar{border:1px solid var(--hair)!important;border-radius:3px!important;box-shadow:none!important;}
-.leaflet-bar a{background:var(--panel-2);color:var(--ink);border-bottom-color:var(--hair)!important;width:34px!important;height:34px!important;line-height:32px!important;}
-.leaflet-bar a:hover{background:#fff;color:var(--volt);}
-.leaflet-bar a:first-child{border-top-left-radius:3px;border-top-right-radius:3px;}
-.leaflet-bar a:last-child{border-bottom-left-radius:3px;border-bottom-right-radius:3px;}
-.leaflet-tooltip.tip{
-  background:var(--graphite);color:var(--chalk);border:0;border-radius:3px;
-  padding:6px 10px;font-size:0.82rem;font-variation-settings:"wdth" 106,"wght" 600;
-  box-shadow:0 8px 20px -10px rgba(0,0,0,.6);
-}
-.leaflet-tooltip.tip::before{display:none;}
+.google-map{font-family:inherit;background:var(--panel);}
 
 /* ============ the pin: a WALL unit on a post ============ */
 .pin-wrap{background:none;border:0;}
@@ -276,14 +260,13 @@ header{
   box-shadow:0 0 0 2px var(--panel-2);
 }
 /* states */
-.pin:hover .pin-unit,.leaflet-marker-icon:focus-visible .pin-unit{transform:translateY(-3px);}
+.pin:hover .pin-unit{transform:translateY(-3px);}
 .pin.is-booked .pin-unit{filter:saturate(.3);opacity:.72;}
 .pin.is-booked .pin-n{background:var(--steel);}
 .pin.is-planned .pin-ad{opacity:1;}
 .pin.is-active .pin-ad{opacity:1;}
 .pin.is-active .pin-unit{transform:translateY(-4px) scale(1.22);}
 .pin.is-active .pin-n{box-shadow:0 0 0 2px var(--ad);}
-.leaflet-marker-icon:focus{outline:none;}
 
 /* ============ site card (floats over the map) ============ */
 .card{
@@ -522,52 +505,27 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
   </div>
 </footer>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
-(function(){
+(async function(){
   /* ---------- venue types (copy matches the network table on index.html) ---------- */
-  var TYPES = {
-    bar:     {label:"Bars and pubs",               chip:"Bars",         hours:"Thu–Sat, 7pm–1am",        good:"drinks brands, delivery apps, nearby restaurants and late-night transport."},
-    food:    {label:"Restaurants and cafés",       chip:"Restaurants",  hours:"Daily, 12pm–9pm",         good:"local services, loyalty sign-ups, events and anything with a QR code."},
-    gym:     {label:"Gyms and fitness studios",    chip:"Gyms",         hours:"Weekdays, 6–9am, 5–8pm",  good:"nutrition, sportswear, physio and health brands reaching a repeat audience."},
-    campus:  {label:"Student unions and campuses", chip:"Campus",       hours:"Term time, 11am–11pm",    good:"graduate recruitment, banking, phone networks, housing and nights out."},
-    music:   {label:"Music and event venues",      chip:"Music venues", hours:"Event nights",            good:"tours, festivals, ticketing and sponsor activations tied to a single date."},
-    office:  {label:"Offices and coworking",       chip:"Offices",      hours:"Weekdays, 9am–5pm",       good:"B2B software, recruiters, lunch delivery and professional services."}
-  };
-
-  /* ---------- sites ----------
-     PLACEHOLDER DATA: invented venue names at sample Austin, TX coordinates.
-     Replace with your real network. Fields:
-       id      short unique slug (used in shareable plan links)
-       type    one of the keys in TYPES above
-       screens number of units at the venue
-       views   estimated views per week across all screens
-       booked  weeks already sold from today (0 = free to book now)
-       hours   optional override of the type's busiest hours            */
-  var SITES = [
-    {id:"low-anchor",   name:"The Low Anchor",        area:"Sixth Street",       type:"bar",    lat:30.26705, lng:-97.73885, screens:4, views:5200, booked:0},
-    {id:"cask-ferry",   name:"Cask & Ferry",          area:"Rainey Street",      type:"bar",    lat:30.25885, lng:-97.73860, screens:3, views:3900, booked:2},
-    {id:"pale-horse",   name:"Pale Horse Bar",        area:"East Cesar Chavez",  type:"bar",    lat:30.25980, lng:-97.72620, screens:2, views:2100, booked:0},
-    {id:"northloop",    name:"Northloop Social",      area:"North Loop",         type:"bar",    lat:30.31830, lng:-97.72220, screens:2, views:1800, booked:0},
-    {id:"copper-minnow",name:"Copper Minnow",         area:"West Sixth",         type:"bar",    lat:30.27000, lng:-97.75100, screens:3, views:3400, booked:1},
-    {id:"mesa-verde",   name:"Mesa Verde Kitchen",    area:"South Congress",     type:"food",   lat:30.24850, lng:-97.75050, screens:2, views:2600, booked:0},
-    {id:"little-saffron",name:"Little Saffron",       area:"Burnet Road",        type:"food",   lat:30.32900, lng:-97.73900, screens:1, views:900,  booked:0},
-    {id:"hatch-ember",  name:"Hatch & Ember",         area:"East Sixth",         type:"food",   lat:30.26280, lng:-97.72550, screens:2, views:2300, booked:3},
-    {id:"blue-plate",   name:"Blue Plate Diner",      area:"Clarksville",        type:"food",   lat:30.28050, lng:-97.76000, screens:1, views:1100, booked:0},
-    {id:"ironline",     name:"Ironline Fitness",      area:"Downtown",           type:"gym",    lat:30.26850, lng:-97.74550, screens:4, views:4600, booked:0},
-    {id:"studio-ninety",name:"Studio Ninety",         area:"Mueller",            type:"gym",    lat:30.29850, lng:-97.70550, screens:2, views:1700, booked:1},
-    {id:"barton-strength",name:"Barton Strength Club",area:"Zilker",             type:"gym",    lat:30.26100, lng:-97.77000, screens:3, views:2900, booked:0},
-    {id:"campus-union", name:"Campus Union, west wing",area:"University",        type:"campus", lat:30.28660, lng:-97.74110, screens:6, views:8800, booked:0},
-    {id:"speedway",     name:"Speedway Commons",      area:"West Campus",        type:"campus", lat:30.28800, lng:-97.74700, screens:3, views:4100, booked:2},
-    {id:"riverside-sc", name:"Riverside Student Centre",area:"Riverside",        type:"campus", lat:30.22900, lng:-97.71600, screens:2, views:2200, booked:0},
-    {id:"red-river",    name:"Red River Hall",        area:"Red River",          type:"music",  lat:30.26850, lng:-97.73600, screens:4, views:4800, booked:0, hours:"Wed–Sat, 8pm–2am"},
-    {id:"seaholm-room", name:"The Seaholm Room",      area:"Seaholm",            type:"music",  lat:30.26750, lng:-97.75350, screens:2, views:1900, booked:4},
-    {id:"eastline",     name:"Eastline Warehouse",    area:"East Austin",        type:"music",  lat:30.26500, lng:-97.71800, screens:3, views:3100, booked:0},
-    {id:"level-nine",   name:"Level Nine Coworking",  area:"Congress Avenue",    type:"office", lat:30.26900, lng:-97.74250, screens:3, views:2700, booked:0},
-    {id:"foundry-desk", name:"Foundry Desk",          area:"Rainey East",        type:"office", lat:30.26100, lng:-97.73200, screens:2, views:1500, booked:1},
-    {id:"northgate",    name:"Northgate Offices",     area:"The Domain",         type:"office", lat:30.40200, lng:-97.72550, screens:4, views:3600, booked:0},
-    {id:"mueller-works",name:"Mueller Works",         area:"Mueller",            type:"office", lat:30.30100, lng:-97.70700, screens:2, views:1400, booked:0}
-  ];
+  /* ---------- sites from the live device network ---------- */
+  var TYPES = {device:{label:"WALL devices",chip:"Devices",hours:"Live network",good:"local advertising and venue messaging."}};
+  var deviceResponse = await fetch("/api/devices");
+  if (!deviceResponse.ok) throw new Error("Could not load the device network");
+  var deviceRows = await deviceResponse.json();
+  var SITES = deviceRows.filter(function(row){
+    return Number.isFinite(Number(row.site_latitude)) && Number.isFinite(Number(row.site_longitude));
+  }).map(function(row){
+    return {
+      id:row.device_id,
+      name:row.site_name || row.device_id,
+      area:row.site_location || "Location not set",
+      type:"device",
+      lat:Number(row.site_latitude), lng:Number(row.site_longitude),
+      screens:1, views:0, booked:0,
+      hours:"Last seen " + (row.last_seen_at || "unknown")
+    };
+  });
 
 
   /* ---------- state ---------- */
@@ -622,12 +580,32 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
   });
 
   /* ---------- map ---------- */
-  var map = L.map("map", {zoomControl:false, scrollWheelZoom:true}).setView([30.2745,-97.7420], 13);
-  L.control.zoom({position:"bottomright"}).addTo(map);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom:19,
-    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-  }).addTo(map);
+  var map, AdvancedMarkerElement;
+  var mapConfigResponse = await fetch("/api/maps-config");
+  if (!mapConfigResponse.ok) throw new Error("Google Maps is not configured");
+  var mapConfig = await mapConfigResponse.json();
+  await new Promise(function(resolve, reject){
+    var script = document.createElement("script");
+    script.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(mapConfig.key) + "&libraries=marker";
+    script.onload = resolve;
+    script.onerror = function(){ reject(new Error("Google Maps failed to load")); };
+    document.head.appendChild(script);
+  });
+  map = new google.maps.Map($("map"), {
+    center:{lat:30.2745,lng:-97.7420}, zoom:13, mapId:"DEMO_MAP_ID",
+    mapTypeControl:false, streetViewControl:false, fullscreenControl:false,
+    styles:[
+      {elementType:"geometry",stylers:[{color:"#E6E9E4"}]},
+      {elementType:"labels.text.fill",stylers:[{color:"#5C625E"}]},
+      {elementType:"labels.text.stroke",stylers:[{color:"#F4F6F2"}]},
+      {featureType:"administrative",elementType:"geometry.stroke",stylers:[{color:"#CBD1CA"}]},
+      {featureType:"road",elementType:"geometry",stylers:[{color:"#F4F6F2"}]},
+      {featureType:"road",elementType:"geometry.stroke",stylers:[{color:"#CBD1CA"}]},
+      {featureType:"water",elementType:"geometry",stylers:[{color:"#D5DDD8"}]},
+      {featureType:"poi",stylers:[{visibility:"off"}]}
+    ]
+  });
+  ({AdvancedMarkerElement} = await google.maps.importLibrary("marker"));
 
   function pinHTML(s){
     var cls = ["pin"];
@@ -640,23 +618,27 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
       '<span class="pin-n">' + s.screens + '</span>' +
     '</div>';
   }
-  function icon(s){
-    return L.divIcon({className:"pin-wrap", html:pinHTML(s), iconSize:[40,54], iconAnchor:[20,51], tooltipAnchor:[0,-50]});
+  function markerContent(s){
+    var el = document.createElement("div");
+    el.className = "pin-wrap";
+    el.innerHTML = pinHTML(s);
+    return el;
   }
 
   var markers = {};
   SITES.forEach(function(s){
-    var mk = L.marker([s.lat,s.lng], {icon:icon(s), title:s.name + ", " + s.screens + " screens", alt:s.name, riseOnHover:true, keyboard:true});
-    mk.bindTooltip(esc(s.name), {className:"tip", direction:"top", offset:[0,0]});
-    mk.on("click", function(){ open(s.id, false); });
+    var mk = new AdvancedMarkerElement({
+      map:null, position:{lat:s.lat,lng:s.lng},
+      title:s.name + ", " + s.screens + " screens", content:markerContent(s)
+    });
+    mk.addListener("click", function(){ open(s.id, false); });
     markers[s.id] = mk;
   });
   function refreshPin(id){
     var s = byId[id]; if (!s) return;
-    var el = markers[id].getElement();
+    var el = markers[id].content;
     if (el) { el.querySelector(".pin").className = pinHTML(s).match(/class="([^"]+)"/)[1]; }
-    else markers[id].setIcon(icon(s));
-    markers[id].setZIndexOffset(state.active === id ? 1000 : 0);
+    markers[id].zIndex = state.active === id ? 1000 : 0;
   }
 
   /* ---------- list ---------- */
@@ -669,8 +651,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
 
     SITES.forEach(function(s){
       var on = visible(s), mk = markers[s.id];
-      if (on && !map.hasLayer(mk)) mk.addTo(map);
-      if (!on && map.hasLayer(mk)) map.removeLayer(mk);
+      mk.map = on ? map : null;
     });
 
     if (!shown.length){
@@ -691,8 +672,9 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
 
     if (state.active && !visible(byId[state.active])) close();
     if (refit && shown.length){
-      var b = L.latLngBounds(shown.map(function(s){return [s.lat,s.lng];}));
-      map.flyToBounds(b, {padding:[60,60], maxZoom:15, duration:.6});
+      var b = new google.maps.LatLngBounds();
+      shown.forEach(function(s){ b.extend({lat:s.lat,lng:s.lng}); });
+      map.fitBounds(b, 60);
     }
   }
   list.addEventListener("click", function(e){
@@ -727,8 +709,8 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
   function centreOn(s, z){
     var stacked = window.matchMedia("(max-width:980px)").matches;
     var shift = stacked ? [0, card.offsetHeight/2 + 6] : [card.offsetWidth/2 + 9, 0];
-    var target = map.unproject(map.project([s.lat,s.lng], z).add(shift), z);
-    map.flyTo(target, z, {duration:.6});
+    map.setZoom(z);
+    map.panTo({lat:s.lat,lng:s.lng});
   }
   function close(){
     var prev = state.active; state.active = null;
@@ -737,7 +719,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     list.querySelectorAll(".site[aria-current]").forEach(function(el){ el.removeAttribute("aria-current"); });
   }
   $("cardClose").addEventListener("click", close);
-  map.on("click", close);
+  map.addListener("click", close);
   document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !card.hidden) close(); });
 
   function syncAddBtn(){
@@ -785,7 +767,9 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
 
   render(false);
   renderPlan();
-  map.fitBounds(L.latLngBounds(SITES.map(function(s){return [s.lat,s.lng];})), {padding:[50,50]});
+  var allBounds = new google.maps.LatLngBounds();
+  SITES.forEach(function(s){ allBounds.extend({lat:s.lat,lng:s.lng}); });
+  if (SITES.length) map.fitBounds(allBounds, 50);
 })();
 </script>
 
