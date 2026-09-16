@@ -193,6 +193,43 @@ export default {
       });
     }
 
+    // --- Images: upload a packed bin file from the admin device row ---
+    const deviceImageUploadMatch = url.pathname.match(/^\/api\/devices\/([^/]+)\/image$/);
+    if (deviceImageUploadMatch && request.method === 'POST') {
+      const bytes = await request.arrayBuffer();
+      const expectedBytes = 800 * 480 / 2;
+      if (bytes.byteLength !== expectedBytes) {
+        return new Response(JSON.stringify({ error: `image must be exactly ${expectedBytes} bytes` }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      const deviceId = decodeURIComponent(deviceImageUploadMatch[1]);
+      const device = await env.DB.prepare(
+        `SELECT device_id FROM devices WHERE device_id = ?`
+      ).bind(deviceId).first();
+      if (!device) return new Response(JSON.stringify({ error: 'device not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const latest = await env.DB.prepare(`SELECT COALESCE(MAX(number), 0) AS number FROM images`).first();
+      const number = Number(latest?.number || 0) + 1;
+      const r2Key = `images/${Date.now()}-${number}.bin`;
+      await env.IMAGES.put(r2Key, bytes);
+      const insertResult = await env.DB.prepare(
+        `INSERT INTO images (number, r2_key, byte_size) VALUES (?, ?, ?)`
+      ).bind(number, r2Key, bytes.byteLength).run();
+
+      return new Response(JSON.stringify({
+        ok: true,
+        id: insertResult.meta.last_row_id,
+        number,
+        byte_size: bytes.byteLength,
+      }), { headers: { 'Content-Type': 'application/json' } });
+    }
+
     // --- Images: the image most recently reported by one device ---
     const deviceImageMatch = url.pathname.match(/^\/api\/devices\/([^/]+)\/image$/);
     if (deviceImageMatch && request.method === 'GET') {

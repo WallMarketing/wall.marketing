@@ -144,6 +144,9 @@
     white-space: nowrap;
   }
   .image-cell, .site-edit-actions { white-space: nowrap; vertical-align: top; }
+  .image-actions { display: grid; gap: 5px; }
+  .image-upload-input { display: none; }
+  .image-upload-status { display: block; color: var(--steel); font-size: .7rem; margin-top: 3px; white-space: normal; }
   .last-seen-btn {
     display: inline-flex;
     align-items: center;
@@ -782,6 +785,26 @@
     }
   }
 
+  async function uploadDeviceImage(deviceId, file, updateButton, uploadStatus) {
+    updateButton.disabled = true;
+    uploadStatus.textContent = 'Uploading...';
+    try {
+      const resp = await fetch(`/api/devices/${encodeURIComponent(deviceId)}/image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: await file.arrayBuffer(),
+      });
+      const result = await resp.json();
+      if (!resp.ok) throw new Error(result.error || 'Could not upload image');
+      uploadStatus.textContent = 'Uploaded';
+      loadDevices();
+    } catch (err) {
+      uploadStatus.textContent = 'Error: ' + err.message;
+    } finally {
+      updateButton.disabled = false;
+    }
+  }
+
   async function loadDevices() {
     try {
       const resp = await fetch('/api/devices');
@@ -818,11 +841,36 @@
         const imageButton = document.createElement('button');
         imageButton.type = 'button';
         imageButton.className = 'preview-btn';
-        imageButton.textContent = row.image_hash ? 'Preview' : 'Unavailable';
+        imageButton.textContent = row.image_hash ? 'View' : 'Unavailable';
         imageButton.disabled = !row.image_hash;
         imageButton.title = row.image_hash ? 'Preview the image currently reported by this device' : 'This device has not reported an image';
         imageButton.addEventListener('click', () => previewDeviceImage(row.device_id, imageButton));
-        imageCell.appendChild(imageButton);
+
+        const imageActions = document.createElement('div');
+        imageActions.className = 'image-actions';
+        imageActions.appendChild(imageButton);
+        const updateButton = document.createElement('button');
+        updateButton.type = 'button';
+        updateButton.className = 'preview-btn';
+        updateButton.textContent = 'Update';
+        updateButton.title = 'Upload a packed bin image for the next device image fetch';
+        const imageInput = document.createElement('input');
+        imageInput.className = 'image-upload-input';
+        imageInput.type = 'file';
+        imageInput.accept = '.bin,application/octet-stream';
+        imageInput.setAttribute('aria-label', `Choose a bin image for ${row.device_id}`);
+        const uploadStatus = document.createElement('span');
+        uploadStatus.className = 'image-upload-status';
+        updateButton.addEventListener('click', () => imageInput.click());
+        imageInput.addEventListener('change', () => {
+          const file = imageInput.files[0];
+          if (file) uploadDeviceImage(row.device_id, file, updateButton, uploadStatus);
+          imageInput.value = '';
+        });
+        imageActions.appendChild(updateButton);
+        imageActions.appendChild(imageInput);
+        imageActions.appendChild(uploadStatus);
+        imageCell.appendChild(imageActions);
 
         const siteNameInput = document.createElement('input');
         siteNameInput.className = 'site-input';
