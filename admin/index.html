@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
   :root {
     --panel: #E6E9E4;
@@ -240,13 +239,7 @@
     border-radius: 3px;
     background: var(--panel);
   }
-  .leaflet-container { font-family: inherit; background: var(--panel); }
-  .leaflet-tile-pane { filter: grayscale(1) contrast(.88) brightness(1.06) sepia(.08) hue-rotate(50deg); }
-  .leaflet-control-attribution { font-size: 10.5px; background: rgba(244,246,242,.85)!important; color: var(--steel); }
-  .leaflet-control-attribution a { color: var(--ink); }
-  .leaflet-bar { border: 1px solid var(--hair)!important; border-radius: 3px!important; box-shadow: none!important; }
-  .leaflet-bar a { background: var(--panel-2); color: var(--ink); border-bottom-color: var(--hair)!important; }
-  .leaflet-bar a:hover { background: #fff; color: var(--volt); }
+  .google-map { font-family: inherit; }
   .map-status { color: var(--steel); font-size: .85rem; margin-top: 10px; min-height: 1.2em; }
   @media (max-width: 700px) {
     .nav { padding-block: 14px; }
@@ -330,7 +323,6 @@
     </div>
   </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
   const EPD_WIDTH = 800;
   const EPD_HEIGHT = 480;
@@ -531,14 +523,42 @@
   const devicesBody = document.getElementById('devicesBody');
   const devicesStatus = document.getElementById('devicesStatus');
   const mapStatus = document.getElementById('mapStatus');
-  const deviceMap = L.map('deviceMap', { zoomControl: false, scrollWheelZoom: true });
-  L.control.zoom({ position: 'bottomright' }).addTo(deviceMap);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  }).addTo(deviceMap);
-  const deviceMarkers = L.layerGroup().addTo(deviceMap);
-  deviceMap.setView([30.2745, -97.7420], 12);
+  let deviceMap = null;
+  let deviceMarkers = [];
+  let deviceInfoWindow = null;
+
+  const deviceMapReady = (async () => {
+    const configResponse = await fetch('/api/maps-config');
+    if (!configResponse.ok) throw new Error('Google Maps is not configured');
+    const config = await configResponse.json();
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(config.key)}`;
+      script.async = true;
+      script.defer = true;
+      script.onload = resolve;
+      script.onerror = () => reject(new Error('Google Maps failed to load'));
+      document.head.appendChild(script);
+    });
+    deviceMap = new google.maps.Map(document.getElementById('deviceMap'), {
+      center: { lat: 30.2745, lng: -97.7420 },
+      zoom: 12,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+      styles: [
+        { elementType: 'geometry', stylers: [{ color: '#E6E9E4' }] },
+        { elementType: 'labels.text.fill', stylers: [{ color: '#5C625E' }] },
+        { elementType: 'labels.text.stroke', stylers: [{ color: '#F4F6F2' }] },
+        { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#CBD1CA' }] },
+        { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#F4F6F2' }] },
+        { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#CBD1CA' }] },
+        { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#D5DDD8' }] },
+        { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+      ],
+    });
+    deviceInfoWindow = new google.maps.InfoWindow();
+  })();
 
   function escapeHtml(value) {
     return String(value).replace(/[&<>"']/g, (character) => ({
@@ -546,8 +566,15 @@
     }[character]));
   }
 
-  function renderDeviceMap(rows) {
-    deviceMarkers.clearLayers();
+  async function renderDeviceMap(rows) {
+    try {
+      await deviceMapReady;
+    } catch (err) {
+      mapStatus.textContent = err.message;
+      return;
+    }
+    deviceMarkers.forEach((marker) => marker.setMap(null));
+    deviceMarkers = [];
     const locatedRows = rows.filter((row) => Number.isFinite(Number(row.site_latitude)) && Number.isFinite(Number(row.site_longitude)));
     if (!locatedRows.length) {
       mapStatus.textContent = 'No devices have a geocoded site location yet.';
@@ -559,16 +586,30 @@
       bounds.push(point);
       const label = row.site_name || row.device_id;
       const detail = row.site_location || 'Location not named';
-      L.circleMarker(point, {
-        radius: 9,
-        color: '#3826F0',
-        weight: 2,
-        fillColor: '#8878FF',
-        fillOpacity: .9,
-      }).bindPopup(`<strong>${escapeHtml(label)}</strong><br>${escapeHtml(detail)}<br><small>${escapeHtml(row.device_id)}</small>`).addTo(deviceMarkers);
+      const marker = new google.maps.Marker({
+        position: { lat: point[0], lng: point[1] },
+        map: deviceMap,
+        title: label,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 9,
+          fillColor: '#8878FF',
+          fillOpacity: .9,
+          strokeColor: '#3826F0',
+          strokeWeight: 2,
+        },
+      });
+      marker.addListener('click', () => {
+        deviceInfoWindow.setContent(`<strong>${escapeHtml(label)}</strong><br>${escapeHtml(detail)}<br><small>${escapeHtml(row.device_id)}</small>`);
+        deviceInfoWindow.open({ anchor: marker, map: deviceMap });
+      });
+      deviceMarkers.push(marker);
     });
     mapStatus.textContent = `${locatedRows.length} of ${rows.length} device${rows.length === 1 ? '' : 's'} mapped.`;
-    deviceMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+    const mapBounds = new google.maps.LatLngBounds();
+    bounds.forEach((point) => mapBounds.extend({ lat: point[0], lng: point[1] }));
+    deviceMap.fitBounds(mapBounds, 40);
+    if (locatedRows.length === 1) deviceMap.setZoom(15);
   }
 
   function attachLocationSuggestions(input) {

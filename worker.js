@@ -193,6 +193,19 @@ export default {
       });
     }
 
+    // --- Google Maps browser configuration for the admin map ---
+    if (url.pathname === '/api/maps-config' && request.method === 'GET') {
+      if (!env.GOOGLE_MAPS_BROWSER_KEY) {
+        return new Response(JSON.stringify({ error: 'Google Maps API key is not configured' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({ key: env.GOOGLE_MAPS_BROWSER_KEY }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     // --- Location search for the admin site's autocomplete fields ---
     if (url.pathname === '/api/location-search' && request.method === 'GET') {
       const query = (url.searchParams.get('q') || '').trim();
@@ -202,16 +215,17 @@ export default {
         });
       }
 
-      const geocodeUrl = new URL('https://nominatim.openstreetmap.org/search');
-      geocodeUrl.searchParams.set('q', query);
-      geocodeUrl.searchParams.set('format', 'jsonv2');
-      geocodeUrl.searchParams.set('limit', '5');
-      const geocodeResponse = await fetch(geocodeUrl, {
-        headers: {
-          Accept: 'application/json',
-          'User-Agent': 'wall.marketing admin location search',
-        },
-      });
+      if (!env.GOOGLE_MAPS_SERVER_KEY) {
+        return new Response(JSON.stringify({ error: 'Google Maps API key is not configured' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      const geocodeUrl = new URL('https://maps.googleapis.com/maps/api/place/autocomplete/json');
+      geocodeUrl.searchParams.set('input', query);
+      geocodeUrl.searchParams.set('types', 'establishment|geocode');
+      geocodeUrl.searchParams.set('key', env.GOOGLE_MAPS_SERVER_KEY);
+      const geocodeResponse = await fetch(geocodeUrl);
       if (!geocodeResponse.ok) {
         return new Response(JSON.stringify({ error: 'location search unavailable' }), {
           status: 502,
@@ -219,12 +233,17 @@ export default {
         });
       }
 
-      const matches = await geocodeResponse.json();
-      return new Response(JSON.stringify(matches.map((match) => ({
-        label: match.display_name,
-        latitude: Number(match.lat),
-        longitude: Number(match.lon),
-      })).filter((match) => Number.isFinite(match.latitude) && Number.isFinite(match.longitude))), {
+      const result = await geocodeResponse.json();
+      if (result.status !== 'OK' && result.status !== 'ZERO_RESULTS') {
+        return new Response(JSON.stringify({ error: 'location search unavailable' }), {
+          status: 502,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify((result.predictions || []).map((prediction) => ({
+        label: prediction.description,
+        place_id: prediction.place_id,
+      }))), {
         headers: { 'Content-Type': 'application/json' },
       });
     }
@@ -298,31 +317,37 @@ export default {
       let latitude = null;
       let longitude = null;
       if (siteLocation) {
-        const geocodeUrl = new URL('https://nominatim.openstreetmap.org/search');
-        geocodeUrl.searchParams.set('q', siteLocation);
-        geocodeUrl.searchParams.set('format', 'jsonv2');
-        geocodeUrl.searchParams.set('limit', '1');
-        const geocodeResponse = await fetch(geocodeUrl, {
-          headers: {
-            Accept: 'application/json',
-            'User-Agent': 'wall.marketing admin location lookup',
-          },
-        });
+        if (!env.GOOGLE_MAPS_SERVER_KEY) {
+          return new Response(JSON.stringify({ error: 'Google Maps API key is not configured' }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        const geocodeUrl = new URL('https://maps.googleapis.com/maps/api/geocode/json');
+        geocodeUrl.searchParams.set('address', siteLocation);
+        geocodeUrl.searchParams.set('key', env.GOOGLE_MAPS_SERVER_KEY);
+        const geocodeResponse = await fetch(geocodeUrl);
         if (!geocodeResponse.ok) {
           return new Response(JSON.stringify({ error: 'could not look up that site location' }), {
             status: 502,
             headers: { 'Content-Type': 'application/json' },
           });
         }
-        const matches = await geocodeResponse.json();
-        if (!matches.length) {
+        const result = await geocodeResponse.json();
+        if (result.status === 'ZERO_RESULTS' || !result.results?.length) {
           return new Response(JSON.stringify({ error: 'site location was not found' }), {
             status: 400,
             headers: { 'Content-Type': 'application/json' },
           });
         }
-        latitude = Number(matches[0].lat);
-        longitude = Number(matches[0].lon);
+        if (result.status !== 'OK') {
+          return new Response(JSON.stringify({ error: 'could not look up that site location' }), {
+            status: 502,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        latitude = Number(result.results[0].geometry.location.lat);
+        longitude = Number(result.results[0].geometry.location.lng);
         if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
           return new Response(JSON.stringify({ error: 'site location returned invalid coordinates' }), {
             status: 502,
