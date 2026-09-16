@@ -146,6 +146,32 @@
     font-size: .82rem;
   }
   .site-input:focus { border-color: var(--volt); outline: none; }
+  .location-editor { position: relative; }
+  .location-suggestions {
+    position: static;
+    margin-top: 3px;
+    display: grid;
+    background: var(--panel-2);
+    border: 1px solid var(--hair);
+    border-radius: 3px;
+    box-shadow: 0 8px 18px -12px rgba(27,29,31,.8);
+    overflow: hidden;
+  }
+  .location-suggestion {
+    display: block;
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--panel-2);
+    color: var(--ink);
+    border: 0;
+    border-bottom: 1px solid var(--hair);
+    font-size: .78rem;
+    font-weight: 400;
+    line-height: 1.3;
+    text-align: left;
+  }
+  .location-suggestion:last-child { border-bottom: 0; }
+  .location-suggestion:hover, .location-suggestion:focus-visible { background: #fff; color: var(--volt); }
   .site-save {
     padding: 6px 10px;
     font-size: .8rem;
@@ -545,6 +571,55 @@
     deviceMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
   }
 
+  function attachLocationSuggestions(input) {
+    const editor = input.parentElement;
+    const suggestions = document.createElement('div');
+    suggestions.className = 'location-suggestions';
+    suggestions.hidden = true;
+    editor.appendChild(suggestions);
+    let searchTimer = null;
+    let searchRequest = 0;
+
+    function closeSuggestions() {
+      suggestions.hidden = true;
+      suggestions.innerHTML = '';
+    }
+
+    input.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      const query = input.value.trim();
+      if (query.length < 3) {
+        closeSuggestions();
+        return;
+      }
+      searchTimer = setTimeout(async () => {
+        const requestId = ++searchRequest;
+        try {
+          const response = await fetch(`/api/location-search?q=${encodeURIComponent(query)}`);
+          if (requestId !== searchRequest || !response.ok) return;
+          const results = await response.json();
+          suggestions.innerHTML = '';
+          results.forEach((result) => {
+            const option = document.createElement('button');
+            option.type = 'button';
+            option.className = 'location-suggestion';
+            option.textContent = result.label;
+            option.addEventListener('click', () => {
+              input.value = result.label;
+              closeSuggestions();
+              input.focus();
+            });
+            suggestions.appendChild(option);
+          });
+          suggestions.hidden = results.length === 0;
+        } catch {
+          closeSuggestions();
+        }
+      }, 300);
+    });
+    input.addEventListener('blur', () => setTimeout(closeSuggestions, 150));
+  }
+
   async function saveDeviceSite(deviceId, siteNameInput, siteLocationInput, saveButton, saveStatus) {
     saveButton.disabled = true;
     saveStatus.textContent = 'Saving...';
@@ -608,13 +683,17 @@
         siteNameInput.value = row.site_name || '';
         siteCells[0].appendChild(siteNameInput);
 
+        const siteLocationEditor = document.createElement('div');
+        siteLocationEditor.className = 'location-editor';
         const siteLocationInput = document.createElement('input');
         siteLocationInput.className = 'site-input';
         siteLocationInput.type = 'text';
         siteLocationInput.maxLength = 200;
         siteLocationInput.placeholder = 'Site location';
         siteLocationInput.value = row.site_location || '';
-        siteCells[1].appendChild(siteLocationInput);
+        siteLocationEditor.appendChild(siteLocationInput);
+        siteCells[1].appendChild(siteLocationEditor);
+        attachLocationSuggestions(siteLocationInput);
 
         tr.querySelectorAll('.site-edit-cell, .site-edit-actions').forEach((cell) => {
           cell.addEventListener('click', (event) => event.stopPropagation());

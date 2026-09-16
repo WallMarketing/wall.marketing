@@ -193,6 +193,42 @@ export default {
       });
     }
 
+    // --- Location search for the admin site's autocomplete fields ---
+    if (url.pathname === '/api/location-search' && request.method === 'GET') {
+      const query = (url.searchParams.get('q') || '').trim();
+      if (query.length < 3 || query.length > 200) {
+        return new Response(JSON.stringify([]), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      const geocodeUrl = new URL('https://nominatim.openstreetmap.org/search');
+      geocodeUrl.searchParams.set('q', query);
+      geocodeUrl.searchParams.set('format', 'jsonv2');
+      geocodeUrl.searchParams.set('limit', '5');
+      const geocodeResponse = await fetch(geocodeUrl, {
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'wall.marketing admin location search',
+        },
+      });
+      if (!geocodeResponse.ok) {
+        return new Response(JSON.stringify({ error: 'location search unavailable' }), {
+          status: 502,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      const matches = await geocodeResponse.json();
+      return new Response(JSON.stringify(matches.map((match) => ({
+        label: match.display_name,
+        latitude: Number(match.lat),
+        longitude: Number(match.lon),
+      })).filter((match) => Number.isFinite(match.latitude) && Number.isFinite(match.longitude))), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     // --- Devices: fleet overview — most recent check-in per device,
     //     joined from `devices` (identity) and `checkins` (telemetry) ---
     if (url.pathname === '/api/devices' && request.method === 'GET') {
