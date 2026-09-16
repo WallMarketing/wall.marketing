@@ -202,6 +202,8 @@ export default {
            d.friendly_name,
            d.site_name,
            d.site_location,
+           d.site_latitude,
+           d.site_longitude,
            d.target_firmware_version,
            d.created_at AS device_created_at,
            d.last_seen_at,
@@ -257,9 +259,46 @@ export default {
 
       const siteName = body.site_name.trim() || null;
       const siteLocation = body.site_location.trim() || null;
+      let latitude = null;
+      let longitude = null;
+      if (siteLocation) {
+        const geocodeUrl = new URL('https://nominatim.openstreetmap.org/search');
+        geocodeUrl.searchParams.set('q', siteLocation);
+        geocodeUrl.searchParams.set('format', 'jsonv2');
+        geocodeUrl.searchParams.set('limit', '1');
+        const geocodeResponse = await fetch(geocodeUrl, {
+          headers: {
+            Accept: 'application/json',
+            'User-Agent': 'wall.marketing admin location lookup',
+          },
+        });
+        if (!geocodeResponse.ok) {
+          return new Response(JSON.stringify({ error: 'could not look up that site location' }), {
+            status: 502,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        const matches = await geocodeResponse.json();
+        if (!matches.length) {
+          return new Response(JSON.stringify({ error: 'site location was not found' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        latitude = Number(matches[0].lat);
+        longitude = Number(matches[0].lon);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+          return new Response(JSON.stringify({ error: 'site location returned invalid coordinates' }), {
+            status: 502,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+      }
       const result = await env.DB.prepare(
-        `UPDATE devices SET site_name = ?, site_location = ? WHERE device_id = ?`
-      ).bind(siteName, siteLocation, deviceId).run();
+        `UPDATE devices
+            SET site_name = ?, site_location = ?, site_latitude = ?, site_longitude = ?
+          WHERE device_id = ?`
+      ).bind(siteName, siteLocation, latitude, longitude, deviceId).run();
 
       if (!result.meta.changes) {
         return new Response(JSON.stringify({ error: 'device not found' }), {
@@ -268,7 +307,13 @@ export default {
         });
       }
 
-      return new Response(JSON.stringify({ ok: true, site_name: siteName, site_location: siteLocation }), {
+      return new Response(JSON.stringify({
+        ok: true,
+        site_name: siteName,
+        site_location: siteLocation,
+        site_latitude: latitude,
+        site_longitude: longitude,
+      }), {
         headers: { 'Content-Type': 'application/json' },
       });
     }
