@@ -562,7 +562,7 @@
     const config = await configResponse.json();
     await new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(config.key)}&loading=async&libraries=marker`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(config.key)}&libraries=marker`;
       script.async = true;
       script.defer = true;
       script.onload = resolve;
