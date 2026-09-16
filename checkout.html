@@ -67,6 +67,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 .summary dl { display: grid; grid-template-columns: 1fr auto; gap: 10px 20px; margin: 0 0 28px; }
 .summary dt { color: #A9B0AA; }
 .summary dd { margin: 0; font-weight: 700; text-align: right; }
+.summary dd.total { color: var(--volt-2); font-size: 1.15rem; }
 .field { display: grid; gap: 6px; margin-top: 16px; }
 .field label { color: #A9B0AA; font-size: .85rem; }
 .field input { width: 100%; padding: 10px 11px; border: 1px solid #4A5050; border-radius: 3px; background: #25282A; color: #fff; }
@@ -124,6 +125,8 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       <dl>
         <dt>Sites</dt><dd id="siteCount">0</dd>
         <dt>Screens</dt><dd id="screenCount">0</dd>
+        <dt>Daily rate</dt><dd id="dailyRate">$0.00</dd>
+        <dt>Estimated total</dt><dd id="estimatedTotal" class="total">$0.00</dd>
       </dl>
       <form id="bookingForm">
         <div class="field">
@@ -172,9 +175,12 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     devices.forEach(function(device){ byId[device.device_id] = device; });
     var selected = ids.map(function(id){ return byId[id]; }).filter(Boolean);
     var screens = selected.length;
+    var dailyRate = selected.reduce(function(total, device){ return total + Number(device.daily_cost_usd ?? 10); }, 0);
+    var currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
     $("siteCount").textContent = selected.length;
     $("screenCount").textContent = screens;
+    $("dailyRate").textContent = currency.format(dailyRate);
     if (!selected.length) {
       $("emptyState").hidden = false;
       $("bookingForm").hidden = true;
@@ -187,11 +193,20 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       return '<li class="order-item"><div><h3>' + esc(name) + '</h3><p>' + esc(location) + '</p></div><strong>1 screen</strong></li>';
     }).join("");
 
+    function updateEstimatedTotal(){
+      var weeks = Math.max(1, Number($("weeks").value) || 1);
+      $("estimatedTotal").textContent = currency.format(dailyRate * 7 * weeks);
+    }
+    $("weeks").addEventListener("input", updateEstimatedTotal);
+    updateEstimatedTotal();
+
     $("bookingForm").addEventListener("submit", function(event){
       event.preventDefault();
       var data = new FormData(event.currentTarget);
+      var weeks = Math.max(1, Number(data.get("weeks")) || 1);
+      var estimatedTotal = dailyRate * 7 * weeks;
       var subject = "Booking request: " + screens + (screens === 1 ? " screen" : " screens");
-      var body = "Hello WALL,\n\nI would like to book:\n\n" + selected.map(function(device){ return "- " + (device.site_name || device.device_id) + " (" + (device.site_location || "Location not set") + ")"; }).join("\n") + "\n\nBrand or campaign: " + data.get("brand") + "\nPreferred start date: " + data.get("start") + "\nNumber of weeks: " + data.get("weeks") + "\n\nPlease confirm availability and price.";
+      var body = "Hello WALL,\n\nI would like to book:\n\n" + selected.map(function(device){ return "- " + (device.site_name || device.device_id) + " (" + (device.site_location || "Location not set") + ")"; }).join("\n") + "\n\nBrand or campaign: " + data.get("brand") + "\nPreferred start date: " + data.get("start") + "\nNumber of weeks: " + weeks + "\nDaily rate: " + currency.format(dailyRate) + "\nEstimated total: " + currency.format(estimatedTotal) + "\n\nPlease confirm availability and price.";
       location.href = "mailto:hello@wall.marketing?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
       $("formStatus").textContent = "Opening your email app...";
     });
