@@ -200,6 +200,8 @@ export default {
         `SELECT
            d.device_id,
            d.friendly_name,
+           d.site_name,
+           d.site_location,
            d.target_firmware_version,
            d.created_at AS device_created_at,
            d.last_seen_at,

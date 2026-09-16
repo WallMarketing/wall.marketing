@@ -121,7 +121,7 @@
     color: var(--steel);
     min-height: 1.2em;
   }
-  table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: .85rem; }
+  table { width: 100%; min-width: 720px; border-collapse: collapse; font-size: .85rem; }
   th, td {
     text-align: left;
     padding: 10px;
@@ -222,7 +222,7 @@
       <table>
         <thead>
           <tr>
-            <th>Device</th><th>Last seen</th><th>Uptime</th><th>RSSI</th>
+            <th>Device</th><th>Site name</th><th>Site location</th><th>Last seen</th><th>Uptime</th><th>RSSI</th>
             <th>Heap</th><th>FW</th><th>Errors</th><th>Image</th>
           </tr>
         </thead>
@@ -471,6 +471,8 @@
         const name = row.friendly_name ? `${row.device_id} (${row.friendly_name})` : row.device_id;
         tr.innerHTML = `
           <td>${name}</td>
+          <td>${row.site_name ?? '—'}</td>
+          <td>${row.site_location ?? '—'}</td>
           <td><span class="status-dot ${dotClass}"></span>${formatRelativeTime(row.last_seen_at)}</td>
           <td>${row.uptime_seconds ?? '—'}s</td>
           <td>${row.rssi ?? '—'}</td>
