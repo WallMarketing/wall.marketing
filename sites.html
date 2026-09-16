@@ -384,7 +384,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
       <a href="sites.html" aria-current="page">Find a site</a>
       <a href="index.html#format">Format</a>
       <a href="index.html#host">For venues</a>
-      <a href="mailto:hello@wall.marketing?subject=Screen%20time%20enquiry" class="btn btn--solid">Book screen time</a>
+      <a href="#mapApp" class="btn btn--solid" id="navBook">Book screen time</a>
     </div>
     <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="navLinks">Menu</button>
   </nav>
@@ -408,7 +408,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
 </section>
 
 <!-- ============ map app ============ -->
-<section class="app" aria-label="Site finder">
+<section class="app" id="mapApp" aria-label="Site finder">
 
   <aside class="side">
     <div class="filters">
@@ -686,9 +686,10 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
   /* ---------- card ---------- */
   var card = $("card");
   function revealMapBottom(){
-    if (window.matchMedia("(min-width:981px)").matches) {
-      document.querySelector(".app").scrollIntoView({block:"end", behavior:"smooth"});
-    }
+    document.querySelector(".app").scrollIntoView({
+      block: window.matchMedia("(min-width:981px)").matches ? "end" : "start",
+      behavior: "smooth",
+    });
   }
   function open(id, fly){
     var prev = state.active;
@@ -727,6 +728,10 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     list.querySelectorAll(".site[aria-current]").forEach(function(el){ el.removeAttribute("aria-current"); });
   }
   $("cardClose").addEventListener("click", close);
+  $("navBook").addEventListener("click", function(event){
+    event.preventDefault();
+    revealMapBottom();
+  });
   map.addListener("click", close);
   document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !card.hidden) close(); });
 
