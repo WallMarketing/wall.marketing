@@ -240,6 +240,34 @@
     background: var(--panel);
   }
   .google-map { font-family: inherit; }
+  .pin-wrap { background: none; border: 0; }
+  .pin { position: relative; width: 40px; height: 54px; cursor: pointer; }
+  .pin-unit {
+    position: absolute; left: 2px; top: 0; width: 36px; height: 31px;
+    display: flex; flex-direction: column; gap: 2px; padding: 3px; border-radius: 3px;
+    background: linear-gradient(152deg, #3B3F43 0%, #242729 55%, #15171A 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 6px 10px -5px rgba(18,24,22,.7);
+    transform-origin: 50% 100%; transition: transform .18s ease;
+  }
+  .pin-sol {
+    height: 3px; flex: none; border-radius: 1px; background-color: #6F4C9B;
+    background-image: radial-gradient(rgba(0,0,0,.5) 40%, transparent 44%); background-size: 2px 2px;
+  }
+  .pin-scr { flex: 1; position: relative; overflow: hidden; border-radius: 1px; background: #fff; box-shadow: 0 0 0 .5px rgba(0,0,0,.6); }
+  .pin-scr::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: #C8202C; }
+  .pin-scr::after {
+    content: ""; position: absolute; left: 2px; right: 2px; top: 5px; bottom: 2px;
+    background: linear-gradient(#9AA0B2,#9AA0B2) 0 0/45% 1.5px no-repeat, linear-gradient(#9AA0B2,#9AA0B2) 0 4px/35% 1.5px no-repeat, linear-gradient(#9AA0B2,#9AA0B2) 0 8px/42% 1.5px no-repeat, radial-gradient(circle,#F2B632 45%,transparent 50%) 88% 30%/9px 9px no-repeat;
+  }
+  .pin-ad { position: absolute; inset: 0; z-index: 1; background: #1C46A8; opacity: 0; }
+  .pin-post { position: absolute; left: 19px; top: 31px; width: 2px; height: 17px; background: linear-gradient(#2A2D30,#5C625E); }
+  .pin-foot { position: absolute; left: 14px; top: 46px; width: 12px; height: 5px; border-radius: 50%; background: radial-gradient(rgba(18,24,22,.45),transparent 70%); }
+  .pin-n {
+    position: absolute; right: -6px; top: -7px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
+    display: grid; place-items: center; background: var(--volt); color: #fff; font-size: 10px; line-height: 1;
+    font-variation-settings: "wdth" 110, "wght" 700; box-shadow: 0 0 0 2px var(--panel-2);
+  }
+  .pin:hover .pin-unit { transform: translateY(-3px); }
   .map-status { color: var(--steel); font-size: .85rem; margin-top: 10px; min-height: 1.2em; }
   @media (max-width: 700px) {
     .nav { padding-block: 14px; }
@@ -526,6 +554,7 @@
   let deviceMap = null;
   let deviceMarkers = [];
   let deviceInfoWindow = null;
+  let AdvancedMarkerElement = null;
 
   const deviceMapReady = (async () => {
     const configResponse = await fetch('/api/maps-config');
@@ -533,7 +562,7 @@
     const config = await configResponse.json();
     await new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(config.key)}`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(config.key)}&loading=async&libraries=marker`;
       script.async = true;
       script.defer = true;
       script.onload = resolve;
@@ -543,6 +572,7 @@
     deviceMap = new google.maps.Map(document.getElementById('deviceMap'), {
       center: { lat: 30.2745, lng: -97.7420 },
       zoom: 12,
+      mapId: 'DEMO_MAP_ID',
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
@@ -557,6 +587,7 @@
         { featureType: 'poi', stylers: [{ visibility: 'off' }] },
       ],
     });
+    ({ AdvancedMarkerElement } = await google.maps.importLibrary('marker'));
     deviceInfoWindow = new google.maps.InfoWindow();
   })();
 
@@ -564,6 +595,13 @@
     return String(value).replace(/[&<>"']/g, (character) => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
     }[character]));
+  }
+
+  function wallPinElement() {
+    const pin = document.createElement('div');
+    pin.className = 'pin-wrap';
+    pin.innerHTML = '<div class="pin"><span class="pin-foot"></span><span class="pin-post"></span><span class="pin-unit"><i class="pin-sol"></i><span class="pin-scr"><span class="pin-ad"></span></span><i class="pin-sol"></i></span><span class="pin-n">1</span></div>';
+    return pin;
   }
 
   async function renderDeviceMap(rows) {
@@ -586,18 +624,11 @@
       bounds.push(point);
       const label = row.site_name || row.device_id;
       const detail = row.site_location || 'Location not named';
-      const marker = new google.maps.Marker({
+      const marker = new AdvancedMarkerElement({
         position: { lat: point[0], lng: point[1] },
         map: deviceMap,
         title: label,
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 9,
-          fillColor: '#8878FF',
-          fillOpacity: .9,
-          strokeColor: '#3826F0',
-          strokeWeight: 2,
-        },
+        content: wallPinElement(),
       });
       marker.addListener('click', () => {
         deviceInfoWindow.setContent(`<strong>${escapeHtml(label)}</strong><br>${escapeHtml(detail)}<br><small>${escapeHtml(row.device_id)}</small>`);
