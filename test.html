@@ -49,8 +49,8 @@ h1,h2{margin:0;font-weight:800;letter-spacing:-.03em;line-height:1;}h1{font-size
 			<h2>Convert image</h2>
 			<div class="field"><label for="imageFile">Source image</label><input id="imageFile" type="file" accept="image/*"></div>
 			<div class="field"><label for="fit">Image fit</label><select id="fit"><option value="cover">Cover: crop to fill</option><option value="contain">Contain: white letterbox</option><option value="stretch">Stretch: fill frame</option></select></div>
-			<div class="field"><label for="saturation">Saturation <output id="saturationValue">1.15</output></label><input id="saturation" type="range" min="0" max="2" step="0.05" value="1.15"></div>
-			<div class="field"><label for="contrast">Contrast <output id="contrastValue">1.05</output></label><input id="contrast" type="range" min="0" max="2" step="0.05" value="1.05"></div>
+			<div class="field"><label for="saturation">Saturation <output id="saturationValue">1</output></label><input id="saturation" type="range" min="0" max="2" step="0.05" value="1"></div>
+			<div class="field"><label for="contrast">Contrast <output id="contrastValue">0.4</output></label><input id="contrast" type="range" min="0" max="2" step="0.05" value="0.4"></div>
 			<label class="check"><input id="dither" type="checkbox" checked> Floyd–Steinberg dithering</label>
 			<button id="convert" class="btn" type="button" disabled>Convert image</button>
 			<div class="downloads"><button id="downloadPreview" class="btn" type="button" disabled>Download preview PNG</button><button id="downloadBin" class="btn" type="button" disabled>Download device .bin</button></div>
