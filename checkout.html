@@ -62,6 +62,8 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 .order-item h3 { margin: 0; font-size: 1rem; font-weight: 700; }
 .order-item p { margin: 4px 0 0; color: var(--steel); font-size: .9rem; }
 .order-item strong { color: var(--volt); white-space: nowrap; }
+.advertising-actions { display: grid; gap: 10px; margin-top: 24px; }
+.advertising-actions .btn { margin-top: 0; }
 .summary { background: var(--dark); color: var(--chalk); }
 .summary h2 { color: #fff; }
 .summary dl { display: grid; grid-template-columns: 1fr auto; gap: 10px 20px; margin: 0 0 28px; }
@@ -119,6 +121,10 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       <h2>Selected screens</h2>
       <p class="empty" id="emptyState" hidden>Your plan is empty. <a href="sites.html">Choose a screen</a> to get started.</p>
       <ul class="order-list" id="orderList"></ul>
+      <div class="advertising-actions">
+        <button type="button" class="btn btn--line">Upload your advertisment</button>
+        <button type="button" class="btn btn--line">Create an advertisment for me</button>
+      </div>
     </section>
 
     <section class="panel summary">
