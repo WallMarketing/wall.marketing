@@ -438,7 +438,6 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
       <p class="plan-empty" id="planEmpty">Open a site and choose “Add to plan”. Your shortlist stays in the page address, so you can share it.</p>
       <div class="plan-actions" id="planActions" hidden>
         <a class="btn btn--solid" id="planReview" href="checkout.html">Review order</a>
-        <a class="btn btn--solid" id="planSend" href="#">Ask for a price</a>
         <button type="button" class="btn btn--line" id="planClear">Clear</button>
       </div>
     </div>
@@ -751,10 +750,6 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
       ? '<b>' + ids.length + '</b> ' + (ids.length===1?'site':'sites') + ', <b>' + screens + '</b> screens, <b>' + fmt(views) + '</b> views a week'
       : '';
 
-    var body = "Hello WALL,\n\nPlease send availability and a price for these sites:\n\n" +
-      sites.map(function(s){ return "- " + s.name + ", " + s.area + " (" + s.screens + (s.screens===1?" screen":" screens") + ", " + freeFrom(s).text.toLowerCase() + ")"; }).join("\n") +
-      "\n\nTotal: " + ids.length + " sites, " + screens + " screens, about " + fmt(views) + " views a week.\n\nBrand:\nStart date:\nNumber of weeks:\n\nPlan link: " + location.href.split("#")[0] + "#plan=" + ids.join(",");
-    $("planSend").href = "mailto:hello@wall.marketing?subject=" + encodeURIComponent("Price request: " + ids.length + " sites") + "&body=" + encodeURIComponent(body);
     $("planReview").href = "checkout.html#plan=" + encodeURIComponent(ids.join(","));
 
     history.replaceState(null, "", has ? "#plan=" + ids.join(",") : location.pathname + location.search);
