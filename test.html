@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Image converter - WALL</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231B1D1F'/><rect x='11' y='6' width='10' height='19' rx='2' fill='%235C4BFF'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&display=swap" rel="stylesheet">
+<style>
+:root{--panel:#E6E9E4;--panel-2:#F4F6F2;--ink:#1F2225;--steel:#5C625E;--hair:#CBD1CA;--volt:#3826F0;--dark:#1B1D1F;--chalk:#EDEFEC;}
+*,*::before,*::after{box-sizing:border-box;}
+body{margin:0;background:var(--panel);color:var(--ink);font-family:Archivo,"Helvetica Neue",Arial,sans-serif;font-size:17px;line-height:1.5;}
+a{color:inherit;text-decoration:none;}
+button,input,select{font:inherit;}
+.shell{width:min(100% - 40px,1180px);margin:0 auto;}
+header{border-bottom:1px solid var(--hair);}
+.nav{display:flex;justify-content:space-between;align-items:center;padding:16px 0;}
+.wordmark{font-size:1.5rem;font-weight:800;letter-spacing:-.03em;}.wordmark b{color:var(--volt);}
+.nav a:last-child{color:var(--steel);font-size:.9rem;}
+main{padding:clamp(42px,7vw,88px) 0;}
+.intro{max-width:720px;}.eyebrow{color:var(--volt);font-size:.8rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;}
+h1,h2{margin:0;font-weight:800;letter-spacing:-.03em;line-height:1;}h1{font-size:clamp(2.5rem,7vw,5.2rem);margin-top:8px;}.intro p{color:var(--steel);margin:20px 0 0;max-width:58ch;}
+.workspace{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:28px;margin-top:48px;align-items:start;}
+.preview-panel,.controls{background:var(--panel-2);border:1px solid var(--hair);border-radius:3px;padding:clamp(20px,3vw,32px);}
+.preview-panel h2,.controls h2{font-size:1.35rem;margin-bottom:18px;}.preview-wrap{background:#fff;border:1px solid var(--hair);padding:12px;}
+#preview{display:block;width:100%;height:auto;image-rendering:auto;background:#fff;aspect-ratio:5/3;}
+.preview-note{color:var(--steel);font-size:.8rem;margin:12px 0 0;}
+.field{display:grid;gap:6px;margin-top:18px;}.field:first-of-type{margin-top:0;}.field label{font-size:.84rem;color:var(--steel);}.field input,.field select{width:100%;background:#fff;border:1px solid var(--hair);border-radius:3px;padding:9px 10px;color:var(--ink);}.field input:focus,.field select:focus{border-color:var(--volt);outline:none;}
+.check{display:flex;align-items:center;gap:9px;margin-top:18px;font-size:.88rem;}.check input{width:16px;height:16px;accent-color:var(--volt);}
+.btn{display:inline-flex;align-items:center;justify-content:center;width:100%;border:1px solid transparent;border-radius:3px;padding:12px 18px;margin-top:22px;background:var(--ink);color:var(--panel-2);font-weight:700;cursor:pointer;}.btn:hover{background:var(--volt);}.btn:disabled{background:var(--hair);color:var(--steel);cursor:default;}
+.downloads{display:grid;gap:10px;margin-top:12px;}.downloads .btn{margin-top:0;background:transparent;color:var(--ink);border-color:var(--ink);}.downloads .btn:hover{background:var(--ink);color:var(--panel-2);}
+.status{min-height:1.5em;color:var(--steel);font-size:.82rem;margin-top:14px;}.status.error{color:#B3202A;}
+@media(max-width:760px){.workspace{grid-template-columns:1fr;margin-top:34px;}.nav{padding-inline:0;}h1{font-size:clamp(2.5rem,13vw,4.5rem);}}
+</style>
+</head>
+<body>
+<header><div class="shell nav"><a class="wordmark" href="index.html">WALL<b>.</b></a><a href="generator.html">Back to generator</a></div></header>
+<main class="shell">
+	<section class="intro"><div class="eyebrow">Panel image converter</div><h1>Make a screen-ready image.</h1><p>Upload a photo and convert it to the exact six-color, packed format used by a WALL display. Everything runs in this browser; your image is not uploaded anywhere.</p></section>
+	<div class="workspace">
+		<section class="preview-panel">
+			<h2>Panel preview</h2>
+			<div class="preview-wrap"><canvas id="preview" width="800" height="480"></canvas></div>
+			<p class="preview-note">800 × 480 pixels · six panel colors · preview shows the dithered result</p>
+		</section>
+		<section class="controls">
+			<h2>Convert image</h2>
+			<div class="field"><label for="imageFile">Source image</label><input id="imageFile" type="file" accept="image/*"></div>
+			<div class="field"><label for="fit">Image fit</label><select id="fit"><option value="cover">Cover: crop to fill</option><option value="contain">Contain: white letterbox</option><option value="stretch">Stretch: fill frame</option></select></div>
+			<div class="field"><label for="saturation">Saturation <output id="saturationValue">1.15</output></label><input id="saturation" type="range" min="0" max="2" step="0.05" value="1.15"></div>
+			<div class="field"><label for="contrast">Contrast <output id="contrastValue">1.05</output></label><input id="contrast" type="range" min="0" max="2" step="0.05" value="1.05"></div>
+			<label class="check"><input id="dither" type="checkbox" checked> Floyd–Steinberg dithering</label>
+			<button id="convert" class="btn" type="button" disabled>Convert image</button>
+			<div class="downloads"><button id="downloadPreview" class="btn" type="button" disabled>Download preview PNG</button><button id="downloadBin" class="btn" type="button" disabled>Download device .bin</button></div>
+			<div id="status" class="status" aria-live="polite">Choose an image to begin.</div>
+		</section>
+	</div>
+</main>
+<script>
+(function(){
+	"use strict";
+	const WIDTH = 800, HEIGHT = 480;
+	const PALETTE = [
+		{ code: 0x0, rgb: [0, 0, 0] },
+		{ code: 0x1, rgb: [255, 255, 255] },
+		{ code: 0x2, rgb: [255, 255, 0] },
+		{ code: 0x3, rgb: [255, 0, 0] },
+		{ code: 0x5, rgb: [0, 0, 255] },
+		{ code: 0x6, rgb: [0, 255, 0] },
+	];
+	const fileInput = document.getElementById("imageFile");
+	const fitInput = document.getElementById("fit");
+	const saturationInput = document.getElementById("saturation");
+	const contrastInput = document.getElementById("contrast");
+	const ditherInput = document.getElementById("dither");
+	const convertButton = document.getElementById("convert");
+	const previewButton = document.getElementById("downloadPreview");
+	const binButton = document.getElementById("downloadBin");
+	const preview = document.getElementById("preview");
+	const ctx = preview.getContext("2d");
+	const sourceCanvas = document.createElement("canvas");
+	sourceCanvas.width = WIDTH; sourceCanvas.height = HEIGHT;
+	const sourceCtx = sourceCanvas.getContext("2d");
+	let sourceImage = null, packedBytes = null, previewReady = false;
+
+	function setStatus(message, error){ const status = document.getElementById("status"); status.textContent = message; status.classList.toggle("error", Boolean(error)); }
+	function clamp(value){ return Math.max(0, Math.min(255, value)); }
+	function nearestPaletteIndex(r, g, b){
+		let best = 0, bestDistance = Infinity;
+		PALETTE.forEach(function(color, index){ const dr = r-color.rgb[0], dg = g-color.rgb[1], db = b-color.rgb[2]; const distance = dr*dr + dg*dg + db*db; if (distance < bestDistance) { bestDistance = distance; best = index; } });
+		return best;
+	}
+	function drawFittedImage(image){
+		sourceCtx.fillStyle = "#fff"; sourceCtx.fillRect(0, 0, WIDTH, HEIGHT);
+		const imageRatio = image.width / image.height, panelRatio = WIDTH / HEIGHT;
+		let drawWidth = WIDTH, drawHeight = HEIGHT, sx = 0, sy = 0, sw = image.width, sh = image.height;
+		if (fitInput.value === "contain") { if (imageRatio > panelRatio) { drawHeight = WIDTH / imageRatio; } else { drawWidth = HEIGHT * imageRatio; } }
+		if (fitInput.value === "cover") { if (imageRatio > panelRatio) { sw = image.height * panelRatio; sx = (image.width - sw) / 2; } else { sh = image.width / panelRatio; sy = (image.height - sh) / 2; } }
+		sourceCtx.drawImage(image, sx, sy, sw, sh, (WIDTH-drawWidth)/2, (HEIGHT-drawHeight)/2, drawWidth, drawHeight);
+	}
+	function boostPixels(data, saturation, contrast){
+		const contrastFactor = (259 * (contrast * 255 + 255)) / (255 * (259 - contrast * 255));
+		for (let i = 0; i < data.length; i += 4) {
+			const average = (data[i] + data[i+1] + data[i+2]) / 3;
+			data[i] = clamp(contrastFactor * ((average + (data[i] - average) * saturation) - 128) + 128);
+			data[i+1] = clamp(contrastFactor * ((average + (data[i+1] - average) * saturation) - 128) + 128);
+			data[i+2] = clamp(contrastFactor * ((average + (data[i+2] - average) * saturation) - 128) + 128);
+		}
+	}
+	function convert(){
+		if (!sourceImage) return;
+		drawFittedImage(sourceImage);
+		const imageData = sourceCtx.getImageData(0, 0, WIDTH, HEIGHT);
+		boostPixels(imageData.data, Number(saturationInput.value), Number(contrastInput.value));
+		const working = new Float32Array(WIDTH * HEIGHT * 3);
+		for (let y = 0; y < HEIGHT; y++) for (let x = 0; x < WIDTH; x++) { const src = (y*WIDTH+x)*4, dst = (y*WIDTH+x)*3; working[dst] = imageData.data[src]; working[dst+1] = imageData.data[src+1]; working[dst+2] = imageData.data[src+2]; }
+		const codes = new Uint8Array(WIDTH * HEIGHT), output = ctx.createImageData(WIDTH, HEIGHT);
+		for (let y = 0; y < HEIGHT; y++) for (let x = 0; x < WIDTH; x++) {
+			const pixel = (y*WIDTH+x)*3, index = nearestPaletteIndex(working[pixel], working[pixel+1], working[pixel+2]), color = PALETTE[index];
+			codes[y*WIDTH+x] = color.code;
+			const screen = (y*WIDTH+x)*4; output.data[screen] = color.rgb[0]; output.data[screen+1] = color.rgb[1]; output.data[screen+2] = color.rgb[2]; output.data[screen+3] = 255;
+			if (!ditherInput.checked) continue;
+			const er = working[pixel]-color.rgb[0], eg = working[pixel+1]-color.rgb[1], eb = working[pixel+2]-color.rgb[2];
+			function spread(nx, ny, amount){ const target = (ny*WIDTH+nx)*3; working[target] += er*amount; working[target+1] += eg*amount; working[target+2] += eb*amount; }
+			if (x+1 < WIDTH) spread(x+1, y, 7/16);
+			if (y+1 < HEIGHT) { if (x > 0) spread(x-1, y+1, 3/16); spread(x, y+1, 5/16); if (x+1 < WIDTH) spread(x+1, y+1, 1/16); }
+		}
+		ctx.putImageData(output, 0, 0);
+		packedBytes = new Uint8Array(WIDTH * HEIGHT / 2);
+		for (let y = 0, out = 0; y < HEIGHT; y++) for (let x = 0; x < WIDTH; x += 2) packedBytes[out++] = (codes[y*WIDTH+x] << 4) | codes[y*WIDTH+x+1];
+		previewReady = true; previewButton.disabled = false; binButton.disabled = false; setStatus("Converted 800 × 480 image · " + packedBytes.length.toLocaleString() + " byte .bin");
+	}
+	function download(blob, name){ const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = name; link.click(); setTimeout(function(){ URL.revokeObjectURL(link.href); }, 1000); }
+	fileInput.addEventListener("change", function(){ const file = fileInput.files[0]; if (!file) return; const image = new Image(); image.onload = function(){ sourceImage = image; convertButton.disabled = false; convert(); }; image.onerror = function(){ setStatus("That file could not be opened as an image.", true); }; image.src = URL.createObjectURL(file); });
+	convertButton.addEventListener("click", convert);
+	[fitInput, saturationInput, contrastInput, ditherInput].forEach(function(input){ input.addEventListener("change", function(){ document.getElementById(input.id + (input.type === "range" ? "Value" : "")); if (input.type === "range") document.getElementById(input.id + "Value").textContent = input.value; if (sourceImage) convert(); }); });
+	previewButton.addEventListener("click", function(){ if (!previewReady) return; preview.toBlob(function(blob){ if (blob) download(blob, "wall-preview.png"); }, "image/png"); });
+	binButton.addEventListener("click", function(){ if (packedBytes) download(new Blob([packedBytes], { type: "application/octet-stream" }), "wall-image.bin"); });
+})();
+</script>
+</body>
+</html>
