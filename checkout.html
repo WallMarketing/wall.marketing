@@ -33,11 +33,21 @@ body {
 a { color: inherit; text-decoration: none; }
 button, input { font: inherit; }
 .shell { width: min(100% - 40px, 960px); margin: 0 auto; }
-header { border-bottom: 1px solid var(--hair); }
-.nav { display: flex; justify-content: space-between; align-items: center; padding: 18px 0; }
+header {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  background: rgba(230,233,228,.9);
+  border-bottom: 1px solid var(--hair);
+}
+.nav { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 16px 0; }
 .wordmark { font-size: 1.5rem; font-weight: 800; letter-spacing: -.03em; }
 .wordmark b { color: var(--volt); }
-.nav a:last-child { color: var(--steel); font-size: .9rem; }
+.nav-links { display: flex; align-items: center; gap: clamp(18px, 2.4vw, 30px); }
+.nav-links a:not(.btn) { font-size: .92rem; color: #3A3E40; padding: 6px 0; border-bottom: 1px solid transparent; }
+.nav-links a:not(.btn):hover { color: var(--ink); border-bottom-color: var(--volt); }
+.nav-links .btn { display: inline-flex; width: auto; margin-top: 0; padding: 10px 18px; font-size: .9rem; }
+.menu-btn { display: none; background: none; border: 1px solid var(--hair); border-radius: 3px; padding: 8px 12px; cursor: pointer; font-size: .9rem; }
 main { padding: clamp(42px, 8vw, 88px) 0; }
 .eyebrow { color: var(--volt); font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
 h1, h2 { margin: 0; font-weight: 800; letter-spacing: -.03em; line-height: 1; }
@@ -63,10 +73,17 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 .field input:focus { border-color: var(--volt-2); outline: none; }
 .btn { display: inline-flex; justify-content: center; width: 100%; margin-top: 24px; padding: 12px 18px; border: 1px solid transparent; border-radius: 3px; background: var(--volt-2); color: #14161A; font-weight: 700; cursor: pointer; }
 .btn:hover { background: #fff; }
+.btn--solid { background: var(--ink); color: var(--panel-2); }
+.btn--solid:hover { background: var(--volt); color: var(--panel-2); }
 .empty { color: var(--steel); }
 .empty a { color: var(--volt); text-decoration: underline; text-underline-offset: 3px; }
 .status { margin-top: 16px; color: #A9B0AA; font-size: .85rem; }
 @media (max-width: 760px) {
+  .nav-links { display: none; position: absolute; top: 100%; left: 0; right: 0; flex-direction: column; align-items: stretch; gap: 0; background: var(--panel-2); border-bottom: 1px solid var(--hair); padding: 8px 20px 20px; }
+  .nav-links.open { display: flex; }
+  .nav-links a:not(.btn) { padding: 13px 0; border-bottom: 1px solid var(--hair); }
+  .nav-links a.btn { margin-top: 16px; padding: 13px 18px; }
+  .menu-btn { display: block; }
   .layout { grid-template-columns: 1fr; margin-top: 34px; }
   h1 { font-size: clamp(2.5rem, 13vw, 4.5rem); }
 }
@@ -75,8 +92,16 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 <body>
 <header>
   <div class="shell nav">
-    <a class="wordmark" href="index.html">WALL<b>.</b></a>
-    <a href="sites.html">Back to sites</a>
+    <a href="index.html" class="wordmark">WALL<b>.</b></a>
+    <div class="nav-links" id="navLinks">
+      <a href="index.html#how">How it works</a>
+      <a href="index.html#network">The network</a>
+      <a href="sites.html">Find a site</a>
+      <a href="index.html#format">Format</a>
+      <a href="index.html#host">For venues</a>
+      <a href="sites.html" class="btn btn--solid">Book screen time</a>
+    </div>
+    <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="navLinks">Menu</button>
   </div>
 </header>
 
@@ -121,6 +146,18 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 </main>
 
 <script>
+(function(){
+  var btn = document.getElementById('menuBtn');
+  var links = document.getElementById('navLinks');
+  btn.addEventListener('click', function(){
+    var open = links.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open);
+  });
+  links.addEventListener('click', function(e){
+    if (e.target.tagName === 'A') { links.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
+  });
+})();
+
 (async function(){
   var $ = function(id){ return document.getElementById(id); };
   var esc = function(value){ return String(value).replace(/[&<>"']/g, function(character){ return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[character]; }); };
