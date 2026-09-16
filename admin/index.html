@@ -666,7 +666,7 @@
     const mapBounds = new google.maps.LatLngBounds();
     bounds.forEach((point) => mapBounds.extend({ lat: point[0], lng: point[1] }));
     deviceMap.fitBounds(mapBounds, 40);
-    if (locatedRows.length === 1) deviceMap.setZoom(defaultMapZoom);
+    deviceMap.setZoom(defaultMapZoom);
   }
 
   function attachLocationSuggestions(input) {
