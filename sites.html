@@ -776,7 +776,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
   SITES.forEach(function(s){ allBounds.extend({lat:s.lat,lng:s.lng}); });
   if (SITES.length) {
     map.fitBounds(allBounds, 50);
-    if (SITES.length === 1) map.setZoom(defaultMapZoom);
+    map.setZoom(defaultMapZoom);
   }
 })();
 </script>
