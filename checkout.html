@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review order - WALL</title>
+<meta name="description" content="Review your WALL screen booking plan and send a booking request.">
+<link rel="canonical" href="https://www.wall.marketing/checkout.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --panel: #E6E9E4;
+  --panel-2: #F4F6F2;
+  --ink: #1F2225;
+  --steel: #5C625E;
+  --hair: #CBD1CA;
+  --volt: #3826F0;
+  --volt-2: #8878FF;
+  --chalk: #EDEFEC;
+  --dark: #1B1D1F;
+}
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--panel);
+  color: var(--ink);
+  font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+  font-size: 17px;
+  line-height: 1.5;
+}
+a { color: inherit; text-decoration: none; }
+button, input { font: inherit; }
+.shell { width: min(100% - 40px, 960px); margin: 0 auto; }
+header { border-bottom: 1px solid var(--hair); }
+.nav { display: flex; justify-content: space-between; align-items: center; padding: 18px 0; }
+.wordmark { font-size: 1.5rem; font-weight: 800; letter-spacing: -.03em; }
+.wordmark b { color: var(--volt); }
+.nav a:last-child { color: var(--steel); font-size: .9rem; }
+main { padding: clamp(42px, 8vw, 88px) 0; }
+.eyebrow { color: var(--volt); font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+h1, h2 { margin: 0; font-weight: 800; letter-spacing: -.03em; line-height: 1; }
+h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
+.intro p { max-width: 570px; margin: 20px 0 0; color: var(--steel); }
+.layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr); gap: 26px; margin-top: 48px; align-items: start; }
+.panel { background: var(--panel-2); border: 1px solid var(--hair); border-radius: 3px; padding: clamp(22px, 4vw, 36px); }
+.panel h2 { font-size: 1.55rem; margin-bottom: 22px; }
+.order-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.order-item { display: grid; grid-template-columns: 1fr auto; gap: 18px; padding: 16px 0; border-top: 1px solid var(--hair); }
+.order-item:first-child { border-top: 0; padding-top: 0; }
+.order-item h3 { margin: 0; font-size: 1rem; font-weight: 700; }
+.order-item p { margin: 4px 0 0; color: var(--steel); font-size: .9rem; }
+.order-item strong { color: var(--volt); white-space: nowrap; }
+.summary { background: var(--dark); color: var(--chalk); }
+.summary h2 { color: #fff; }
+.summary dl { display: grid; grid-template-columns: 1fr auto; gap: 10px 20px; margin: 0 0 28px; }
+.summary dt { color: #A9B0AA; }
+.summary dd { margin: 0; font-weight: 700; text-align: right; }
+.field { display: grid; gap: 6px; margin-top: 16px; }
+.field label { color: #A9B0AA; font-size: .85rem; }
+.field input { width: 100%; padding: 10px 11px; border: 1px solid #4A5050; border-radius: 3px; background: #25282A; color: #fff; }
+.field input:focus { border-color: var(--volt-2); outline: none; }
+.btn { display: inline-flex; justify-content: center; width: 100%; margin-top: 24px; padding: 12px 18px; border: 1px solid transparent; border-radius: 3px; background: var(--volt-2); color: #14161A; font-weight: 700; cursor: pointer; }
+.btn:hover { background: #fff; }
+.empty { color: var(--steel); }
+.empty a { color: var(--volt); text-decoration: underline; text-underline-offset: 3px; }
+.status { margin-top: 16px; color: #A9B0AA; font-size: .85rem; }
+@media (max-width: 760px) {
+  .layout { grid-template-columns: 1fr; margin-top: 34px; }
+  h1 { font-size: clamp(2.5rem, 13vw, 4.5rem); }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="shell nav">
+    <a class="wordmark" href="index.html">WALL<b>.</b></a>
+    <a href="sites.html">Back to sites</a>
+  </div>
+</header>
+
+<main class="shell">
+  <section class="intro">
+    <div class="eyebrow">Booking request</div>
+    <h1>Review your order.</h1>
+    <p>Check the screens in your plan, then tell us when you would like to run. We will confirm availability and send the booking details.</p>
+  </section>
+
+  <div class="layout">
+    <section class="panel">
+      <h2>Selected screens</h2>
+      <p class="empty" id="emptyState" hidden>Your plan is empty. <a href="sites.html">Choose a screen</a> to get started.</p>
+      <ul class="order-list" id="orderList"></ul>
+    </section>
+
+    <section class="panel summary">
+      <h2>Order summary</h2>
+      <dl>
+        <dt>Sites</dt><dd id="siteCount">0</dd>
+        <dt>Screens</dt><dd id="screenCount">0</dd>
+      </dl>
+      <form id="bookingForm">
+        <div class="field">
+          <label for="brand">Brand or campaign</label>
+          <input id="brand" name="brand" required>
+        </div>
+        <div class="field">
+          <label for="start">Preferred start date</label>
+          <input id="start" name="start" type="date" required>
+        </div>
+        <div class="field">
+          <label for="weeks">Number of weeks</label>
+          <input id="weeks" name="weeks" type="number" min="1" value="1" required>
+        </div>
+        <button class="btn" type="submit">Request booking</button>
+        <div class="status" id="formStatus" aria-live="polite"></div>
+      </form>
+    </section>
+  </div>
+</main>
+
+<script>
+(async function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var esc = function(value){ return String(value).replace(/[&<>"']/g, function(character){ return ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[character]; }); };
+  var params = location.hash.match(/plan=([^&]+)/);
+  var ids = params ? decodeURIComponent(params[1]).split(",").filter(Boolean) : [];
+
+  try {
+    var response = await fetch("/api/devices");
+    if (!response.ok) throw new Error("Could not load the screen network");
+    var devices = await response.json();
+    var byId = {};
+    devices.forEach(function(device){ byId[device.device_id] = device; });
+    var selected = ids.map(function(id){ return byId[id]; }).filter(Boolean);
+    var screens = selected.length;
+
+    $("siteCount").textContent = selected.length;
+    $("screenCount").textContent = screens;
+    if (!selected.length) {
+      $("emptyState").hidden = false;
+      $("bookingForm").hidden = true;
+      return;
+    }
+
+    $("orderList").innerHTML = selected.map(function(device){
+      var name = device.site_name || device.device_id;
+      var location = device.site_location || "Location not set";
+      return '<li class="order-item"><div><h3>' + esc(name) + '</h3><p>' + esc(location) + '</p></div><strong>1 screen</strong></li>';
+    }).join("");
+
+    $("bookingForm").addEventListener("submit", function(event){
+      event.preventDefault();
+      var data = new FormData(event.currentTarget);
+      var subject = "Booking request: " + screens + (screens === 1 ? " screen" : " screens");
+      var body = "Hello WALL,\n\nI would like to book:\n\n" + selected.map(function(device){ return "- " + (device.site_name || device.device_id) + " (" + (device.site_location || "Location not set") + ")"; }).join("\n") + "\n\nBrand or campaign: " + data.get("brand") + "\nPreferred start date: " + data.get("start") + "\nNumber of weeks: " + data.get("weeks") + "\n\nPlease confirm availability and price.";
+      location.href = "mailto:hello@wall.marketing?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+      $("formStatus").textContent = "Opening your email app...";
+    });
+  } catch (error) {
+    $("formStatus").textContent = error.message;
+  }
+})();
+</script>
+</body>
+</html>
