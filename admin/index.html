@@ -121,7 +121,7 @@
     color: var(--steel);
     min-height: 1.2em;
   }
-  table { width: 100%; min-width: 720px; border-collapse: collapse; font-size: .85rem; }
+  table { width: 100%; min-width: 820px; border-collapse: collapse; font-size: .85rem; }
   th, td {
     text-align: left;
     padding: 10px;
@@ -132,6 +132,30 @@
   .preview-btn {
     padding: 5px 12px;
     font-size: .8rem;
+  }
+  .site-edit-cell { min-width: 150px; }
+  .site-input {
+    width: 100%;
+    min-width: 130px;
+    background: #fff;
+    border: 1px solid var(--hair);
+    border-radius: 3px;
+    color: var(--ink);
+    padding: 7px 8px;
+    font-size: .82rem;
+  }
+  .site-input:focus { border-color: var(--volt); outline: none; }
+  .site-save {
+    padding: 6px 10px;
+    font-size: .8rem;
+    white-space: nowrap;
+  }
+  .site-save-status {
+    display: block;
+    color: var(--steel);
+    font-size: .75rem;
+    margin-top: 4px;
+    min-height: 1em;
   }
   .modal-overlay {
     position: fixed;
@@ -223,7 +247,7 @@
         <thead>
           <tr>
             <th>Device</th><th>Site name</th><th>Site location</th><th>Last seen</th><th>Uptime</th><th>RSSI</th>
-            <th>Heap</th><th>FW</th><th>Errors</th><th>Image</th>
+            <th>Heap</th><th>FW</th><th>Errors</th><th>Image</th><th>Actions</th>
           </tr>
         </thead>
         <tbody id="devicesBody"></tbody>
@@ -456,6 +480,28 @@
   const devicesBody = document.getElementById('devicesBody');
   const devicesStatus = document.getElementById('devicesStatus');
 
+  async function saveDeviceSite(deviceId, siteNameInput, siteLocationInput, saveButton, saveStatus) {
+    saveButton.disabled = true;
+    saveStatus.textContent = 'Saving...';
+    try {
+      const resp = await fetch(`/api/devices/${encodeURIComponent(deviceId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          site_name: siteNameInput.value,
+          site_location: siteLocationInput.value,
+        }),
+      });
+      const result = await resp.json();
+      if (!resp.ok) throw new Error(result.error || 'Could not save site details');
+      saveStatus.textContent = 'Saved';
+    } catch (err) {
+      saveStatus.textContent = 'Error: ' + err.message;
+    } finally {
+      saveButton.disabled = false;
+    }
+  }
+
   async function loadDevices() {
     try {
       const resp = await fetch('/api/devices');
@@ -471,8 +517,8 @@
         const name = row.friendly_name ? `${row.device_id} (${row.friendly_name})` : row.device_id;
         tr.innerHTML = `
           <td>${name}</td>
-          <td>${row.site_name ?? '—'}</td>
-          <td>${row.site_location ?? '—'}</td>
+          <td class="site-edit-cell"></td>
+          <td class="site-edit-cell"></td>
           <td><span class="status-dot ${dotClass}"></span>${formatRelativeTime(row.last_seen_at)}</td>
           <td>${row.uptime_seconds ?? '—'}s</td>
           <td>${row.rssi ?? '—'}</td>
@@ -480,7 +526,37 @@
           <td>${row.firmware_version ?? '—'}</td>
           <td>${row.error_count ?? '—'}</td>
           <td>${row.image_hash ?? '—'}</td>
+          <td class="site-edit-actions">
+            <button type="button" class="site-save">Save</button>
+            <span class="site-save-status" aria-live="polite"></span>
+          </td>
         `;
+
+        const siteCells = tr.querySelectorAll('.site-edit-cell');
+        const siteNameInput = document.createElement('input');
+        siteNameInput.className = 'site-input';
+        siteNameInput.type = 'text';
+        siteNameInput.maxLength = 200;
+        siteNameInput.placeholder = 'Site name';
+        siteNameInput.value = row.site_name || '';
+        siteCells[0].appendChild(siteNameInput);
+
+        const siteLocationInput = document.createElement('input');
+        siteLocationInput.className = 'site-input';
+        siteLocationInput.type = 'text';
+        siteLocationInput.maxLength = 200;
+        siteLocationInput.placeholder = 'Site location';
+        siteLocationInput.value = row.site_location || '';
+        siteCells[1].appendChild(siteLocationInput);
+
+        tr.querySelectorAll('.site-edit-cell, .site-edit-actions').forEach((cell) => {
+          cell.addEventListener('click', (event) => event.stopPropagation());
+        });
+        const saveButton = tr.querySelector('.site-save');
+        const saveStatus = tr.querySelector('.site-save-status');
+        saveButton.addEventListener('click', () => saveDeviceSite(
+          row.device_id, siteNameInput, siteLocationInput, saveButton, saveStatus
+        ));
         tr.addEventListener('click', () => openDeviceHistory(row.device_id));
         devicesBody.appendChild(tr);
       }

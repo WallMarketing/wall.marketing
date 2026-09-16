@@ -224,6 +224,55 @@ export default {
       });
     }
 
+    // --- Devices: update the site metadata shown in the admin fleet table ---
+    const deviceUpdateMatch = url.pathname.match(/^\/api\/devices\/([^/]+)$/);
+    if (deviceUpdateMatch && request.method === 'PATCH') {
+      const deviceId = decodeURIComponent(deviceUpdateMatch[1]);
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return new Response(JSON.stringify({ error: 'request body must be valid JSON' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return new Response(JSON.stringify({ error: 'request body must be a JSON object' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      const fields = ['site_name', 'site_location'];
+      for (const field of fields) {
+        if (typeof body[field] !== 'string' || body[field].trim().length > 200) {
+          return new Response(JSON.stringify({ error: `${field} must be a string of 200 characters or fewer` }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+      }
+
+      const siteName = body.site_name.trim() || null;
+      const siteLocation = body.site_location.trim() || null;
+      const result = await env.DB.prepare(
+        `UPDATE devices SET site_name = ?, site_location = ? WHERE device_id = ?`
+      ).bind(siteName, siteLocation, deviceId).run();
+
+      if (!result.meta.changes) {
+        return new Response(JSON.stringify({ error: 'device not found' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({ ok: true, site_name: siteName, site_location: siteLocation }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     // --- Devices: full check-in history for one device (admin page's
     //     click-through from the fleet overview row) ---
     const deviceHistoryMatch = url.pathname.match(/^\/api\/devices\/([^/]+)\/checkins$/);
