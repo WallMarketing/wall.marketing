@@ -143,7 +143,7 @@
     font-size: .8rem;
     white-space: nowrap;
   }
-  .image-cell { white-space: nowrap; }
+  .image-cell, .site-edit-actions { white-space: nowrap; vertical-align: top; }
   .last-seen-btn {
     display: inline-flex;
     align-items: center;
@@ -172,6 +172,8 @@
     font-size: .82rem;
   }
   .site-input:focus { border-color: var(--volt); outline: none; }
+  .site-edit-cell:has(.daily-cost-input) { min-width: 0; }
+  .daily-cost-input { width: 72px; min-width: 72px; }
   .location-editor { position: relative; }
   .location-suggestions {
     position: static;
@@ -843,7 +845,7 @@
         attachLocationSuggestions(siteLocationInput);
 
         const dailyCostInput = document.createElement('input');
-        dailyCostInput.className = 'site-input';
+        dailyCostInput.className = 'site-input daily-cost-input';
         dailyCostInput.type = 'number';
         dailyCostInput.min = '0';
         dailyCostInput.step = '0.01';
