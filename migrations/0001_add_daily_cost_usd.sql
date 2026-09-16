@@ -1,0 +1,1 @@
+ALTER TABLE devices ADD COLUMN daily_cost_usd REAL NOT NULL DEFAULT 10;

@@ -279,6 +279,7 @@ export default {
            d.friendly_name,
            d.site_name,
            d.site_location,
+           d.daily_cost_usd,
            d.site_latitude,
            d.site_longitude,
            d.target_firmware_version,
@@ -332,6 +333,15 @@ export default {
             headers: { 'Content-Type': 'application/json' },
           });
         }
+
+      }
+
+      const dailyCostUsd = Number(body.daily_cost_usd);
+      if (!Number.isFinite(dailyCostUsd) || dailyCostUsd < 0 || dailyCostUsd > 100000 || Math.round(dailyCostUsd * 100) !== dailyCostUsd * 100) {
+        return new Response(JSON.stringify({ error: 'daily_cost_usd must be a non-negative amount with at most two decimal places' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
       }
 
       const siteName = body.site_name.trim() || null;
@@ -379,9 +389,9 @@ export default {
       }
       const result = await env.DB.prepare(
         `UPDATE devices
-            SET site_name = ?, site_location = ?, site_latitude = ?, site_longitude = ?
+            SET site_name = ?, site_location = ?, daily_cost_usd = ?, site_latitude = ?, site_longitude = ?
           WHERE device_id = ?`
-      ).bind(siteName, siteLocation, latitude, longitude, deviceId).run();
+      ).bind(siteName, siteLocation, dailyCostUsd, latitude, longitude, deviceId).run();
 
       if (!result.meta.changes) {
         return new Response(JSON.stringify({ error: 'device not found' }), {
@@ -394,6 +404,7 @@ export default {
         ok: true,
         site_name: siteName,
         site_location: siteLocation,
+        daily_cost_usd: dailyCostUsd,
         site_latitude: latitude,
         site_longitude: longitude,
       }), {
