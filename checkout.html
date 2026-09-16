@@ -72,6 +72,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 .field label { color: #A9B0AA; font-size: .85rem; }
 .field input { width: 100%; padding: 10px 11px; border: 1px solid #4A5050; border-radius: 3px; background: #25282A; color: #fff; }
 .field input:focus { border-color: var(--volt-2); outline: none; }
+.date-hint { color: #A9B0AA; font-size: .78rem; }
 .btn { display: inline-flex; justify-content: center; width: 100%; margin-top: 24px; padding: 12px 18px; border: 1px solid transparent; border-radius: 3px; background: var(--volt-2); color: #14161A; font-weight: 700; cursor: pointer; }
 .btn:hover { background: #fff; }
 .btn--solid { background: var(--ink); color: var(--panel-2); }
@@ -126,7 +127,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
         <dt>Sites</dt><dd id="siteCount">0</dd>
         <dt>Screens</dt><dd id="screenCount">0</dd>
         <dt>Daily rate</dt><dd id="dailyRate">$0.00</dd>
-        <dt>Estimated total</dt><dd id="estimatedTotal" class="total">$0.00</dd>
+        <dt>Estimated total</dt><dd id="estimatedTotal" class="total">Enter dates</dd>
       </dl>
       <form id="bookingForm">
         <div class="field">
@@ -138,8 +139,9 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
           <input id="start" name="start" type="date" required>
         </div>
         <div class="field">
-          <label for="weeks">Number of weeks</label>
-          <input id="weeks" name="weeks" type="number" min="1" value="1" required>
+          <label for="end">Preferred end date</label>
+          <input id="end" name="end" type="date" required>
+          <div class="date-hint" id="dateHint">Minimum booking: 5 days</div>
         </div>
         <button class="btn" type="submit">Request booking</button>
         <div class="status" id="formStatus" aria-live="polite"></div>
@@ -193,20 +195,51 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       return '<li class="order-item"><div><h3>' + esc(name) + '</h3><p>' + esc(location) + '</p></div><strong>1 screen</strong></li>';
     }).join("");
 
-    function updateEstimatedTotal(){
-      var weeks = Math.max(1, Number($("weeks").value) || 1);
-      $("estimatedTotal").textContent = currency.format(dailyRate * 7 * weeks);
+    function daysBetween(start, end){
+      var startDate = new Date(start + "T00:00:00Z");
+      var endDate = new Date(end + "T00:00:00Z");
+      return Math.round((endDate - startDate) / 86400000);
     }
-    $("weeks").addEventListener("input", updateEstimatedTotal);
-    updateEstimatedTotal();
+    function updateEstimatedTotal(){
+      var start = $("start").value;
+      var end = $("end").value;
+      var days = start && end ? daysBetween(start, end) : 0;
+      if (!start || !end) {
+        $("estimatedTotal").textContent = "Enter dates";
+        $("dateHint").textContent = "Minimum booking: 5 days";
+        return false;
+      }
+      if (days < 5) {
+        $("estimatedTotal").textContent = "Minimum 5 days";
+        $("dateHint").textContent = "Choose an end date at least 5 days after the start date";
+        return false;
+      }
+      $("estimatedTotal").textContent = currency.format(dailyRate * days);
+      $("dateHint").textContent = days + (days === 1 ? " day" : " days");
+      return true;
+    }
+    $("start").addEventListener("input", function(){
+      if ($("start").value) {
+        var minimumEnd = new Date($("start").value + "T00:00:00Z");
+        minimumEnd.setUTCDate(minimumEnd.getUTCDate() + 5);
+        $("end").min = minimumEnd.toISOString().slice(0, 10);
+      } else {
+        $("end").removeAttribute("min");
+      }
+      updateEstimatedTotal();
+    });
+    $("end").addEventListener("input", updateEstimatedTotal);
 
     $("bookingForm").addEventListener("submit", function(event){
       event.preventDefault();
       var data = new FormData(event.currentTarget);
-      var weeks = Math.max(1, Number(data.get("weeks")) || 1);
-      var estimatedTotal = dailyRate * 7 * weeks;
+      if (!updateEstimatedTotal()) return;
+      var start = data.get("start");
+      var end = data.get("end");
+      var days = daysBetween(start, end);
+      var estimatedTotal = dailyRate * days;
       var subject = "Booking request: " + screens + (screens === 1 ? " screen" : " screens");
-      var body = "Hello WALL,\n\nI would like to book:\n\n" + selected.map(function(device){ return "- " + (device.site_name || device.device_id) + " (" + (device.site_location || "Location not set") + ")"; }).join("\n") + "\n\nBrand or campaign: " + data.get("brand") + "\nPreferred start date: " + data.get("start") + "\nNumber of weeks: " + weeks + "\nDaily rate: " + currency.format(dailyRate) + "\nEstimated total: " + currency.format(estimatedTotal) + "\n\nPlease confirm availability and price.";
+      var body = "Hello WALL,\n\nI would like to book:\n\n" + selected.map(function(device){ return "- " + (device.site_name || device.device_id) + " (" + (device.site_location || "Location not set") + ")"; }).join("\n") + "\n\nBrand or campaign: " + data.get("brand") + "\nStart date: " + start + "\nEnd date: " + end + "\nBooking length: " + days + " days\nDaily rate: " + currency.format(dailyRate) + "\nEstimated total: " + currency.format(estimatedTotal) + "\n\nPlease confirm availability and price.";
       location.href = "mailto:hello@wall.marketing?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
       $("formStatus").textContent = "Opening your email app...";
     });
