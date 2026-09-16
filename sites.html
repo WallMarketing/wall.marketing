@@ -685,6 +685,11 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
 
   /* ---------- card ---------- */
   var card = $("card");
+  function revealMapBottom(){
+    if (window.matchMedia("(min-width:981px)").matches) {
+      document.querySelector(".app").scrollIntoView({block:"end", behavior:"smooth"});
+    }
+  }
   function open(id, fly){
     var prev = state.active;
     state.active = id;
@@ -706,6 +711,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
       else el.removeAttribute("aria-current");
     });
     centreOn(s, fly ? Math.max(map.getZoom(),15) : map.getZoom());
+    revealMapBottom();
   }
   // centre the pin in the part of the map the card isn't covering
   function centreOn(s, z){
