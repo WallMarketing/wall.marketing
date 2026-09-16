@@ -676,6 +676,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
       var b = new google.maps.LatLngBounds();
       shown.forEach(function(s){ b.extend({lat:s.lat,lng:s.lng}); });
       map.fitBounds(b, 60);
+      map.setZoom(defaultMapZoom);
     }
   }
   list.addEventListener("click", function(e){
