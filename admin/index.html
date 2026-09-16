@@ -142,7 +142,22 @@
     font-size: .8rem;
   }
   .image-cell { white-space: nowrap; }
-  .history-btn { padding: 6px 8px; font-size: .78rem; white-space: nowrap; }
+  .last-seen-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0;
+    background: transparent;
+    color: var(--ink);
+    border: 0;
+    font: inherit;
+    text-align: left;
+    text-decoration: underline;
+    text-decoration-color: var(--hair);
+    text-underline-offset: 3px;
+  }
+  .last-seen-btn:hover { background: transparent; color: var(--volt); }
+  .last-seen-btn:focus-visible { outline: 2px solid var(--volt); outline-offset: 3px; }
   .site-edit-cell { min-width: 150px; }
   .site-input {
     width: 100%;
@@ -758,7 +773,7 @@
           <td>${name}</td>
           <td class="site-edit-cell"></td>
           <td class="site-edit-cell"></td>
-          <td><span class="status-dot ${dotClass}"></span>${formatRelativeTime(row.last_seen_at)}</td>
+          <td><button type="button" class="last-seen-btn" title="View check-in history"><span class="status-dot ${dotClass}"></span>${formatRelativeTime(row.last_seen_at)}</button></td>
           <td>${row.uptime_seconds ?? '—'}s</td>
           <td>${row.rssi ?? '—'}</td>
           <td>${row.free_heap ?? '—'}</td>
@@ -767,7 +782,6 @@
           <td class="image-cell"></td>
           <td class="site-edit-actions">
             <button type="button" class="site-save">Save</button>
-            <button type="button" class="history-btn">History</button>
             <span class="site-save-status" aria-live="polite"></span>
           </td>
         `;
@@ -807,12 +821,12 @@
           cell.addEventListener('click', (event) => event.stopPropagation());
         });
         const saveButton = tr.querySelector('.site-save');
-        const historyButton = tr.querySelector('.history-btn');
+        const lastSeenButton = tr.querySelector('.last-seen-btn');
         const saveStatus = tr.querySelector('.site-save-status');
         saveButton.addEventListener('click', () => saveDeviceSite(
           row.device_id, siteNameInput, siteLocationInput, saveButton, saveStatus
         ));
-        historyButton.addEventListener('click', () => openDeviceHistory(row.device_id));
+        lastSeenButton.addEventListener('click', () => openDeviceHistory(row.device_id));
         devicesBody.appendChild(tr);
       }
       devicesStatus.textContent = rows.length ? '' : 'No devices have checked in yet.';
