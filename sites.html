@@ -591,8 +591,9 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     script.onerror = function(){ reject(new Error("Google Maps failed to load")); };
     document.head.appendChild(script);
   });
+  var defaultMapZoom = 17;
   map = new google.maps.Map($("map"), {
-    center:{lat:30.2745,lng:-97.7420}, zoom:13, mapId:"DEMO_MAP_ID",
+    center:{lat:30.2745,lng:-97.7420}, zoom:defaultMapZoom, mapId:"DEMO_MAP_ID",
     mapTypeControl:false, streetViewControl:false, fullscreenControl:false,
     styles:[
       {elementType:"geometry",stylers:[{color:"#E6E9E4"}]},
@@ -769,7 +770,10 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
   renderPlan();
   var allBounds = new google.maps.LatLngBounds();
   SITES.forEach(function(s){ allBounds.extend({lat:s.lat,lng:s.lng}); });
-  if (SITES.length) map.fitBounds(allBounds, 50);
+  if (SITES.length) {
+    map.fitBounds(allBounds, 50);
+    if (SITES.length === 1) map.setZoom(defaultMapZoom);
+  }
 })();
 </script>
 

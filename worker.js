@@ -193,6 +193,28 @@ export default {
       });
     }
 
+    // --- Images: the image most recently reported by one device ---
+    const deviceImageMatch = url.pathname.match(/^\/api\/devices\/([^/]+)\/image$/);
+    if (deviceImageMatch && request.method === 'GET') {
+      const deviceId = decodeURIComponent(deviceImageMatch[1]);
+      const checkin = await env.DB.prepare(
+        `SELECT image_hash FROM checkins WHERE device_id = ? ORDER BY id DESC LIMIT 1`
+      ).bind(deviceId).first();
+      const imageIdMatch = checkin?.image_hash?.match(/^img-(\d+)$/);
+      if (!imageIdMatch) return new Response('No current image reported', { status: 404 });
+
+      const image = await env.DB.prepare(
+        `SELECT r2_key FROM images WHERE id = ?`
+      ).bind(parseInt(imageIdMatch[1], 10)).first();
+      if (!image) return new Response('Image not found', { status: 404 });
+
+      const object = await env.IMAGES.get(image.r2_key);
+      if (!object) return new Response('Image data missing from storage', { status: 404 });
+      return new Response(object.body, {
+        headers: { 'Content-Type': 'application/octet-stream' },
+      });
+    }
+
     // --- Google Maps browser configuration for the admin map ---
     if (url.pathname === '/api/maps-config' && request.method === 'GET') {
       if (!env.GOOGLE_MAPS_BROWSER_KEY) {
