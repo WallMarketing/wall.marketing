@@ -227,7 +227,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
   var ids = params ? decodeURIComponent(params[1]).split(",").filter(Boolean) : [];
 
   try {
-    var response = await fetch("/api/devices");
+    var response = await fetch("/api/sites");
     if (!response.ok) throw new Error("Could not load the screen network");
     var devices = await response.json();
     var byId = {};
