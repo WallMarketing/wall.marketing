@@ -82,6 +82,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 .btn:hover { background: #fff; }
 .btn--solid { background: var(--ink); color: var(--panel-2); }
 .btn--solid:hover { background: var(--volt); color: var(--panel-2); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
 .empty { color: var(--steel); }
 .empty a { color: var(--volt); text-decoration: underline; text-underline-offset: 3px; }
 .status { margin-top: 16px; color: #A9B0AA; font-size: .85rem; }
@@ -240,6 +241,16 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     var screens = selected.length;
     var dailyRate = selected.reduce(function(total, device){ return total + Number(device.daily_cost_usd ?? 10); }, 0);
     var currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+    var submitButton = $("bookingForm").querySelector("button[type=submit]");
+    var requiredFields = ["brand", "contactEmail", "start", "end"];
+    function hasValidAdvertisement(){
+      var advertisement = window.wallAdvertisement;
+      return Boolean(advertisement && advertisement.bytes instanceof Uint8Array && advertisement.bytes.byteLength === 800 * 480 / 2 && /^[A-Za-z0-9_-]+\.bin$/.test(advertisement.filename));
+    }
+    function updateSubmitState(){
+      submitButton.disabled = !$("bookingForm").checkValidity() || !hasValidAdvertisement();
+    }
+    window.updateCheckoutSubmitState = updateSubmitState;
 
     $("siteCount").textContent = selected.length;
     $("screenCount").textContent = screens;
@@ -288,18 +299,20 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
         $("end").removeAttribute("min");
       }
       updateEstimatedTotal();
+      updateSubmitState();
     });
-    $("end").addEventListener("input", updateEstimatedTotal);
+    $("end").addEventListener("input", function(){ updateEstimatedTotal(); updateSubmitState(); });
+    requiredFields.forEach(function(fieldId){ $(fieldId).addEventListener("input", updateSubmitState); });
+    updateSubmitState();
 
     $("bookingForm").addEventListener("submit", async function(event){
       event.preventDefault();
       var data = new FormData(event.currentTarget);
-      if (!updateEstimatedTotal()) return;
-      if (!window.wallAdvertisement) {
-        $("formStatus").textContent = "Add your advertisement before continuing to payment.";
+      if (!event.currentTarget.checkValidity() || !updateEstimatedTotal() || !hasValidAdvertisement()) {
+        event.currentTarget.reportValidity();
+        if (!hasValidAdvertisement()) $("formStatus").textContent = "Add your advertisement before continuing to payment.";
         return;
       }
-      var submitButton = event.currentTarget.querySelector("button[type=submit]");
       submitButton.disabled = true;
       $("formStatus").textContent = "Saving your booking...";
       data.set("campaign_name", data.get("brand"));
@@ -456,6 +469,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     advertisementFileSummary.hidden = false;
     advertisementFileSummary.textContent = advertisementFilename;
     window.wallAdvertisement = { filename: advertisementFilename, bytes: packedBytes.slice() };
+    if (window.updateCheckoutSubmitState) window.updateCheckoutSubmitState();
     setStatus(advertisementFilename + ' added to booking');
   });
   [fitInput, saturationInput, contrastInput].forEach(function(input){
