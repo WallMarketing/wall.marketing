@@ -22,5 +22,10 @@
       "binding": "IMAGES",
       "bucket_name": "wall-images"
     }
+  ],
+  "send_email": [
+    {
+      "name": "EMAIL"
+    }
   ]
 }

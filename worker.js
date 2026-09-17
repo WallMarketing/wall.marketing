@@ -71,6 +71,83 @@ async function verifyStripeSignature(payload, signature, secret) {
   return timingSafeEqual(expected, received);
 }
 
+function pdfEscape(value) {
+  return String(value || '').replace(/[\\()]/g, '\\$&').replace(/[^\x20-\x7E]/g, '?');
+}
+
+function buildInvoicePdf(order) {
+  const lines = [
+    'WALL advertising invoice',
+    `Order: ${order.checkout_code}`,
+    `Campaign: ${order.campaign_name}`,
+    `Contact: ${order.contact_email}`,
+    `Booking: ${order.start_date} to ${order.end_date}`,
+    `Total: USD ${Number(order.total_usd || 0).toFixed(2)}`,
+  ];
+  if (order.invoice_required) {
+    lines.push(
+      `Business: ${order.business_name}`,
+      `Registration: ${order.business_registration_number}`,
+      `Tax number: ${order.tax_number}`,
+      `Invoice contact: ${order.invoice_contact_name}`,
+      `Phone: ${order.invoice_phone}`,
+      `Address: ${order.invoice_address}, ${order.invoice_city}, ${order.invoice_postcode}, ${order.invoice_country}`
+    );
+  }
+  const text = lines.map((line, index) => `BT /F1 ${index === 0 ? 18 : 11} Tf 54 ${750 - index * 28} Td (${pdfEscape(line)}) Tj ET`).join('\n');
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
+    `<< /Length ${text.length} >>\nstream\n${text}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+  let pdf = '%PDF-1.4\n';
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(pdf.length);
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach((offset) => { pdf += `${String(offset).padStart(10, '0')} 00000 n \n`; });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return new TextEncoder().encode(pdf);
+}
+
+function base64Bytes(bytes) {
+  let binary = '';
+  for (let index = 0; index < bytes.length; index += 0x8000) binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  return btoa(binary);
+}
+
+function makeEmailMessage(from, to, subject, text, pdfBytes, filename) {
+  const boundary = `wall-${crypto.randomUUID()}`;
+  const attachment = pdfBytes ? `--${boundary}\r\nContent-Type: application/pdf; name="${filename}"\r\nContent-Disposition: attachment; filename="${filename}"\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Bytes(pdfBytes)}\r\n` : '';
+  return [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    'MIME-Version: 1.0',
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/plain; charset=UTF-8',
+    'Content-Transfer-Encoding: 8bit',
+    '',
+    text,
+    attachment,
+    `--${boundary}--`,
+    '',
+  ].join('\r\n');
+}
+
+async function sendOrderEmail(env, order, subject, text, pdfBytes, filename) {
+  if (!env.EMAIL || !env.EMAIL_FROM || !order.contact_email) throw new Error('email sending is not configured');
+  const raw = makeEmailMessage(env.EMAIL_FROM, order.contact_email, subject, text, pdfBytes, filename);
+  await env.EMAIL.send(new EmailMessage(env.EMAIL_FROM, order.contact_email, raw));
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -471,6 +548,7 @@ export default {
       stripeParams.set('line_items[0][price_data][product_data][name]', `WALL advertising: ${campaignName}`);
       stripeParams.set('line_items[0][quantity]', '1');
       stripeParams.set('metadata[order_id]', orderId);
+      stripeParams.set('payment_intent_data[metadata][order_id]', orderId);
       const stripeResponse = await fetch('https://api.stripe.com/v1/checkout/sessions', {
         method: 'POST',
         headers: {
@@ -496,14 +574,38 @@ export default {
       const signature = request.headers.get('Stripe-Signature') || '';
       if (!(await verifyStripeSignature(payload, signature, env.STRIPE_WEBHOOK_SECRET))) return new Response('Invalid signature', { status: 400 });
       const event = JSON.parse(payload);
-      if ((event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') && event.data.object.payment_status === 'paid') {
-        const session = event.data.object;
-        const orderId = session.metadata?.order_id || session.client_reference_id;
-        if (orderId) {
-          await env.DB.prepare(
-            `UPDATE orders SET status = 'paid', customer_email = ?, stripe_payment_intent_id = ?, updated_at = datetime('now')
-             WHERE id = ? AND status = 'pending_payment'`
-          ).bind(session.customer_details?.email || null, session.payment_intent || null, orderId).run();
+      const session = event.data.object;
+      const orderId = session.metadata?.order_id || session.client_reference_id;
+      const paidEvent = (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') && session.payment_status === 'paid';
+      const failedEvent = event.type === 'checkout.session.async_payment_failed' || event.type === 'checkout.session.expired' || event.type === 'payment_intent.payment_failed';
+      if (orderId && paidEvent) {
+        await env.DB.prepare(
+          `UPDATE orders SET status = 'paid', customer_email = ?, stripe_payment_intent_id = ?, last_stripe_event_id = ?, updated_at = datetime('now')
+           WHERE id = ? AND status = 'pending_payment'`
+        ).bind(session.customer_details?.email || null, session.payment_intent || null, event.id || null, orderId).run();
+        const order = await env.DB.prepare(`SELECT * FROM orders WHERE id = ?`).bind(orderId).first();
+        if (order && !order.success_email_sent) {
+          const pdf = buildInvoicePdf(order);
+          await sendOrderEmail(
+            env,
+            order,
+            `WALL advertisement scheduled - ${order.checkout_code}`,
+            `Your WALL advertisement is scheduled.\n\nOrder reference: ${order.checkout_code}\nCampaign: ${order.campaign_name}\nBooking: ${order.start_date} to ${order.end_date}\n\nYour invoice is attached as a PDF.`,
+            pdf,
+            `invoice-${order.checkout_code}.pdf`
+          );
+          await env.DB.prepare(`UPDATE orders SET success_email_sent = 1, updated_at = datetime('now') WHERE id = ?`).bind(orderId).run();
+        }
+      } else if (orderId && failedEvent) {
+        const order = await env.DB.prepare(`SELECT * FROM orders WHERE id = ?`).bind(orderId).first();
+        if (order && !order.failure_email_sent) {
+          await sendOrderEmail(
+            env,
+            order,
+            `WALL payment not completed - ${order.checkout_code}`,
+            `Your WALL booking is still saved, but payment was not completed.\n\nOrder reference: ${order.checkout_code}\nCampaign: ${order.campaign_name}\n\nYou can return to checkout to try again or contact us for help.`
+          );
+          await env.DB.prepare(`UPDATE orders SET failure_email_sent = 1, last_stripe_event_id = ?, updated_at = datetime('now') WHERE id = ?`).bind(event.id || null, orderId).run();
         }
       }
       return jsonResponse({ received: true });
