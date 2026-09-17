@@ -199,7 +199,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
           <label for="promo">Promo code</label>
           <input id="promo" name="promo" type="text" autocomplete="off">
         </div>
-        <button class="btn" type="submit">Schedule booking</button>
+        <button class="btn" type="submit">Continue to payment</button>
         <div class="status" id="formStatus" aria-live="polite"></div>
       </form>
     </section>
@@ -287,19 +287,32 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     });
     $("end").addEventListener("input", updateEstimatedTotal);
 
-    $("bookingForm").addEventListener("submit", function(event){
+    $("bookingForm").addEventListener("submit", async function(event){
       event.preventDefault();
       var data = new FormData(event.currentTarget);
       if (!updateEstimatedTotal()) return;
-      var start = data.get("start");
-      var end = data.get("end");
-      var days = daysBetween(start, end);
-      var estimatedTotal = dailyRate * days;
-      var subject = "Booking request: " + screens + (screens === 1 ? " screen" : " screens");
-      var advertisement = $("advertisementFileSummary").hidden ? "" : "\nAdvertisement file: " + $("advertisementFileSummary").textContent;
-      var body = "Hello WALL,\n\nI would like to book:\n\n" + selected.map(function(device){ return "- " + (device.site_name || device.device_id) + " (" + (device.site_location || "Location not set") + ")"; }).join("\n") + "\n\nBrand or campaign: " + data.get("brand") + "\nStart date: " + start + "\nEnd date: " + end + "\nBooking length: " + days + " days\nDaily rate: " + currency.format(dailyRate) + "\nEstimated total: " + currency.format(estimatedTotal) + advertisement + "\n\nPlease confirm availability and price.";
-      location.href = "mailto:hello@wall.marketing?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
-      $("formStatus").textContent = "Opening your email app...";
+      if (!window.wallAdvertisement) {
+        $("formStatus").textContent = "Add your advertisement before continuing to payment.";
+        return;
+      }
+      var submitButton = event.currentTarget.querySelector("button[type=submit]");
+      submitButton.disabled = true;
+      $("formStatus").textContent = "Saving your booking...";
+      data.set("campaign_name", data.get("brand"));
+      data.set("start_date", data.get("start"));
+      data.set("end_date", data.get("end"));
+      data.set("device_ids", JSON.stringify(selected.map(function(device){ return device.device_id; })));
+      data.set("advertisement_filename", window.wallAdvertisement.filename);
+      data.set("advertisement", new File([window.wallAdvertisement.bytes], window.wallAdvertisement.filename, { type: "application/octet-stream" }));
+      try {
+        var response = await fetch("/api/orders", { method: "POST", body: data });
+        var result = await response.json();
+        if (!response.ok || !result.checkout_url) throw new Error(result.error || "Could not create the payment session");
+        location.href = result.checkout_url;
+      } catch (error) {
+        submitButton.disabled = false;
+        $("formStatus").textContent = error.message;
+      }
     });
   } catch (error) {
     $("formStatus").textContent = error.message;
@@ -438,6 +451,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     advertisementFileLabel.hidden = false;
     advertisementFileSummary.hidden = false;
     advertisementFileSummary.textContent = advertisementFilename;
+    window.wallAdvertisement = { filename: advertisementFilename, bytes: packedBytes.slice() };
     setStatus(advertisementFilename + ' added to booking');
   });
   [fitInput, saturationInput, contrastInput].forEach(function(input){

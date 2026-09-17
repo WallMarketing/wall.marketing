@@ -37,6 +37,40 @@ function unauthorizedResponse() {
   });
 }
 
+function jsonResponse(body, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+function parseDate(value) {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+}
+
+function hexToBytes(hex) {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  return bytes;
+}
+
+async function verifyStripeSignature(payload, signature, secret) {
+  const parts = Object.fromEntries(signature.split(',').map((part) => part.split('=')));
+  const timestamp = Number(parts.t);
+  const received = parts.v1;
+  if (!Number.isFinite(timestamp) || !received || Math.abs(Date.now() / 1000 - timestamp) > 300) return false;
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signed = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${timestamp}.${payload}`));
+  const expected = Array.from(new Uint8Array(signed), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return timingSafeEqual(expected, received);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -319,6 +353,106 @@ export default {
       return new Response(JSON.stringify(results), {
         headers: { 'Content-Type': 'application/json' },
       });
+    }
+
+    // --- Orders: save the booking before starting payment ---
+    if (url.pathname === '/api/orders' && request.method === 'POST') {
+      const form = await request.formData();
+      const campaignName = String(form.get('campaign_name') || '').trim();
+      const startDate = parseDate(form.get('start_date'));
+      const endDate = parseDate(form.get('end_date'));
+      let deviceIds;
+      try {
+        deviceIds = JSON.parse(String(form.get('device_ids') || '[]'));
+      } catch {
+        return jsonResponse({ error: 'device_ids must be valid JSON' }, 400);
+      }
+      if (!campaignName || campaignName.length > 200 || !startDate || !endDate || !Array.isArray(deviceIds) || !deviceIds.length || deviceIds.length > 100) {
+        return jsonResponse({ error: 'campaign, dates, and at least one device are required' }, 400);
+      }
+
+      const start = new Date(`${startDate}T00:00:00Z`);
+      const end = new Date(`${endDate}T00:00:00Z`);
+      const days = Math.round((end - start) / 86400000);
+      if (!Number.isFinite(days) || days < 5) return jsonResponse({ error: 'booking must be at least 5 days' }, 400);
+
+      const placeholders = deviceIds.map(() => '?').join(', ');
+      const { results: devices } = await env.DB.prepare(
+        `SELECT device_id, daily_cost_usd FROM devices WHERE device_id IN (${placeholders})`
+      ).bind(...deviceIds).all();
+      if (devices.length !== deviceIds.length) return jsonResponse({ error: 'one or more devices are unavailable' }, 409);
+
+      const dailyRate = devices.reduce((total, device) => total + Number(device.daily_cost_usd || 0), 0);
+      const totalUsd = Math.round(dailyRate * days * 100) / 100;
+      const orderId = crypto.randomUUID();
+      const checkoutCode = crypto.randomUUID().replaceAll('-', '').slice(0, 10).toUpperCase();
+      const advertisement = form.get('advertisement');
+      if (!(advertisement instanceof File)) return jsonResponse({ error: 'advertisement file is required' }, 400);
+      const expectedBytes = 800 * 480 / 2;
+      if (advertisement.size !== expectedBytes) return jsonResponse({ error: `advertisement must be exactly ${expectedBytes} bytes` }, 400);
+      const filename = String(form.get('advertisement_filename') || `${checkoutCode}.bin`).replace(/[^A-Za-z0-9._-]/g, '_');
+      const r2Key = `orders/${orderId}/${filename}`;
+
+      await env.DB.prepare(
+        `INSERT INTO orders (id, checkout_code, campaign_name, start_date, end_date, daily_rate_usd, total_usd)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).bind(orderId, checkoutCode, campaignName, startDate, endDate, dailyRate, totalUsd).run();
+      await env.DB.batch(devices.map((device) => env.DB.prepare(
+        `INSERT INTO order_items (order_id, device_id, daily_rate_usd, start_date, end_date) VALUES (?, ?, ?, ?, ?)`
+      ).bind(orderId, device.device_id, Number(device.daily_cost_usd || 0), startDate, endDate)));
+      await env.IMAGES.put(r2Key, await advertisement.arrayBuffer());
+      await env.DB.prepare(
+        `INSERT INTO advertisements (order_id, filename, r2_key, byte_size) VALUES (?, ?, ?, ?)`
+      ).bind(orderId, filename, r2Key, advertisement.size).run();
+
+      if (!env.STRIPE_SECRET_KEY) return jsonResponse({ order_id: orderId, checkout_code: checkoutCode, error: 'payment is not configured' }, 503);
+      const origin = new URL(request.url).origin;
+      const stripeParams = new URLSearchParams();
+      stripeParams.set('mode', 'payment');
+      stripeParams.set('success_url', `${origin}/checkout.html?order=${encodeURIComponent(orderId)}&payment=success`);
+      stripeParams.set('cancel_url', `${origin}/checkout.html?order=${encodeURIComponent(orderId)}&payment=cancelled`);
+      stripeParams.set('client_reference_id', orderId);
+      stripeParams.set('line_items[0][price_data][currency]', 'usd');
+      stripeParams.set('line_items[0][price_data][unit_amount]', String(Math.round(totalUsd * 100)));
+      stripeParams.set('line_items[0][price_data][product_data][name]', `WALL advertising: ${campaignName}`);
+      stripeParams.set('line_items[0][quantity]', '1');
+      stripeParams.set('metadata[order_id]', orderId);
+      const stripeResponse = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: stripeParams,
+      });
+      const stripeSession = await stripeResponse.json();
+      if (!stripeResponse.ok || !stripeSession.id || !stripeSession.url) {
+        return jsonResponse({ order_id: orderId, checkout_code: checkoutCode, error: 'payment session could not be created' }, 502);
+      }
+      await env.DB.prepare(
+        `UPDATE orders SET stripe_checkout_session_id = ?, updated_at = datetime('now') WHERE id = ?`
+      ).bind(stripeSession.id, orderId).run();
+      return jsonResponse({ order_id: orderId, checkout_code: checkoutCode, checkout_url: stripeSession.url });
+    }
+
+    // --- Stripe: payment is authoritative only after webhook verification ---
+    if (url.pathname === '/api/stripe/webhook' && request.method === 'POST') {
+      if (!env.STRIPE_WEBHOOK_SECRET) return new Response('Webhook not configured', { status: 503 });
+      const payload = await request.text();
+      const signature = request.headers.get('Stripe-Signature') || '';
+      if (!(await verifyStripeSignature(payload, signature, env.STRIPE_WEBHOOK_SECRET))) return new Response('Invalid signature', { status: 400 });
+      const event = JSON.parse(payload);
+      if ((event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') && event.data.object.payment_status === 'paid') {
+        const session = event.data.object;
+        const orderId = session.metadata?.order_id || session.client_reference_id;
+        if (orderId) {
+          await env.DB.prepare(
+            `UPDATE orders SET status = 'paid', customer_email = ?, stripe_payment_intent_id = ?, updated_at = datetime('now')
+             WHERE id = ? AND status = 'pending_payment'`
+          ).bind(session.customer_details?.email || null, session.payment_intent || null, orderId).run();
+        }
+      }
+      return jsonResponse({ received: true });
     }
 
     // --- Devices: fleet overview — most recent check-in per device,
