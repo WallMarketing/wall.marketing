@@ -198,7 +198,9 @@ export default {
       if (existingDevice?.device_token_hash && presentedToken && !(await deviceTokenFromRequest(request, env, deviceId))) {
         return jsonResponse({ error: 'device token required' }, 401);
       }
-      const issuedToken = existingDevice?.device_token_hash ? null : crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '');
+      const issuedToken = presentedToken
+        ? null
+        : crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '');
       const issuedTokenHash = issuedToken ? await sha256Hex(issuedToken) : null;
 
       const toIntOrNull = (v) => {
@@ -723,7 +725,7 @@ export default {
     }
 
     // --- Devices: return only the active scheduled advertisement for this device ---
-    const deviceContentMatch = url.pathname.match(/^\/api\/devices\/([^/]+)\/content\/raw$/);
+    const deviceContentMatch = url.pathname.match(/^\/api\/device-content\/([^/]+)\/raw$/);
     if (deviceContentMatch && request.method === 'GET') {
       const deviceId = decodeURIComponent(deviceContentMatch[1]);
       if (!(await deviceTokenFromRequest(request, env, deviceId))) return unauthorizedResponse();

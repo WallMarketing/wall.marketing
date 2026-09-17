@@ -32,6 +32,8 @@ The checkout and public site map require Cloudflare Access Public Bypass rules
 for `/api/sites*` and `/api/orders` on both `wall.marketing` and
 `www.wall.marketing`. The Stripe webhook also needs a Public Bypass rule for
 `/api/stripe/webhook`; keep `/api/devices` protected by the owner-only policy.
+Device firmware downloads require a Public Bypass rule for
+`/api/device-content/*`; the Worker still requires the device's own token.
 
 ## Device content delivery
 
@@ -43,7 +45,7 @@ sends it on later check-ins and content requests.
 Devices fetch only their active scheduled advertisement from:
 
 ```text
-GET /api/devices/{device_id}/content/raw
+GET /api/device-content/{device_id}/raw
 ```
 
 The admin page's Device schedules section can activate a paid schedule
