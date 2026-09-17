@@ -84,6 +84,26 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 .empty { color: var(--steel); }
 .empty a { color: var(--volt); text-decoration: underline; text-underline-offset: 3px; }
 .status { margin-top: 16px; color: #A9B0AA; font-size: .85rem; }
+.advertisement-editor[hidden] { display: none; }
+.advertisement-editor { margin-top: 28px; }
+.converter-panel { background: var(--panel-2); border: 1px solid var(--hair); border-radius: 3px; padding: clamp(22px, 4vw, 36px); }
+.converter-panel h2 { font-size: 1.55rem; margin-bottom: 22px; }
+.converter-preview { width: min(100%, 820px); margin: 0 auto; }
+.wallbot { position: relative; display: flex; flex-direction: column; justify-content: space-between; width: min(100%, 720px); aspect-ratio: 360 / 322; margin: 0 auto; padding: 6.5%; border-radius: 5px; background-color: #25282A; background-image: radial-gradient(rgba(255,255,255,.055) .5px, transparent .6px), linear-gradient(152deg, #3B3F43 0%, #242729 55%, #15171A 100%); background-size: 3px 3px, 100% 100%; box-shadow: inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(0,0,0,.55), 0 28px 46px -28px rgba(18,24,22,.8); }
+.wallbot-solar { flex: none; width: 100%; aspect-ratio: 9 / 1; border-radius: 2px; background-color: #6F4C9B; background-image: radial-gradient(rgba(0,0,0,.55) 42%, transparent 44%); background-size: 4px 4px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.45); }
+.wallbot-screen { position: relative; flex: none; width: 100%; overflow: hidden; background: #fff; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0,0,0,.6); }
+.wallbot-screen canvas { display: block; width: 100%; height: auto; aspect-ratio: 5 / 3; background: #fff; }
+.converter-note { margin: 12px 0 0; color: var(--steel); font-size: .8rem; }
+.converter-controls { width: min(100%, 820px); margin: 28px auto 0; padding-top: 28px; border-top: 1px solid var(--hair); }
+.converter-field { display: grid; gap: 6px; margin-top: 18px; }
+.converter-field:first-of-type { margin-top: 0; }
+.converter-field label { color: var(--steel); font-size: .84rem; }
+.converter-field input, .converter-field select { width: 100%; padding: 9px 10px; border: 1px solid var(--hair); border-radius: 3px; background: #fff; color: var(--ink); }
+.converter-field input:focus, .converter-field select:focus { border-color: var(--volt); outline: none; }
+.converter-controls .btn { margin-top: 22px; background: var(--ink); color: var(--panel-2); }
+.converter-controls .btn:hover { background: var(--volt); }
+.converter-controls .btn:disabled { background: var(--hair); color: var(--steel); cursor: default; }
+.converter-status { min-height: 1.5em; margin-top: 14px; color: var(--steel); font-size: .82rem; }
 @media (max-width: 760px) {
   .nav-links { display: none; position: absolute; top: 100%; left: 0; right: 0; flex-direction: column; align-items: stretch; gap: 0; background: var(--panel-2); border-bottom: 1px solid var(--hair); padding: 8px 20px 20px; }
   .nav-links.open { display: flex; }
@@ -124,7 +144,8 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       <p class="empty" id="emptyState" hidden>Your plan is empty. <a href="sites.html">Choose a screen</a> to get started.</p>
       <ul class="order-list" id="orderList"></ul>
       <div class="advertising-actions">
-        <button type="button" class="btn btn--line">Upload your advertisment</button>
+        <button type="button" class="btn btn--line" id="uploadAdvertisementButton">Upload your advertisment</button>
+        <input id="advertisementFile" type="file" accept="image/*" hidden>
         <div class="advertising-or">or</div>
         <button type="button" class="btn btn--line">Create an advertisment for me</button>
       </div>
@@ -161,6 +182,27 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       </form>
     </section>
   </div>
+
+  <section class="advertisement-editor" id="advertisementEditor" hidden>
+    <div class="converter-panel">
+      <h2>Advertisment Preview</h2>
+      <div class="converter-preview">
+        <div class="wallbot" role="img" aria-label="WALL Bot advertisement preview">
+          <span class="wallbot-solar"></span>
+          <div class="wallbot-screen"><canvas id="advertisementPreview" width="800" height="480"></canvas></div>
+          <span class="wallbot-solar"></span>
+        </div>
+        <p class="converter-note">800 × 480 pixels · six panel colors · preview shows the dithered result</p>
+      </div>
+      <div class="converter-controls">
+        <div class="converter-field"><label for="advertisementFit">Image fit</label><select id="advertisementFit"><option value="cover">Cover: crop to fill</option><option value="contain">Contain: white letterbox</option><option value="stretch">Stretch: fill frame</option></select></div>
+        <div class="converter-field"><label for="advertisementSaturation">Saturation <output id="advertisementSaturationValue">1</output></label><input id="advertisementSaturation" type="range" min="0" max="2" step="0.05" value="1"></div>
+        <div class="converter-field"><label for="advertisementContrast">Contrast <output id="advertisementContrastValue">0.4</output></label><input id="advertisementContrast" type="range" min="0" max="2" step="0.05" value="0.4"></div>
+        <button id="advertisementConvert" class="btn" type="button">Convert image</button>
+        <div id="advertisementStatus" class="converter-status" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
 </main>
 
 <script>
@@ -259,6 +301,132 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
   } catch (error) {
     $("formStatus").textContent = error.message;
   }
+})();
+
+(function(){
+  var WIDTH = 800, HEIGHT = 480;
+  var PALETTE = [
+    { rgb: [0, 0, 0] },
+    { rgb: [255, 255, 255] },
+    { rgb: [255, 255, 0] },
+    { rgb: [255, 0, 0] },
+    { rgb: [0, 0, 255] },
+    { rgb: [0, 255, 0] }
+  ];
+  var fileInput = document.getElementById('advertisementFile');
+  var uploadButton = document.getElementById('uploadAdvertisementButton');
+  var editor = document.getElementById('advertisementEditor');
+  var fitInput = document.getElementById('advertisementFit');
+  var saturationInput = document.getElementById('advertisementSaturation');
+  var contrastInput = document.getElementById('advertisementContrast');
+  var convertButton = document.getElementById('advertisementConvert');
+  var preview = document.getElementById('advertisementPreview');
+  var context = preview.getContext('2d');
+  var sourceCanvas = document.createElement('canvas');
+  sourceCanvas.width = WIDTH;
+  sourceCanvas.height = HEIGHT;
+  var sourceContext = sourceCanvas.getContext('2d');
+  var sourceImage = null;
+
+  function setStatus(message, error){
+    var status = document.getElementById('advertisementStatus');
+    status.textContent = message;
+    status.classList.toggle('error', Boolean(error));
+  }
+  function clamp(value){ return Math.max(0, Math.min(255, value)); }
+  function nearestPaletteIndex(r, g, b){
+    var best = 0, bestDistance = Infinity;
+    PALETTE.forEach(function(color, index){
+      var dr = r - color.rgb[0], dg = g - color.rgb[1], db = b - color.rgb[2];
+      var distance = dr * dr + dg * dg + db * db;
+      if (distance < bestDistance) { bestDistance = distance; best = index; }
+    });
+    return best;
+  }
+  function drawFittedImage(image){
+    sourceContext.fillStyle = '#fff';
+    sourceContext.fillRect(0, 0, WIDTH, HEIGHT);
+    var imageRatio = image.width / image.height, panelRatio = WIDTH / HEIGHT;
+    var drawWidth = WIDTH, drawHeight = HEIGHT, sx = 0, sy = 0, sw = image.width, sh = image.height;
+    if (fitInput.value === 'contain') {
+      if (imageRatio > panelRatio) drawHeight = WIDTH / imageRatio;
+      else drawWidth = HEIGHT * imageRatio;
+    }
+    if (fitInput.value === 'cover') {
+      if (imageRatio > panelRatio) { sw = image.height * panelRatio; sx = (image.width - sw) / 2; }
+      else { sh = image.width / panelRatio; sy = (image.height - sh) / 2; }
+    }
+    sourceContext.drawImage(image, sx, sy, sw, sh, (WIDTH - drawWidth) / 2, (HEIGHT - drawHeight) / 2, drawWidth, drawHeight);
+  }
+  function boostPixels(data, saturation, contrast){
+    var contrastFactor = (259 * (contrast * 255 + 255)) / (255 * (259 - contrast * 255));
+    for (var i = 0; i < data.length; i += 4) {
+      var average = (data[i] + data[i + 1] + data[i + 2]) / 3;
+      data[i] = clamp(contrastFactor * ((average + (data[i] - average) * saturation) - 128) + 128);
+      data[i + 1] = clamp(contrastFactor * ((average + (data[i + 1] - average) * saturation) - 128) + 128);
+      data[i + 2] = clamp(contrastFactor * ((average + (data[i + 2] - average) * saturation) - 128) + 128);
+    }
+  }
+  function convert(){
+    if (!sourceImage) return;
+    drawFittedImage(sourceImage);
+    var imageData = sourceContext.getImageData(0, 0, WIDTH, HEIGHT);
+    boostPixels(imageData.data, Number(saturationInput.value), Number(contrastInput.value));
+    var working = new Float32Array(WIDTH * HEIGHT * 3);
+    for (var y = 0; y < HEIGHT; y++) for (var x = 0; x < WIDTH; x++) {
+      var source = (y * WIDTH + x) * 4, destination = (y * WIDTH + x) * 3;
+      working[destination] = imageData.data[source];
+      working[destination + 1] = imageData.data[source + 1];
+      working[destination + 2] = imageData.data[source + 2];
+    }
+    var output = context.createImageData(WIDTH, HEIGHT);
+    for (var row = 0; row < HEIGHT; row++) for (var column = 0; column < WIDTH; column++) {
+      var pixel = (row * WIDTH + column) * 3;
+      var color = PALETTE[nearestPaletteIndex(working[pixel], working[pixel + 1], working[pixel + 2])];
+      var screen = (row * WIDTH + column) * 4;
+      output.data[screen] = color.rgb[0];
+      output.data[screen + 1] = color.rgb[1];
+      output.data[screen + 2] = color.rgb[2];
+      output.data[screen + 3] = 255;
+      var redError = working[pixel] - color.rgb[0], greenError = working[pixel + 1] - color.rgb[1], blueError = working[pixel + 2] - color.rgb[2];
+      function spread(nextX, nextY, amount){
+        var target = (nextY * WIDTH + nextX) * 3;
+        working[target] += redError * amount;
+        working[target + 1] += greenError * amount;
+        working[target + 2] += blueError * amount;
+      }
+      if (column + 1 < WIDTH) spread(column + 1, row, 7 / 16);
+      if (row + 1 < HEIGHT) {
+        if (column > 0) spread(column - 1, row + 1, 3 / 16);
+        spread(column, row + 1, 5 / 16);
+        if (column + 1 < WIDTH) spread(column + 1, row + 1, 1 / 16);
+      }
+    }
+    context.putImageData(output, 0, 0);
+    setStatus('Converted 800 × 480 image');
+  }
+  uploadButton.addEventListener('click', function(){ fileInput.click(); });
+  fileInput.addEventListener('change', function(){
+    var file = fileInput.files[0];
+    if (!file) return;
+    var image = new Image();
+    image.onload = function(){
+      sourceImage = image;
+      editor.hidden = false;
+      convertButton.disabled = false;
+      convert();
+      editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    image.onerror = function(){ setStatus('That file could not be opened as an image.', true); };
+    image.src = URL.createObjectURL(file);
+  });
+  convertButton.addEventListener('click', convert);
+  [fitInput, saturationInput, contrastInput].forEach(function(input){
+    input.addEventListener('input', function(){
+      if (input.type === 'range') document.getElementById(input.id + 'Value').textContent = input.value;
+      convert();
+    });
+  });
 })();
 </script>
 </body>
