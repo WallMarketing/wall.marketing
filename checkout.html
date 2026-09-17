@@ -326,7 +326,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
   var advertisementFileLabel = document.getElementById('advertisementFileLabel');
   var advertisementFileSummary = document.getElementById('advertisementFileSummary');
   var checkoutCode = (Date.now().toString(36) + Math.random().toString(36).slice(2, 8)).slice(-10).toUpperCase();
-  var advertisementFilename = 'wall-advertisement-' + checkoutCode + '.bin';
+  var advertisementFilename = checkoutCode + '.bin';
   var preview = document.getElementById('advertisementPreview');
   var context = preview.getContext('2d');
   var sourceCanvas = document.createElement('canvas');
