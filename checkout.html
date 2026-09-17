@@ -106,6 +106,22 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 .converter-controls .btn:hover { background: var(--volt); }
 .converter-controls .btn:disabled { background: var(--hair); color: var(--steel); cursor: default; }
 .converter-status { min-height: 1.5em; margin-top: 14px; color: var(--steel); font-size: .82rem; }
+.invoice-toggle { display: flex; align-items: center; gap: 9px; margin-top: 20px; font-size: .9rem; }
+.invoice-toggle input { width: 16px; height: 16px; accent-color: var(--volt-2); }
+.invoice-fields[hidden] { display: none; }
+.invoice-fields { margin-top: 20px; padding-top: 20px; border-top: 1px solid #4A5050; }
+.invoice-fields h3 { margin: 0 0 14px; font-size: 1rem; color: #fff; }
+.invoice-field { display: grid; gap: 6px; margin-top: 14px; }
+.invoice-field:first-of-type { margin-top: 0; }
+.invoice-field label { color: #A9B0AA; font-size: .85rem; }
+.invoice-field input { width: 100%; padding: 10px 11px; border: 1px solid #4A5050; border-radius: 3px; background: #25282A; color: #fff; }
+.invoice-field input:focus { border-color: var(--volt-2); outline: none; }
+.invoice-address-wrap { position: relative; }
+.invoice-suggestions { display: grid; margin-top: 3px; background: #25282A; border: 1px solid #4A5050; border-radius: 3px; overflow: hidden; }
+.invoice-suggestions[hidden] { display: none; }
+.invoice-suggestion { display: block; width: 100%; padding: 9px 10px; border: 0; border-bottom: 1px solid #4A5050; background: #25282A; color: #fff; text-align: left; cursor: pointer; }
+.invoice-suggestion:last-child { border-bottom: 0; }
+.invoice-suggestion:hover, .invoice-suggestion:focus-visible { background: #3A3E40; }
 @media (max-width: 760px) {
   .nav-links { display: none; position: absolute; top: 100%; left: 0; right: 0; flex-direction: column; align-items: stretch; gap: 0; background: var(--panel-2); border-bottom: 1px solid var(--hair); padding: 8px 20px 20px; }
   .nav-links.open { display: flex; }
@@ -204,6 +220,19 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
           <label for="promo">Promo code</label>
           <input id="promo" name="promo" type="text" autocomplete="off">
         </div>
+        <label class="invoice-toggle"><input id="invoiceRequired" name="invoice_required" type="checkbox" value="1"> I require a formal invoice</label>
+        <div class="invoice-fields" id="invoiceFields" hidden>
+          <h3>Invoice details</h3>
+          <div class="invoice-field"><label for="businessName">Business name</label><input id="businessName" name="business_name" autocomplete="organization"></div>
+          <div class="invoice-field"><label for="businessRegistration">Business registration number</label><input id="businessRegistration" name="business_registration_number"></div>
+          <div class="invoice-field"><label for="taxNumber">Tax number</label><input id="taxNumber" name="tax_number"></div>
+          <div class="invoice-field"><label for="invoiceContactName">Invoice contact name</label><input id="invoiceContactName" name="invoice_contact_name" autocomplete="name"></div>
+          <div class="invoice-field"><label for="invoicePhone">Invoice contact phone</label><input id="invoicePhone" name="invoice_phone" type="tel" autocomplete="tel"></div>
+          <div class="invoice-field invoice-address-wrap"><label for="invoiceAddress">Billing address</label><input id="invoiceAddress" name="invoice_address" autocomplete="street-address"><div class="invoice-suggestions" id="invoiceSuggestions" hidden></div></div>
+          <div class="invoice-field"><label for="invoiceCity">City</label><input id="invoiceCity" name="invoice_city" autocomplete="address-level2"></div>
+          <div class="invoice-field"><label for="invoicePostcode">Postcode</label><input id="invoicePostcode" name="invoice_postcode" autocomplete="postal-code"></div>
+          <div class="invoice-field"><label for="invoiceCountry">Country</label><input id="invoiceCountry" name="invoice_country" autocomplete="country-name"></div>
+        </div>
         <button class="btn" type="submit">Continue to payment</button>
         <div class="status" id="formStatus" aria-live="polite"></div>
       </form>
@@ -243,6 +272,13 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     var currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
     var submitButton = $("bookingForm").querySelector("button[type=submit]");
     var requiredFields = ["brand", "contactEmail", "start", "end"];
+    var invoiceInputIds = ["businessName", "businessRegistration", "taxNumber", "invoiceContactName", "invoicePhone", "invoiceAddress", "invoiceCity", "invoicePostcode", "invoiceCountry"];
+    function updateInvoiceFields(){
+      var enabled = $("invoiceRequired").checked;
+      $("invoiceFields").hidden = !enabled;
+      invoiceInputIds.forEach(function(fieldId){ $(fieldId).required = enabled; });
+      updateSubmitState();
+    }
     function hasValidAdvertisement(){
       var advertisement = window.wallAdvertisement;
       return Boolean(advertisement && advertisement.bytes instanceof Uint8Array && advertisement.bytes.byteLength === 800 * 480 / 2 && /^[A-Za-z0-9_-]+\.bin$/.test(advertisement.filename));
@@ -303,6 +339,9 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     });
     $("end").addEventListener("input", function(){ updateEstimatedTotal(); updateSubmitState(); });
     requiredFields.forEach(function(fieldId){ $(fieldId).addEventListener("input", updateSubmitState); });
+    invoiceInputIds.forEach(function(fieldId){ $(fieldId).addEventListener("input", updateSubmitState); });
+    $("invoiceRequired").addEventListener("change", updateInvoiceFields);
+    updateInvoiceFields();
     updateSubmitState();
 
     $("bookingForm").addEventListener("submit", async function(event){
@@ -334,6 +373,43 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
   } catch (error) {
     $("formStatus").textContent = error.message;
   }
+})();
+
+(function(){
+  var addressInput = document.getElementById('invoiceAddress');
+  var suggestions = document.getElementById('invoiceSuggestions');
+  var requestNumber = 0;
+  addressInput.addEventListener('input', async function(){
+    var query = addressInput.value.trim();
+    var currentRequest = ++requestNumber;
+    if (query.length < 3) {
+      suggestions.hidden = true;
+      suggestions.replaceChildren();
+      return;
+    }
+    try {
+      var response = await fetch('/api/location-search?q=' + encodeURIComponent(query));
+      if (currentRequest !== requestNumber || !response.ok) return;
+      var results = await response.json();
+      suggestions.replaceChildren();
+      results.slice(0, 5).forEach(function(result){
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'invoice-suggestion';
+        button.textContent = result.label;
+        button.addEventListener('click', function(){
+          addressInput.value = result.label;
+          suggestions.hidden = true;
+          suggestions.replaceChildren();
+          if (window.updateCheckoutSubmitState) window.updateCheckoutSubmitState();
+        });
+        suggestions.appendChild(button);
+      });
+      suggestions.hidden = !results.length;
+    } catch {
+      suggestions.hidden = true;
+    }
+  });
 })();
 
 (function(){

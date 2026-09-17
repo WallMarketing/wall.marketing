@@ -1,0 +1,10 @@
+ALTER TABLE orders ADD COLUMN invoice_required INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN business_name TEXT;
+ALTER TABLE orders ADD COLUMN business_registration_number TEXT;
+ALTER TABLE orders ADD COLUMN tax_number TEXT;
+ALTER TABLE orders ADD COLUMN invoice_contact_name TEXT;
+ALTER TABLE orders ADD COLUMN invoice_phone TEXT;
+ALTER TABLE orders ADD COLUMN invoice_address TEXT;
+ALTER TABLE orders ADD COLUMN invoice_city TEXT;
+ALTER TABLE orders ADD COLUMN invoice_postcode TEXT;
+ALTER TABLE orders ADD COLUMN invoice_country TEXT;

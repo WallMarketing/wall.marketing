@@ -360,6 +360,18 @@ export default {
       const form = await request.formData();
       const campaignName = String(form.get('campaign_name') || '').trim();
       const contactEmail = String(form.get('contact_email') || '').trim().toLowerCase();
+      const invoiceRequired = form.get('invoice_required') === '1';
+      const invoiceDetails = {
+        businessName: String(form.get('business_name') || '').trim(),
+        businessRegistrationNumber: String(form.get('business_registration_number') || '').trim(),
+        taxNumber: String(form.get('tax_number') || '').trim(),
+        contactName: String(form.get('invoice_contact_name') || '').trim(),
+        phone: String(form.get('invoice_phone') || '').trim(),
+        address: String(form.get('invoice_address') || '').trim(),
+        city: String(form.get('invoice_city') || '').trim(),
+        postcode: String(form.get('invoice_postcode') || '').trim(),
+        country: String(form.get('invoice_country') || '').trim(),
+      };
       const startDate = parseDate(form.get('start_date'));
       const endDate = parseDate(form.get('end_date'));
       let deviceIds;
@@ -370,6 +382,9 @@ export default {
       }
       if (!campaignName || campaignName.length > 200 || !contactEmail || contactEmail.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail) || !startDate || !endDate || !Array.isArray(deviceIds) || !deviceIds.length || deviceIds.length > 100) {
         return jsonResponse({ error: 'campaign, contact email, dates, and at least one device are required' }, 400);
+      }
+      if (invoiceRequired && Object.values(invoiceDetails).some((value) => !value || value.length > 200)) {
+        return jsonResponse({ error: 'all invoice details are required' }, 400);
       }
 
       const start = new Date(`${startDate}T00:00:00Z`);
@@ -395,9 +410,20 @@ export default {
       const r2Key = `orders/${orderId}/${filename}`;
 
       await env.DB.prepare(
-          `INSERT INTO orders (id, checkout_code, campaign_name, contact_email, start_date, end_date, daily_rate_usd, total_usd)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-        ).bind(orderId, checkoutCode, campaignName, contactEmail, startDate, endDate, dailyRate, totalUsd).run();
+          `INSERT INTO orders (
+             id, checkout_code, campaign_name, contact_email, start_date, end_date,
+             daily_rate_usd, total_usd, invoice_required, business_name,
+             business_registration_number, tax_number, invoice_contact_name,
+             invoice_phone, invoice_address, invoice_city, invoice_postcode, invoice_country
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(
+          orderId, checkoutCode, campaignName, contactEmail, startDate, endDate,
+          dailyRate, totalUsd, invoiceRequired ? 1 : 0,
+          invoiceDetails.businessName || null, invoiceDetails.businessRegistrationNumber || null,
+          invoiceDetails.taxNumber || null, invoiceDetails.contactName || null,
+          invoiceDetails.phone || null, invoiceDetails.address || null,
+          invoiceDetails.city || null, invoiceDetails.postcode || null, invoiceDetails.country || null
+        ).run();
       await env.DB.batch(devices.map((device) => env.DB.prepare(
         `INSERT INTO order_items (order_id, device_id, daily_rate_usd, start_date, end_date) VALUES (?, ?, ?, ?, ?)`
       ).bind(orderId, device.device_id, Number(device.daily_cost_usd || 0), startDate, endDate)));
