@@ -178,12 +178,12 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
         <dt>Sites</dt><dd id="siteCount">0</dd>
         <dt>Screens</dt><dd id="screenCount">0</dd>
         <dt>Daily rate</dt><dd id="dailyRate">$0.00</dd>
-        <dt id="advertisementFileLabel" class="advertisement-file" hidden>Advertisement</dt><dd id="advertisementFileSummary" class="advertisement-file" hidden>wall-image.bin</dd>
+        <dt id="advertisementFileLabel" class="advertisement-file" hidden>Advertisement</dt><dd id="advertisementFileSummary" class="advertisement-file" hidden></dd>
         <dt>Estimated total</dt><dd id="estimatedTotal" class="total">Enter dates</dd>
       </dl>
       <form id="bookingForm">
         <div class="field">
-          <label for="brand">Brand or campaign</label>
+          <label for="brand">Campaign name</label>
           <input id="brand" name="brand" required>
         </div>
         <div class="field">
@@ -296,7 +296,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       var days = daysBetween(start, end);
       var estimatedTotal = dailyRate * days;
       var subject = "Booking request: " + screens + (screens === 1 ? " screen" : " screens");
-      var advertisement = $("advertisementFileSummary").hidden ? "" : "\nAdvertisement file: wall-image.bin";
+      var advertisement = $("advertisementFileSummary").hidden ? "" : "\nAdvertisement file: " + $("advertisementFileSummary").textContent;
       var body = "Hello WALL,\n\nI would like to book:\n\n" + selected.map(function(device){ return "- " + (device.site_name || device.device_id) + " (" + (device.site_location || "Location not set") + ")"; }).join("\n") + "\n\nBrand or campaign: " + data.get("brand") + "\nStart date: " + start + "\nEnd date: " + end + "\nBooking length: " + days + " days\nDaily rate: " + currency.format(dailyRate) + "\nEstimated total: " + currency.format(estimatedTotal) + advertisement + "\n\nPlease confirm availability and price.";
       location.href = "mailto:hello@wall.marketing?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
       $("formStatus").textContent = "Opening your email app...";
@@ -325,6 +325,8 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
   var convertButton = document.getElementById('advertisementConvert');
   var advertisementFileLabel = document.getElementById('advertisementFileLabel');
   var advertisementFileSummary = document.getElementById('advertisementFileSummary');
+  var checkoutCode = (Date.now().toString(36) + Math.random().toString(36).slice(2, 8)).slice(-10).toUpperCase();
+  var advertisementFilename = 'wall-advertisement-' + checkoutCode + '.bin';
   var preview = document.getElementById('advertisementPreview');
   var context = preview.getContext('2d');
   var sourceCanvas = document.createElement('canvas');
@@ -435,8 +437,8 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     if (!sourceImage || !packedBytes) return;
     advertisementFileLabel.hidden = false;
     advertisementFileSummary.hidden = false;
-    advertisementFileSummary.textContent = 'wall-image.bin (' + packedBytes.length.toLocaleString() + ' bytes)';
-    setStatus('wall-image.bin added to booking');
+    advertisementFileSummary.textContent = advertisementFilename;
+    setStatus(advertisementFilename + ' added to booking');
   });
   [fitInput, saturationInput, contrastInput].forEach(function(input){
     input.addEventListener('input', function(){
