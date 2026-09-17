@@ -531,6 +531,18 @@ export default {
       return jsonResponse(results);
     }
 
+    const orderAdvertisementMatch = url.pathname.match(/^\/api\/orders\/([^/]+)\/advertisement\/raw$/);
+    if (orderAdvertisementMatch && request.method === 'GET') {
+      const orderId = decodeURIComponent(orderAdvertisementMatch[1]);
+      const advertisement = await env.DB.prepare(
+        `SELECT r2_key FROM advertisements WHERE order_id = ? ORDER BY id DESC LIMIT 1`
+      ).bind(orderId).first();
+      if (!advertisement) return new Response('Advertisement not found', { status: 404 });
+      const object = await env.IMAGES.get(advertisement.r2_key);
+      if (!object) return new Response('Advertisement data missing from storage', { status: 404 });
+      return new Response(object.body, { headers: { 'Content-Type': 'application/octet-stream' } });
+    }
+
     // --- Devices: fleet overview — most recent check-in per device,
     //     joined from `devices` (identity) and `checkins` (telemetry) ---
     if (url.pathname === '/api/devices' && request.method === 'GET') {

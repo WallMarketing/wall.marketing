@@ -474,6 +474,21 @@
     }
   }
 
+  async function previewOrderAdvertisement(orderId, button) {
+    button.disabled = true;
+    try {
+      const resp = await fetch(`/api/orders/${encodeURIComponent(orderId)}/advertisement/raw`);
+      if (!resp.ok) throw new Error(await resp.text());
+      const bytes = new Uint8Array(await resp.arrayBuffer());
+      unpackBytesToCanvas(bytes, previewCtx);
+      previewModal.hidden = false;
+    } catch (err) {
+      document.getElementById('ordersStatus').textContent = 'Could not load advertisement: ' + err.message;
+    } finally {
+      button.disabled = false;
+    }
+  }
+
   document.getElementById('closePreview').addEventListener('click', () => {
     previewModal.hidden = true;
   });
@@ -820,9 +835,21 @@
           <td>$${Number(row.total_usd || 0).toFixed(2)}</td>
           <td class="order-status">${escapeHtml(row.status || '—')}</td>
           <td>${escapeHtml(row.device_ids || '—')}</td>
-          <td>${escapeHtml(row.advertisement_filename || '—')}</td>
+          <td class="order-advertisement-cell"></td>
           <td>${escapeHtml(invoice)}</td>
         `;
+        const advertisementCell = tr.querySelector('.order-advertisement-cell');
+        if (row.advertisement_filename) {
+          const advertisementButton = document.createElement('button');
+          advertisementButton.type = 'button';
+          advertisementButton.className = 'preview-btn';
+          advertisementButton.textContent = row.advertisement_filename;
+          advertisementButton.title = 'Preview this advertisement';
+          advertisementButton.addEventListener('click', () => previewOrderAdvertisement(row.id, advertisementButton));
+          advertisementCell.appendChild(advertisementButton);
+        } else {
+          advertisementCell.textContent = '—';
+        }
         ordersBody.appendChild(tr);
       }
       ordersStatus.textContent = rows.length ? '' : 'No orders have been created yet.';
