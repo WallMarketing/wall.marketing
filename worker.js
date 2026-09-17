@@ -307,6 +307,20 @@ export default {
       });
     }
 
+    // --- Public site map: location and display metadata only ---
+    if (url.pathname === '/api/sites' && request.method === 'GET') {
+      const { results } = await env.DB.prepare(
+        `SELECT device_id, site_name, site_location, site_latitude, site_longitude, last_seen_at
+           FROM devices
+          WHERE site_latitude IS NOT NULL AND site_longitude IS NOT NULL
+          ORDER BY site_name, device_id`
+      ).all();
+
+      return new Response(JSON.stringify(results), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     // --- Devices: fleet overview — most recent check-in per device,
     //     joined from `devices` (identity) and `checkins` (telemetry) ---
     if (url.pathname === '/api/devices' && request.method === 'GET') {
