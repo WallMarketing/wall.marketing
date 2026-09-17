@@ -341,6 +341,32 @@ export default {
       });
     }
 
+    // --- Structured address details for the checkout invoice form ---
+    if (url.pathname === '/api/location-details' && request.method === 'GET') {
+      const placeId = (url.searchParams.get('place_id') || '').trim();
+      if (!placeId || placeId.length > 300) return jsonResponse({ error: 'place_id is required' }, 400);
+      if (!env.GOOGLE_MAPS_SERVER_KEY) return jsonResponse({ error: 'Google Maps API key is not configured' }, 503);
+
+      const detailsUrl = new URL('https://maps.googleapis.com/maps/api/place/details/json');
+      detailsUrl.searchParams.set('place_id', placeId);
+      detailsUrl.searchParams.set('fields', 'formatted_address,address_components');
+      detailsUrl.searchParams.set('key', env.GOOGLE_MAPS_SERVER_KEY);
+      const detailsResponse = await fetch(detailsUrl);
+      if (!detailsResponse.ok) return jsonResponse({ error: 'location details unavailable' }, 502);
+      const details = await detailsResponse.json();
+      if (details.status !== 'OK' || !details.result) return jsonResponse({ error: 'location details unavailable' }, 502);
+
+      const components = Object.fromEntries((details.result.address_components || []).flatMap((component) =>
+        component.types.map((type) => [type, component.long_name])
+      ));
+      return jsonResponse({
+        address: details.result.formatted_address || '',
+        city: components.locality || components.postal_town || components.administrative_area_level_2 || '',
+        postcode: components.postal_code || '',
+        country: components.country || '',
+      });
+    }
+
     // --- Public site map: location and display metadata only ---
     if (url.pathname === '/api/sites' && request.method === 'GET') {
       const { results } = await env.DB.prepare(
@@ -481,6 +507,28 @@ export default {
         }
       }
       return jsonResponse({ received: true });
+    }
+
+    // --- Orders: admin view with booking, payment, invoice, and device details ---
+    if (url.pathname === '/api/orders' && request.method === 'GET') {
+      const { results } = await env.DB.prepare(
+        `SELECT o.id, o.checkout_code, o.campaign_name, o.contact_email,
+                o.start_date, o.end_date, o.daily_rate_usd, o.total_usd,
+                o.status, o.invoice_required, o.business_name,
+                o.business_registration_number, o.tax_number,
+                o.invoice_contact_name, o.invoice_phone, o.invoice_address,
+                o.invoice_city, o.invoice_postcode, o.invoice_country,
+                o.stripe_checkout_session_id, o.stripe_payment_intent_id,
+                o.created_at, o.updated_at,
+                group_concat(oi.device_id, ', ') AS device_ids,
+                a.filename AS advertisement_filename
+           FROM orders o
+           LEFT JOIN order_items oi ON oi.order_id = o.id
+           LEFT JOIN advertisements a ON a.order_id = o.id
+          GROUP BY o.id
+          ORDER BY o.created_at DESC`
+      ).all();
+      return jsonResponse(results);
     }
 
     // --- Devices: fleet overview — most recent check-in per device,

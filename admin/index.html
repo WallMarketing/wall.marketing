@@ -139,6 +139,9 @@
   .card:has(#devicesBody) th:nth-child(6), .card:has(#devicesBody) th:nth-child(7), .card:has(#devicesBody) th:nth-child(8), .card:has(#devicesBody) th:nth-child(9), .card:has(#devicesBody) th:nth-child(10) { width: 6%; }
   .card:has(#devicesBody) th:nth-child(11) { width: 9%; }
   .card:has(#devicesBody) th:nth-child(12) { width: 9%; }
+  .card:has(#ordersBody) { overflow-x: auto; }
+  .card:has(#ordersBody) table { min-width: 1120px; }
+  .order-status { font-variation-settings: "wdth" 108, "wght" 600; }
   .preview-btn, .site-save {
     padding: 6px 10px;
     font-size: .8rem;
@@ -357,6 +360,17 @@
         <tbody id="devicesBody"></tbody>
       </table>
       <div class="status" id="devicesStatus"></div>
+    </div>
+
+    <div class="card">
+      <h2>Orders</h2>
+      <table>
+        <thead>
+          <tr><th>Created</th><th>Code</th><th>Campaign</th><th>Contact</th><th>Dates</th><th>Total</th><th>Status</th><th>Devices</th><th>Advertisement</th><th>Invoice</th></tr>
+        </thead>
+        <tbody id="ordersBody"></tbody>
+      </table>
+      <div class="status" id="ordersStatus"></div>
     </div>
   </div>
   </main>
@@ -784,6 +798,39 @@
     }
   }
 
+  async function loadOrders() {
+    const ordersBody = document.getElementById('ordersBody');
+    const ordersStatus = document.getElementById('ordersStatus');
+    try {
+      const resp = await fetch('/api/orders');
+      const rows = await resp.json();
+      if (!resp.ok) throw new Error(rows.error || 'Could not load orders');
+      ordersBody.innerHTML = '';
+      for (const row of rows) {
+        const invoice = row.invoice_required
+          ? [row.business_name, row.invoice_contact_name, row.invoice_address, row.invoice_city, row.invoice_postcode, row.invoice_country].filter(Boolean).join(', ')
+          : 'No';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(row.created_at || '—')}</td>
+          <td>${escapeHtml(row.checkout_code || '—')}</td>
+          <td>${escapeHtml(row.campaign_name || '—')}</td>
+          <td>${escapeHtml(row.contact_email || '—')}</td>
+          <td>${escapeHtml(row.start_date || '—')} to ${escapeHtml(row.end_date || '—')}</td>
+          <td>$${Number(row.total_usd || 0).toFixed(2)}</td>
+          <td class="order-status">${escapeHtml(row.status || '—')}</td>
+          <td>${escapeHtml(row.device_ids || '—')}</td>
+          <td>${escapeHtml(row.advertisement_filename || '—')}</td>
+          <td>${escapeHtml(invoice)}</td>
+        `;
+        ordersBody.appendChild(tr);
+      }
+      ordersStatus.textContent = rows.length ? '' : 'No orders have been created yet.';
+    } catch (err) {
+      ordersStatus.textContent = 'Failed to load orders: ' + err.message;
+    }
+  }
+
   const deviceHistoryModal = document.getElementById('deviceHistoryModal');
   const deviceHistoryTitle = document.getElementById('deviceHistoryTitle');
   const deviceHistoryBody = document.getElementById('deviceHistoryBody');
@@ -870,10 +917,12 @@
     });
 
   loadDevices();
+  loadOrders();
   // Fleet status should feel roughly live without the page constantly
   // refetching images — 30s is frequent enough to feel current without
   // hammering D1 on every open admin tab.
   setInterval(loadDevices, 30000);
+  setInterval(loadOrders, 30000);
 </script>
 </body>
 </html>

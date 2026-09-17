@@ -397,10 +397,21 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
         button.type = 'button';
         button.className = 'invoice-suggestion';
         button.textContent = result.label;
-        button.addEventListener('click', function(){
+        button.addEventListener('click', async function(){
+          button.disabled = true;
           addressInput.value = result.label;
           suggestions.hidden = true;
           suggestions.replaceChildren();
+          try {
+            var detailsResponse = await fetch('/api/location-details?place_id=' + encodeURIComponent(result.place_id));
+            if (detailsResponse.ok) {
+              var details = await detailsResponse.json();
+              addressInput.value = details.address || result.label;
+              document.getElementById('invoiceCity').value = details.city || '';
+              document.getElementById('invoicePostcode').value = details.postcode || '';
+              document.getElementById('invoiceCountry').value = details.country || '';
+            }
+          } catch {}
           if (window.updateCheckoutSubmitState) window.updateCheckoutSubmitState();
         });
         suggestions.appendChild(button);
