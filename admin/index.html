@@ -141,6 +141,8 @@
   .card:has(#devicesBody) th:nth-child(12) { width: 9%; }
   .card:has(#ordersBody) { overflow-x: auto; }
   .card:has(#ordersBody) table { min-width: 1120px; }
+  .card:has(#schedulesBody) { overflow-x: auto; }
+  .card:has(#schedulesBody) table { min-width: 980px; }
   .order-status { font-variation-settings: "wdth" 108, "wght" 600; }
   .preview-btn, .site-save {
     padding: 6px 10px;
@@ -353,7 +355,7 @@
       <table>
         <thead>
           <tr>
-            <th>Device</th><th>Site name</th><th>Site location</th><th>Daily cost (USD)</th><th>Last seen</th><th>Uptime</th><th>RSSI</th>
+            <th>Device</th><th>Setup</th><th>Site name</th><th>Site location</th><th>Daily cost (USD)</th><th>Last seen</th><th>Uptime</th><th>RSSI</th>
             <th>Heap</th><th>FW</th><th>Errors</th><th>Image</th><th>Actions</th>
           </tr>
         </thead>
@@ -371,6 +373,17 @@
         <tbody id="ordersBody"></tbody>
       </table>
       <div class="status" id="ordersStatus"></div>
+    </div>
+
+    <div class="card">
+      <h2>Device schedules</h2>
+      <table>
+        <thead>
+          <tr><th>Device</th><th>Campaign</th><th>Dates</th><th>Status</th><th>Order</th><th>Advertisement</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="schedulesBody"></tbody>
+      </table>
+      <div class="status" id="schedulesStatus"></div>
     </div>
   </div>
   </main>
@@ -713,6 +726,7 @@
         const name = row.friendly_name ? `${row.device_id} (${row.friendly_name})` : row.device_id;
         tr.innerHTML = `
           <td>${name}</td>
+          <td>${row.setup_status === 'new' ? 'New' : escapeHtml(row.setup_status || '—')}</td>
           <td class="site-edit-cell"></td>
           <td class="site-edit-cell"></td>
           <td class="site-edit-cell"></td>
@@ -858,6 +872,60 @@
     }
   }
 
+  async function updateSchedule(itemId, action) {
+    const schedulesStatus = document.getElementById('schedulesStatus');
+    try {
+      const resp = await fetch(`/api/schedules/${itemId}/${action}`, { method: 'POST' });
+      const result = await resp.json();
+      if (!resp.ok) throw new Error(result.error || 'Could not update schedule');
+      loadSchedules();
+    } catch (err) {
+      schedulesStatus.textContent = 'Schedule update failed: ' + err.message;
+    }
+  }
+
+  async function loadSchedules() {
+    const schedulesBody = document.getElementById('schedulesBody');
+    const schedulesStatus = document.getElementById('schedulesStatus');
+    try {
+      const resp = await fetch('/api/schedules');
+      const rows = await resp.json();
+      if (!resp.ok) throw new Error(rows.error || 'Could not load schedules');
+      schedulesBody.innerHTML = '';
+      for (const row of rows) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(row.device_id)}</td>
+          <td>${escapeHtml(row.campaign_name || '—')}</td>
+          <td>${escapeHtml(row.start_date)} to ${escapeHtml(row.end_date)}</td>
+          <td class="order-status">${escapeHtml(row.status)} / ${escapeHtml(row.order_status)}</td>
+          <td>${escapeHtml(row.checkout_code || '—')}</td>
+          <td>${escapeHtml(row.advertisement_filename || '—')}</td>
+          <td class="schedule-actions"></td>
+        `;
+        const actions = tr.querySelector('.schedule-actions');
+        if (row.order_status === 'paid' || row.order_status === 'scheduled') {
+          const activateButton = document.createElement('button');
+          activateButton.type = 'button';
+          activateButton.className = 'preview-btn';
+          activateButton.textContent = 'Activate now';
+          activateButton.addEventListener('click', () => updateSchedule(row.id, 'activate'));
+          actions.appendChild(activateButton);
+        }
+        const clearButton = document.createElement('button');
+        clearButton.type = 'button';
+        clearButton.className = 'preview-btn';
+        clearButton.textContent = 'Clear';
+        clearButton.addEventListener('click', () => updateSchedule(row.id, 'clear'));
+        actions.appendChild(clearButton);
+        schedulesBody.appendChild(tr);
+      }
+      schedulesStatus.textContent = rows.length ? '' : 'No device schedules have been created yet.';
+    } catch (err) {
+      schedulesStatus.textContent = 'Failed to load schedules: ' + err.message;
+    }
+  }
+
   const deviceHistoryModal = document.getElementById('deviceHistoryModal');
   const deviceHistoryTitle = document.getElementById('deviceHistoryTitle');
   const deviceHistoryBody = document.getElementById('deviceHistoryBody');
@@ -945,11 +1013,13 @@
 
   loadDevices();
   loadOrders();
+  loadSchedules();
   // Fleet status should feel roughly live without the page constantly
   // refetching images — 30s is frequent enough to feel current without
   // hammering D1 on every open admin tab.
   setInterval(loadDevices, 30000);
   setInterval(loadOrders, 30000);
+  setInterval(loadSchedules, 30000);
 </script>
 </body>
 </html>

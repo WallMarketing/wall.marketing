@@ -71,6 +71,20 @@ async function verifyStripeSignature(payload, signature, secret) {
   return timingSafeEqual(expected, received);
 }
 
+async function sha256Hex(value) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function deviceTokenFromRequest(request, env, deviceId) {
+  const token = request.headers.get('X-Device-Token');
+  if (!token) return false;
+  const device = await env.DB.prepare(
+    `SELECT device_token_hash, setup_status FROM devices WHERE device_id = ?`
+  ).bind(deviceId).first();
+  return Boolean(device && device.setup_status !== 'disabled' && device.device_token_hash && timingSafeEqual(await sha256Hex(token), device.device_token_hash));
+}
+
 function pdfEscape(value) {
   return String(value || '').replace(/[\\()]/g, '\\$&').replace(/[^\x20-\x7E]/g, '?');
 }
@@ -176,6 +190,17 @@ export default {
         );
       }
 
+      const existingDevice = await env.DB.prepare(
+        `SELECT device_token_hash, setup_status FROM devices WHERE device_id = ?`
+      ).bind(deviceId).first();
+      if (existingDevice?.setup_status === 'disabled') return jsonResponse({ error: 'device disabled' }, 403);
+      const presentedToken = request.headers.get('X-Device-Token');
+      if (existingDevice?.device_token_hash && presentedToken && !(await deviceTokenFromRequest(request, env, deviceId))) {
+        return jsonResponse({ error: 'device token required' }, 401);
+      }
+      const issuedToken = existingDevice?.device_token_hash ? null : crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '');
+      const issuedTokenHash = issuedToken ? await sha256Hex(issuedToken) : null;
+
       const toIntOrNull = (v) => {
         const n = parseInt(v ?? '', 10);
         return Number.isFinite(n) ? n : null;
@@ -196,13 +221,16 @@ export default {
         ).bind(deviceId, uptime, rssi, heap, imageHash, errors, firmwareVersion),
 
         env.DB.prepare(
-          `INSERT INTO devices (device_id, last_seen_at)
-           VALUES (?, datetime('now'))
-           ON CONFLICT(device_id) DO UPDATE SET last_seen_at = datetime('now')`
-        ).bind(deviceId),
+          `INSERT INTO devices (device_id, last_seen_at, device_token_hash, registered_at)
+           VALUES (?, datetime('now'), ?, datetime('now'))
+           ON CONFLICT(device_id) DO UPDATE SET
+             last_seen_at = datetime('now'),
+             device_token_hash = COALESCE(?, devices.device_token_hash),
+             registered_at = COALESCE(devices.registered_at, datetime('now'))`
+        ).bind(deviceId, issuedTokenHash, issuedTokenHash),
       ]);
 
-      return new Response(JSON.stringify({ ok: true }), {
+      return new Response(JSON.stringify({ ok: true, device_token: issuedToken }), {
         headers: { 'Content-Type': 'application/json' },
       });
     }
@@ -501,6 +529,18 @@ export default {
       ).bind(...deviceIds).all();
       if (devices.length !== deviceIds.length) return jsonResponse({ error: 'one or more devices are unavailable' }, 409);
 
+      const { results: conflicts } = await env.DB.prepare(
+        `SELECT DISTINCT oi.device_id
+           FROM order_items oi
+           JOIN orders o ON o.id = oi.order_id
+          WHERE oi.device_id IN (${placeholders})
+            AND oi.status IN ('pending_payment', 'scheduled')
+            AND (o.status IN ('paid', 'scheduled') OR (o.status = 'pending_payment' AND o.created_at >= datetime('now', '-30 minutes')))
+            AND oi.start_date < ?
+            AND oi.end_date > ?`
+      ).bind(...deviceIds, endDate, startDate).all();
+      if (conflicts.length) return jsonResponse({ error: 'one or more devices are already booked for those dates', device_ids: conflicts.map((row) => row.device_id) }, 409);
+
       const dailyRate = devices.reduce((total, device) => total + Number(device.daily_cost_usd || 0), 0);
       const totalUsd = Math.round(dailyRate * days * 100) / 100;
       const orderId = crypto.randomUUID();
@@ -583,6 +623,9 @@ export default {
           `UPDATE orders SET status = 'paid', customer_email = ?, stripe_payment_intent_id = ?, last_stripe_event_id = ?, updated_at = datetime('now')
            WHERE id = ? AND status = 'pending_payment'`
         ).bind(session.customer_details?.email || null, session.payment_intent || null, event.id || null, orderId).run();
+        await env.DB.prepare(
+          `UPDATE order_items SET status = 'scheduled' WHERE order_id = ? AND status = 'pending_payment'`
+        ).bind(orderId).run();
         const order = await env.DB.prepare(`SELECT * FROM orders WHERE id = ?`).bind(orderId).first();
         if (order && !order.success_email_sent) {
           const pdf = buildInvoicePdf(order);
@@ -633,6 +676,40 @@ export default {
       return jsonResponse(results);
     }
 
+    // --- Schedules: admin visibility and test controls ---
+    if (url.pathname === '/api/schedules' && request.method === 'GET') {
+      const { results } = await env.DB.prepare(
+        `SELECT oi.id, oi.order_id, oi.device_id, oi.start_date, oi.end_date, oi.status,
+                o.checkout_code, o.campaign_name, o.status AS order_status,
+                a.filename AS advertisement_filename
+           FROM order_items oi
+           JOIN orders o ON o.id = oi.order_id
+           LEFT JOIN advertisements a ON a.order_id = oi.order_id
+          WHERE oi.status != 'cleared'
+          ORDER BY oi.device_id, oi.start_date, oi.id`
+      ).all();
+      return jsonResponse(results);
+    }
+
+    const scheduleActionMatch = url.pathname.match(/^\/api\/schedules\/(\d+)\/(clear|activate)$/);
+    if (scheduleActionMatch && request.method === 'POST') {
+      const itemId = Number(scheduleActionMatch[1]);
+      const action = scheduleActionMatch[2];
+      if (action === 'clear') {
+        const result = await env.DB.prepare(
+          `UPDATE order_items SET status = 'cleared', cleared_at = datetime('now') WHERE id = ? AND status != 'cleared'`
+        ).bind(itemId).run();
+        return result.meta.changes ? jsonResponse({ ok: true }) : jsonResponse({ error: 'schedule not found' }, 404);
+      }
+      const result = await env.DB.prepare(
+        `UPDATE order_items SET status = 'scheduled', start_date = date('now')
+           WHERE id = ?
+             AND status != 'cleared'
+             AND order_id IN (SELECT id FROM orders WHERE status IN ('paid', 'scheduled'))`
+      ).bind(itemId).run();
+      return result.meta.changes ? jsonResponse({ ok: true }) : jsonResponse({ error: 'paid schedule not found' }, 404);
+    }
+
     const orderAdvertisementMatch = url.pathname.match(/^\/api\/orders\/([^/]+)\/advertisement\/raw$/);
     if (orderAdvertisementMatch && request.method === 'GET') {
       const orderId = decodeURIComponent(orderAdvertisementMatch[1]);
@@ -645,12 +722,40 @@ export default {
       return new Response(object.body, { headers: { 'Content-Type': 'application/octet-stream' } });
     }
 
+    // --- Devices: return only the active scheduled advertisement for this device ---
+    const deviceContentMatch = url.pathname.match(/^\/api\/devices\/([^/]+)\/content\/raw$/);
+    if (deviceContentMatch && request.method === 'GET') {
+      const deviceId = decodeURIComponent(deviceContentMatch[1]);
+      if (!(await deviceTokenFromRequest(request, env, deviceId))) return unauthorizedResponse();
+      const schedule = await env.DB.prepare(
+        `SELECT oi.order_id, a.id AS advertisement_id, a.r2_key
+           FROM order_items oi
+           JOIN orders o ON o.id = oi.order_id
+           JOIN advertisements a ON a.order_id = oi.order_id
+          WHERE oi.device_id = ?
+            AND oi.status = 'scheduled'
+            AND o.status IN ('paid', 'scheduled')
+            AND date('now') >= oi.start_date
+            AND date('now') < oi.end_date
+          ORDER BY oi.start_date DESC, oi.id DESC
+          LIMIT 1`
+      ).bind(deviceId).first();
+      if (!schedule) return new Response('No active advertisement', { status: 404 });
+      const etag = `order-${schedule.order_id}-${schedule.advertisement_id}`;
+      if (request.headers.get('If-None-Match') === etag) return new Response(null, { status: 304, headers: { ETag: etag } });
+      const object = await env.IMAGES.get(schedule.r2_key);
+      if (!object) return new Response('Advertisement data missing from storage', { status: 404 });
+      return new Response(object.body, { headers: { 'Content-Type': 'application/octet-stream', ETag: etag } });
+    }
+
     // --- Devices: fleet overview — most recent check-in per device,
     //     joined from `devices` (identity) and `checkins` (telemetry) ---
     if (url.pathname === '/api/devices' && request.method === 'GET') {
       const { results } = await env.DB.prepare(
         `SELECT
            d.device_id,
+           d.setup_status,
+           d.registered_at,
            d.friendly_name,
            d.site_name,
            d.site_location,
@@ -764,7 +869,8 @@ export default {
       }
       const result = await env.DB.prepare(
         `UPDATE devices
-            SET site_name = ?, site_location = ?, daily_cost_usd = ?, site_latitude = ?, site_longitude = ?
+          SET site_name = ?, site_location = ?, daily_cost_usd = ?, site_latitude = ?, site_longitude = ?,
+            setup_status = CASE WHEN setup_status = 'new' THEN 'active' ELSE setup_status END
           WHERE device_id = ?`
       ).bind(siteName, siteLocation, dailyCostUsd, latitude, longitude, deviceId).run();
 
