@@ -22,8 +22,10 @@ header{border-bottom:1px solid var(--hair);}
 main{padding:clamp(42px,7vw,88px) 0;}
 .intro{max-width:720px;}.eyebrow{color:var(--volt);font-size:.8rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;}
 h1,h2{margin:0;font-weight:800;letter-spacing:-.03em;line-height:1;}h1{font-size:clamp(2.5rem,7vw,5.2rem);margin-top:8px;}.intro p{color:var(--steel);margin:20px 0 0;max-width:58ch;}
-.workspace{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:28px;margin-top:48px;align-items:start;}
+.workspace{display:grid;grid-template-columns:1fr;gap:28px;margin-top:48px;align-items:start;}
 .preview-panel,.controls{background:var(--panel-2);border:1px solid var(--hair);border-radius:3px;padding:clamp(20px,3vw,32px);}
+.preview-panel{width:min(100%,820px);margin:0 auto;}
+.controls{width:min(100%,720px);margin:0 auto;}
 .preview-panel h2,.controls h2{font-size:1.35rem;margin-bottom:18px;}
 #preview{display:block;width:100%;height:auto;image-rendering:auto;background:#fff;aspect-ratio:5/3;}
 .preview-note{color:var(--steel);font-size:.8rem;margin:12px 0 0;}
