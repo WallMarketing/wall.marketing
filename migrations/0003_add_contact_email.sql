@@ -1,0 +1,1 @@
+ALTER TABLE orders ADD COLUMN contact_email TEXT NOT NULL DEFAULT '';
