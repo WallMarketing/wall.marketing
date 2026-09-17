@@ -411,8 +411,8 @@ export default {
       const stripeParams = new URLSearchParams();
       stripeParams.set('mode', 'payment');
       stripeParams.set('customer_email', contactEmail);
-      stripeParams.set('success_url', `${origin}/checkout.html?order=${encodeURIComponent(orderId)}&payment=success`);
-      stripeParams.set('cancel_url', `${origin}/checkout.html?order=${encodeURIComponent(orderId)}&payment=cancelled`);
+      stripeParams.set('success_url', `${origin}/payment-success.html?order=${encodeURIComponent(orderId)}`);
+      stripeParams.set('cancel_url', `${origin}/payment-cancelled.html?order=${encodeURIComponent(orderId)}`);
       stripeParams.set('client_reference_id', orderId);
       stripeParams.set('line_items[0][price_data][currency]', 'usd');
       stripeParams.set('line_items[0][price_data][unit_amount]', String(Math.round(totalUsd * 100)));
