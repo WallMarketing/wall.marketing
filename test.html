@@ -28,6 +28,9 @@ h1,h2{margin:0;font-weight:800;letter-spacing:-.03em;line-height:1;}h1{font-size
 #preview{display:block;width:100%;height:auto;image-rendering:auto;background:#fff;aspect-ratio:5/3;}
 .preview-note{color:var(--steel);font-size:.8rem;margin:12px 0 0;}
 .field{display:grid;gap:6px;margin-top:18px;}.field:first-of-type{margin-top:0;}.field label{font-size:.84rem;color:var(--steel);}.field input,.field select{width:100%;background:#fff;border:1px solid var(--hair);border-radius:3px;padding:9px 10px;color:var(--ink);}.field input:focus,.field select:focus{border-color:var(--volt);outline:none;}
+.wallbot{position:relative;display:flex;flex-direction:column;justify-content:space-between;width:min(100%,720px);aspect-ratio:360/322;margin:0 auto;padding:6.5%;border-radius:5px;background-color:#25282A;background-image:radial-gradient(rgba(255,255,255,.055) .5px,transparent .6px),linear-gradient(152deg,#3B3F43 0%,#242729 55%,#15171A 100%);background-size:3px 3px,100% 100%;box-shadow:inset 0 1px 0 rgba(255,255,255,.16),inset 0 -1px 0 rgba(0,0,0,.55),0 28px 46px -28px rgba(18,24,22,.8);}
+.wallbot-solar{flex:none;width:100%;aspect-ratio:9/1;border-radius:2px;background-color:#6F4C9B;background-image:radial-gradient(rgba(0,0,0,.55) 42%,transparent 44%);background-size:4px 4px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.45);}
+.wallbot-screen{position:relative;flex:none;width:100%;overflow:hidden;background:#fff;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.6);}
 .btn{display:inline-flex;align-items:center;justify-content:center;width:100%;border:1px solid transparent;border-radius:3px;padding:12px 18px;margin-top:22px;background:var(--ink);color:var(--panel-2);font-weight:700;cursor:pointer;}.btn:hover{background:var(--volt);}.btn:disabled{background:var(--hair);color:var(--steel);cursor:default;}
 .status{min-height:1.5em;color:var(--steel);font-size:.82rem;margin-top:14px;}.status.error{color:#B3202A;}
 @media(max-width:760px){.workspace{grid-template-columns:1fr;margin-top:34px;}.nav{padding-inline:0;}h1{font-size:clamp(2.5rem,13vw,4.5rem);}}
@@ -40,7 +43,7 @@ h1,h2{margin:0;font-weight:800;letter-spacing:-.03em;line-height:1;}h1{font-size
 	<div class="workspace">
 		<section class="preview-panel">
 			<h2>Panel preview</h2>
-			<div class="preview-wrap"><canvas id="preview" width="800" height="480"></canvas></div>
+			<div class="preview-wrap"><div class="wallbot" role="img" aria-label="WALL Bot display preview"><span class="wallbot-solar"></span><div class="wallbot-screen"><canvas id="preview" width="800" height="480"></canvas></div><span class="wallbot-solar"></span></div></div>
 			<p class="preview-note">800 × 480 pixels · six panel colors · preview shows the dithered result</p>
 		</section>
 		<section class="controls">
