@@ -71,6 +71,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 .summary dl { display: grid; grid-template-columns: 1fr auto; gap: 10px 20px; margin: 0 0 28px; }
 .summary dt { color: #A9B0AA; }
 .summary dd { margin: 0; font-weight: 700; text-align: right; }
+.summary .advertisement-file[hidden] { display: none; }
 .summary dd.total { color: var(--volt-2); font-size: 1.15rem; }
 .field { display: grid; gap: 6px; margin-top: 16px; }
 .field label { color: #A9B0AA; font-size: .85rem; }
@@ -164,7 +165,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
             <div class="converter-field"><label for="advertisementFit">Image fit</label><select id="advertisementFit"><option value="cover">Cover: crop to fill</option><option value="contain">Contain: white letterbox</option><option value="stretch">Stretch: fill frame</option></select></div>
             <div class="converter-field"><label for="advertisementSaturation">Saturation <output id="advertisementSaturationValue">1</output></label><input id="advertisementSaturation" type="range" min="0" max="2" step="0.05" value="1"></div>
             <div class="converter-field"><label for="advertisementContrast">Contrast <output id="advertisementContrastValue">0.4</output></label><input id="advertisementContrast" type="range" min="0" max="2" step="0.05" value="0.4"></div>
-            <button id="advertisementConvert" class="btn" type="button">Convert image</button>
+            <button id="advertisementConvert" class="btn" type="button" disabled>Add to booking</button>
             <div id="advertisementStatus" class="converter-status" aria-live="polite"></div>
           </div>
         </div>
@@ -177,6 +178,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
         <dt>Sites</dt><dd id="siteCount">0</dd>
         <dt>Screens</dt><dd id="screenCount">0</dd>
         <dt>Daily rate</dt><dd id="dailyRate">$0.00</dd>
+        <dt id="advertisementFileLabel" class="advertisement-file" hidden>Advertisement</dt><dd id="advertisementFileSummary" class="advertisement-file" hidden>wall-image.bin</dd>
         <dt>Estimated total</dt><dd id="estimatedTotal" class="total">Enter dates</dd>
       </dl>
       <form id="bookingForm">
@@ -294,7 +296,8 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       var days = daysBetween(start, end);
       var estimatedTotal = dailyRate * days;
       var subject = "Booking request: " + screens + (screens === 1 ? " screen" : " screens");
-      var body = "Hello WALL,\n\nI would like to book:\n\n" + selected.map(function(device){ return "- " + (device.site_name || device.device_id) + " (" + (device.site_location || "Location not set") + ")"; }).join("\n") + "\n\nBrand or campaign: " + data.get("brand") + "\nStart date: " + start + "\nEnd date: " + end + "\nBooking length: " + days + " days\nDaily rate: " + currency.format(dailyRate) + "\nEstimated total: " + currency.format(estimatedTotal) + "\n\nPlease confirm availability and price.";
+      var advertisement = $("advertisementFileSummary").hidden ? "" : "\nAdvertisement file: wall-image.bin";
+      var body = "Hello WALL,\n\nI would like to book:\n\n" + selected.map(function(device){ return "- " + (device.site_name || device.device_id) + " (" + (device.site_location || "Location not set") + ")"; }).join("\n") + "\n\nBrand or campaign: " + data.get("brand") + "\nStart date: " + start + "\nEnd date: " + end + "\nBooking length: " + days + " days\nDaily rate: " + currency.format(dailyRate) + "\nEstimated total: " + currency.format(estimatedTotal) + advertisement + "\n\nPlease confirm availability and price.";
       location.href = "mailto:hello@wall.marketing?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
       $("formStatus").textContent = "Opening your email app...";
     });
@@ -306,12 +309,12 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 (function(){
   var WIDTH = 800, HEIGHT = 480;
   var PALETTE = [
-    { rgb: [0, 0, 0] },
-    { rgb: [255, 255, 255] },
-    { rgb: [255, 255, 0] },
-    { rgb: [255, 0, 0] },
-    { rgb: [0, 0, 255] },
-    { rgb: [0, 255, 0] }
+    { code: 0x0, rgb: [0, 0, 0] },
+    { code: 0x1, rgb: [255, 255, 255] },
+    { code: 0x2, rgb: [255, 255, 0] },
+    { code: 0x3, rgb: [255, 0, 0] },
+    { code: 0x5, rgb: [0, 0, 255] },
+    { code: 0x6, rgb: [0, 255, 0] }
   ];
   var fileInput = document.getElementById('advertisementFile');
   var uploadButton = document.getElementById('uploadAdvertisementButton');
@@ -320,13 +323,15 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
   var saturationInput = document.getElementById('advertisementSaturation');
   var contrastInput = document.getElementById('advertisementContrast');
   var convertButton = document.getElementById('advertisementConvert');
+  var advertisementFileLabel = document.getElementById('advertisementFileLabel');
+  var advertisementFileSummary = document.getElementById('advertisementFileSummary');
   var preview = document.getElementById('advertisementPreview');
   var context = preview.getContext('2d');
   var sourceCanvas = document.createElement('canvas');
   sourceCanvas.width = WIDTH;
   sourceCanvas.height = HEIGHT;
   var sourceContext = sourceCanvas.getContext('2d');
-  var sourceImage = null;
+  var sourceImage = null, packedBytes = null;
 
   function setStatus(message, error){
     var status = document.getElementById('advertisementStatus');
@@ -379,10 +384,12 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       working[destination + 1] = imageData.data[source + 1];
       working[destination + 2] = imageData.data[source + 2];
     }
+    var codes = new Uint8Array(WIDTH * HEIGHT);
     var output = context.createImageData(WIDTH, HEIGHT);
     for (var row = 0; row < HEIGHT; row++) for (var column = 0; column < WIDTH; column++) {
       var pixel = (row * WIDTH + column) * 3;
       var color = PALETTE[nearestPaletteIndex(working[pixel], working[pixel + 1], working[pixel + 2])];
+      codes[row * WIDTH + column] = color.code;
       var screen = (row * WIDTH + column) * 4;
       output.data[screen] = color.rgb[0];
       output.data[screen + 1] = color.rgb[1];
@@ -403,6 +410,10 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       }
     }
     context.putImageData(output, 0, 0);
+    packedBytes = new Uint8Array(WIDTH * HEIGHT / 2);
+    for (var outputIndex = 0, byteIndex = 0; outputIndex < codes.length; outputIndex += 2) {
+      packedBytes[byteIndex++] = (codes[outputIndex] << 4) | codes[outputIndex + 1];
+    }
     setStatus('Converted 800 × 480 image');
   }
   uploadButton.addEventListener('click', function(){ fileInput.click(); });
@@ -420,7 +431,13 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     image.onerror = function(){ setStatus('That file could not be opened as an image.', true); };
     image.src = URL.createObjectURL(file);
   });
-  convertButton.addEventListener('click', convert);
+  convertButton.addEventListener('click', function(){
+    if (!sourceImage || !packedBytes) return;
+    advertisementFileLabel.hidden = false;
+    advertisementFileSummary.hidden = false;
+    advertisementFileSummary.textContent = 'wall-image.bin (' + packedBytes.length.toLocaleString() + ' bytes)';
+    setStatus('wall-image.bin added to booking');
+  });
   [fitInput, saturationInput, contrastInput].forEach(function(input){
     input.addEventListener('input', function(){
       if (input.type === 'range') document.getElementById(input.id + 'Value').textContent = input.value;
