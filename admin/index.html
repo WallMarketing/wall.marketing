@@ -339,24 +339,6 @@
     <div class="whoami" id="whoami">Checking access...</div>
     <h1>Wall Marketing — Admin</h1>
 
-    <div class="card">
-      <h2>Generate test image</h2>
-      <canvas id="canvas" width="800" height="480"></canvas>
-      <button id="generateBtn">Generate new test image</button>
-      <div class="status" id="genStatus"></div>
-    </div>
-
-    <div class="card">
-      <h2>Image history</h2>
-      <table>
-        <thead>
-          <tr><th>#</th><th>Created</th><th>Size</th><th></th></tr>
-        </thead>
-        <tbody id="historyBody"></tbody>
-      </table>
-      <div class="status" id="historyStatus"></div>
-    </div>
-
     <div class="card map-card">
       <h2>Device locations</h2>
       <div id="deviceMap" role="region" aria-label="Map of device locations"></div>
@@ -419,65 +401,9 @@
     { code: 0x6, rgb: [0, 255, 0] },     // green
   ];
 
-  function nearestPaletteCode(r, g, b) {
-    let bestCode = PALETTE[0].code;
-    let bestDist = Infinity;
-    for (const p of PALETTE) {
-      const dr = r - p.rgb[0], dg = g - p.rgb[1], db = b - p.rgb[2];
-      const dist = dr * dr + dg * dg + db * db;
-      if (dist < bestDist) { bestDist = dist; bestCode = p.code; }
-    }
-    return bestCode;
-  }
-
   function codeToRgb(code) {
     const p = PALETTE.find((p) => p.code === code);
     return p ? p.rgb : [128, 128, 128];
-  }
-
-  function drawTestPattern(ctx, number) {
-    const colors = ['#000000', '#ffffff', '#ffff00', '#ff0000', '#0000ff', '#00ff00'];
-    const barWidth = EPD_WIDTH / colors.length;
-    colors.forEach((c, i) => {
-      ctx.fillStyle = c;
-      ctx.fillRect(i * barWidth, 0, barWidth, EPD_HEIGHT);
-    });
-
-    const text = String(number);
-    ctx.font = 'bold 160px monospace';
-    const textWidth = ctx.measureText(text).width;
-    const boxW = textWidth + 80;
-    const boxH = 200;
-    const boxX = (EPD_WIDTH - boxW) / 2;
-    const boxY = (EPD_HEIGHT - boxH) / 2;
-
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(boxX, boxY, boxW, boxH);
-    ctx.fillStyle = '#000000';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text, EPD_WIDTH / 2, boxY + boxH / 2 + 8);
-  }
-
-  // Packs canvas pixels into the same 4-bit-per-pixel, 2-pixels-per-byte
-  // format the firmware streams directly to the panel — this Uint8Array
-  // is exactly what a future device-side update would fetch and display.
-  function canvasToPackedBytes(ctx) {
-    const data = ctx.getImageData(0, 0, EPD_WIDTH, EPD_HEIGHT).data;
-    const bytesPerRow = EPD_WIDTH / 2;
-    const packed = new Uint8Array(bytesPerRow * EPD_HEIGHT);
-    let out = 0;
-    for (let y = 0; y < EPD_HEIGHT; y++) {
-      for (let bx = 0; bx < bytesPerRow; bx++) {
-        const x0 = bx * 2, x1 = bx * 2 + 1;
-        const i0 = (y * EPD_WIDTH + x0) * 4;
-        const i1 = (y * EPD_WIDTH + x1) * 4;
-        const c0 = nearestPaletteCode(data[i0], data[i0 + 1], data[i0 + 2]);
-        const c1 = nearestPaletteCode(data[i1], data[i1 + 1], data[i1 + 2]);
-        packed[out++] = (c0 << 4) | c1;
-      }
-    }
-    return packed;
   }
 
   function unpackBytesToCanvas(bytes, ctx) {
@@ -500,87 +426,9 @@
     ctx.putImageData(imgData, 0, 0);
   }
 
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
-
-  const genStatus = document.getElementById('genStatus');
-  const generateBtn = document.getElementById('generateBtn');
-
-  async function generateImage() {
-    generateBtn.disabled = true;
-    genStatus.textContent = 'Generating...';
-    try {
-      const historyResp = await fetch('/api/images?limit=1');
-      const history = await historyResp.json();
-      const nextNumber = (history[0]?.number ?? 0) + 1;
-
-      drawTestPattern(ctx, nextNumber);
-      const packed = canvasToPackedBytes(ctx);
-
-      const uploadResp = await fetch(`/api/images?number=${nextNumber}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/octet-stream' },
-        body: packed,
-      });
-
-      if (!uploadResp.ok) {
-        genStatus.textContent = 'Upload failed: ' + (await uploadResp.text());
-        return;
-      }
-
-      const row = await uploadResp.json();
-      genStatus.textContent = `Image #${row.number} generated and stored (${row.byte_size} bytes).`;
-      loadHistory();
-    } catch (err) {
-      genStatus.textContent = 'Error: ' + err.message;
-    } finally {
-      generateBtn.disabled = false;
-    }
-  }
-
-  generateBtn.addEventListener('click', generateImage);
-
-  const historyBody = document.getElementById('historyBody');
-  const historyStatus = document.getElementById('historyStatus');
-
-  async function loadHistory() {
-    historyStatus.textContent = 'Loading...';
-    try {
-      const resp = await fetch('/api/images');
-      const rows = await resp.json();
-      historyBody.innerHTML = '';
-      for (const row of rows) {
-        const tr = document.createElement('tr');
-        const created = row.created_at ? row.created_at.replace('T', ' ') : '';
-        tr.innerHTML = `
-          <td>${row.number}</td>
-          <td>${created}</td>
-          <td>${row.byte_size ?? '—'} bytes</td>
-          <td><button class="preview-btn" data-id="${row.id}">Preview</button></td>
-        `;
-        historyBody.appendChild(tr);
-      }
-      historyStatus.textContent = rows.length ? '' : 'No images generated yet.';
-      historyBody.querySelectorAll('.preview-btn').forEach((btn) => {
-        btn.addEventListener('click', () => previewImage(btn.dataset.id));
-      });
-    } catch (err) {
-      historyStatus.textContent = 'Failed to load history: ' + err.message;
-    }
-  }
-
   const previewModal = document.getElementById('previewModal');
   const previewCanvas = document.getElementById('previewCanvas');
   const previewCtx = previewCanvas.getContext('2d');
-
-  async function previewImage(id) {
-    const resp = await fetch(`/api/images/${id}/raw`);
-    if (!resp.ok) return;
-    const bytes = new Uint8Array(await resp.arrayBuffer());
-    unpackBytesToCanvas(bytes, previewCtx);
-    previewModal.hidden = false;
-  }
 
   async function previewDeviceImage(deviceId, button) {
     button.disabled = true;
@@ -993,7 +841,6 @@
       document.getElementById('whoami').textContent = 'Could not reach /api/whoami';
     });
 
-  loadHistory();
   loadDevices();
   // Fleet status should feel roughly live without the page constantly
   // refetching images — 30s is frequent enough to feel current without
