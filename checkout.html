@@ -149,6 +149,26 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
         <div class="advertising-or">or</div>
         <button type="button" class="btn btn--line">Create an advertisment for me</button>
       </div>
+      <section class="advertisement-editor" id="advertisementEditor" hidden>
+        <div class="converter-panel">
+          <h2>Advertisment Preview</h2>
+          <div class="converter-preview">
+            <div class="wallbot" role="img" aria-label="WALL Bot advertisement preview">
+              <span class="wallbot-solar"></span>
+              <div class="wallbot-screen"><canvas id="advertisementPreview" width="800" height="480"></canvas></div>
+              <span class="wallbot-solar"></span>
+            </div>
+            <p class="converter-note">800 × 480 pixels · six panel colors · preview shows the dithered result</p>
+          </div>
+          <div class="converter-controls">
+            <div class="converter-field"><label for="advertisementFit">Image fit</label><select id="advertisementFit"><option value="cover">Cover: crop to fill</option><option value="contain">Contain: white letterbox</option><option value="stretch">Stretch: fill frame</option></select></div>
+            <div class="converter-field"><label for="advertisementSaturation">Saturation <output id="advertisementSaturationValue">1</output></label><input id="advertisementSaturation" type="range" min="0" max="2" step="0.05" value="1"></div>
+            <div class="converter-field"><label for="advertisementContrast">Contrast <output id="advertisementContrastValue">0.4</output></label><input id="advertisementContrast" type="range" min="0" max="2" step="0.05" value="0.4"></div>
+            <button id="advertisementConvert" class="btn" type="button">Convert image</button>
+            <div id="advertisementStatus" class="converter-status" aria-live="polite"></div>
+          </div>
+        </div>
+      </section>
     </section>
 
     <section class="panel summary">
@@ -183,26 +203,6 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     </section>
   </div>
 
-  <section class="advertisement-editor" id="advertisementEditor" hidden>
-    <div class="converter-panel">
-      <h2>Advertisment Preview</h2>
-      <div class="converter-preview">
-        <div class="wallbot" role="img" aria-label="WALL Bot advertisement preview">
-          <span class="wallbot-solar"></span>
-          <div class="wallbot-screen"><canvas id="advertisementPreview" width="800" height="480"></canvas></div>
-          <span class="wallbot-solar"></span>
-        </div>
-        <p class="converter-note">800 × 480 pixels · six panel colors · preview shows the dithered result</p>
-      </div>
-      <div class="converter-controls">
-        <div class="converter-field"><label for="advertisementFit">Image fit</label><select id="advertisementFit"><option value="cover">Cover: crop to fill</option><option value="contain">Contain: white letterbox</option><option value="stretch">Stretch: fill frame</option></select></div>
-        <div class="converter-field"><label for="advertisementSaturation">Saturation <output id="advertisementSaturationValue">1</output></label><input id="advertisementSaturation" type="range" min="0" max="2" step="0.05" value="1"></div>
-        <div class="converter-field"><label for="advertisementContrast">Contrast <output id="advertisementContrastValue">0.4</output></label><input id="advertisementContrast" type="range" min="0" max="2" step="0.05" value="0.4"></div>
-        <button id="advertisementConvert" class="btn" type="button">Convert image</button>
-        <div id="advertisementStatus" class="converter-status" aria-live="polite"></div>
-      </div>
-    </div>
-  </section>
 </main>
 
 <script>
