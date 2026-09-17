@@ -28,9 +28,7 @@ h1,h2{margin:0;font-weight:800;letter-spacing:-.03em;line-height:1;}h1{font-size
 #preview{display:block;width:100%;height:auto;image-rendering:auto;background:#fff;aspect-ratio:5/3;}
 .preview-note{color:var(--steel);font-size:.8rem;margin:12px 0 0;}
 .field{display:grid;gap:6px;margin-top:18px;}.field:first-of-type{margin-top:0;}.field label{font-size:.84rem;color:var(--steel);}.field input,.field select{width:100%;background:#fff;border:1px solid var(--hair);border-radius:3px;padding:9px 10px;color:var(--ink);}.field input:focus,.field select:focus{border-color:var(--volt);outline:none;}
-.check{display:flex;align-items:center;gap:9px;margin-top:18px;font-size:.88rem;}.check input{width:16px;height:16px;accent-color:var(--volt);}
 .btn{display:inline-flex;align-items:center;justify-content:center;width:100%;border:1px solid transparent;border-radius:3px;padding:12px 18px;margin-top:22px;background:var(--ink);color:var(--panel-2);font-weight:700;cursor:pointer;}.btn:hover{background:var(--volt);}.btn:disabled{background:var(--hair);color:var(--steel);cursor:default;}
-.downloads{display:grid;gap:10px;margin-top:12px;}.downloads .btn{margin-top:0;background:transparent;color:var(--ink);border-color:var(--ink);}.downloads .btn:hover{background:var(--ink);color:var(--panel-2);}
 .status{min-height:1.5em;color:var(--steel);font-size:.82rem;margin-top:14px;}.status.error{color:#B3202A;}
 @media(max-width:760px){.workspace{grid-template-columns:1fr;margin-top:34px;}.nav{padding-inline:0;}h1{font-size:clamp(2.5rem,13vw,4.5rem);}}
 </style>
@@ -51,9 +49,7 @@ h1,h2{margin:0;font-weight:800;letter-spacing:-.03em;line-height:1;}h1{font-size
 			<div class="field"><label for="fit">Image fit</label><select id="fit"><option value="cover">Cover: crop to fill</option><option value="contain">Contain: white letterbox</option><option value="stretch">Stretch: fill frame</option></select></div>
 			<div class="field"><label for="saturation">Saturation <output id="saturationValue">1</output></label><input id="saturation" type="range" min="0" max="2" step="0.05" value="1"></div>
 			<div class="field"><label for="contrast">Contrast <output id="contrastValue">0.4</output></label><input id="contrast" type="range" min="0" max="2" step="0.05" value="0.4"></div>
-			<label class="check"><input id="dither" type="checkbox" checked> Floyd–Steinberg dithering</label>
 			<button id="convert" class="btn" type="button" disabled>Convert image</button>
-			<div class="downloads"><button id="downloadPreview" class="btn" type="button" disabled>Download preview PNG</button><button id="downloadBin" class="btn" type="button" disabled>Download device .bin</button></div>
 			<div id="status" class="status" aria-live="polite">Choose an image to begin.</div>
 		</section>
 	</div>
@@ -74,16 +70,13 @@ h1,h2{margin:0;font-weight:800;letter-spacing:-.03em;line-height:1;}h1{font-size
 	const fitInput = document.getElementById("fit");
 	const saturationInput = document.getElementById("saturation");
 	const contrastInput = document.getElementById("contrast");
-	const ditherInput = document.getElementById("dither");
 	const convertButton = document.getElementById("convert");
-	const previewButton = document.getElementById("downloadPreview");
-	const binButton = document.getElementById("downloadBin");
 	const preview = document.getElementById("preview");
 	const ctx = preview.getContext("2d");
 	const sourceCanvas = document.createElement("canvas");
 	sourceCanvas.width = WIDTH; sourceCanvas.height = HEIGHT;
 	const sourceCtx = sourceCanvas.getContext("2d");
-	let sourceImage = null, packedBytes = null, previewReady = false;
+	let sourceImage = null, packedBytes = null;
 
 	function setStatus(message, error){ const status = document.getElementById("status"); status.textContent = message; status.classList.toggle("error", Boolean(error)); }
 	function clamp(value){ return Math.max(0, Math.min(255, value)); }
@@ -121,7 +114,6 @@ h1,h2{margin:0;font-weight:800;letter-spacing:-.03em;line-height:1;}h1{font-size
 			const pixel = (y*WIDTH+x)*3, index = nearestPaletteIndex(working[pixel], working[pixel+1], working[pixel+2]), color = PALETTE[index];
 			codes[y*WIDTH+x] = color.code;
 			const screen = (y*WIDTH+x)*4; output.data[screen] = color.rgb[0]; output.data[screen+1] = color.rgb[1]; output.data[screen+2] = color.rgb[2]; output.data[screen+3] = 255;
-			if (!ditherInput.checked) continue;
 			const er = working[pixel]-color.rgb[0], eg = working[pixel+1]-color.rgb[1], eb = working[pixel+2]-color.rgb[2];
 			function spread(nx, ny, amount){ const target = (ny*WIDTH+nx)*3; working[target] += er*amount; working[target+1] += eg*amount; working[target+2] += eb*amount; }
 			if (x+1 < WIDTH) spread(x+1, y, 7/16);
@@ -130,14 +122,11 @@ h1,h2{margin:0;font-weight:800;letter-spacing:-.03em;line-height:1;}h1{font-size
 		ctx.putImageData(output, 0, 0);
 		packedBytes = new Uint8Array(WIDTH * HEIGHT / 2);
 		for (let y = 0, out = 0; y < HEIGHT; y++) for (let x = 0; x < WIDTH; x += 2) packedBytes[out++] = (codes[y*WIDTH+x] << 4) | codes[y*WIDTH+x+1];
-		previewReady = true; previewButton.disabled = false; binButton.disabled = false; setStatus("Converted 800 × 480 image · " + packedBytes.length.toLocaleString() + " byte .bin");
+		setStatus("Converted 800 × 480 image · " + packedBytes.length.toLocaleString() + " packed bytes");
 	}
-	function download(blob, name){ const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = name; link.click(); setTimeout(function(){ URL.revokeObjectURL(link.href); }, 1000); }
 	fileInput.addEventListener("change", function(){ const file = fileInput.files[0]; if (!file) return; const image = new Image(); image.onload = function(){ sourceImage = image; convertButton.disabled = false; convert(); }; image.onerror = function(){ setStatus("That file could not be opened as an image.", true); }; image.src = URL.createObjectURL(file); });
 	convertButton.addEventListener("click", convert);
-	[fitInput, saturationInput, contrastInput, ditherInput].forEach(function(input){ input.addEventListener("change", function(){ document.getElementById(input.id + (input.type === "range" ? "Value" : "")); if (input.type === "range") document.getElementById(input.id + "Value").textContent = input.value; if (sourceImage) convert(); }); });
-	previewButton.addEventListener("click", function(){ if (!previewReady) return; preview.toBlob(function(blob){ if (blob) download(blob, "wall-preview.png"); }, "image/png"); });
-	binButton.addEventListener("click", function(){ if (packedBytes) download(new Blob([packedBytes], { type: "application/octet-stream" }), "wall-image.bin"); });
+	[fitInput, saturationInput, contrastInput].forEach(function(input){ input.addEventListener("change", function(){ if (input.type === "range") document.getElementById(input.id + "Value").textContent = input.value; if (sourceImage) convert(); }); });
 })();
 </script>
 </body>
