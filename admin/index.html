@@ -445,6 +445,21 @@
     }
   }
 
+  async function previewHistoricalImage(imageId, button) {
+    button.disabled = true;
+    try {
+      const resp = await fetch(`/api/images/${imageId}/raw`);
+      if (!resp.ok) throw new Error(await resp.text());
+      const bytes = new Uint8Array(await resp.arrayBuffer());
+      unpackBytesToCanvas(bytes, previewCtx);
+      previewModal.hidden = false;
+    } catch (err) {
+      devicesStatus.textContent = 'Could not load historical image: ' + err.message;
+    } finally {
+      button.disabled = false;
+    }
+  }
+
   document.getElementById('closePreview').addEventListener('click', () => {
     previewModal.hidden = true;
   });
@@ -791,8 +806,21 @@
         <td>${row.free_heap ?? '—'}</td>
         <td>${row.firmware_version ?? '—'}</td>
         <td>${row.error_count ?? '—'}</td>
-        <td>${row.image_hash ?? '—'}</td>
+        <td class="history-image-cell"></td>
       `;
+      const imageCell = tr.querySelector('.history-image-cell');
+      const imageIdMatch = row.image_hash?.match(/^img-(\d+)$/);
+      if (imageIdMatch) {
+        const imageButton = document.createElement('button');
+        imageButton.type = 'button';
+        imageButton.className = 'preview-btn';
+        imageButton.textContent = row.image_hash;
+        imageButton.title = 'Preview this historical image';
+        imageButton.addEventListener('click', () => previewHistoricalImage(imageIdMatch[1], imageButton));
+        imageCell.appendChild(imageButton);
+      } else {
+        imageCell.textContent = row.image_hash ?? '—';
+      }
       deviceHistoryBody.appendChild(tr);
     }
     if (!deviceHistoryRows.length) {
