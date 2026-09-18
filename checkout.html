@@ -81,6 +81,11 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 .summary dl { display: grid; grid-template-columns: 1fr auto; gap: 10px 20px; margin: 0 0 28px; }
 .summary dt { color: #A9B0AA; }
 .summary dd { margin: 0; font-weight: 700; text-align: right; }
+.currency-control { margin-top: -18px; margin-bottom: 22px; text-align: right; }
+.currency-link { padding: 0; border: 0; background: transparent; color: var(--volt-2); font-size: .78rem; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.currency-link:hover { background: transparent; color: #fff; }
+.currency-select { display: none; margin-top: 8px; margin-left: auto; padding: 6px 8px; border: 1px solid #4A5050; border-radius: 3px; background: #25282A; color: #fff; font-size: .82rem; }
+.currency-control.open .currency-select { display: block; }
 .summary .advertisement-file[hidden] { display: none; }
 .summary dd.total { color: var(--volt-2); font-size: 1.15rem; }
 .field { display: grid; gap: 6px; margin-top: 16px; }
@@ -235,6 +240,10 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
         <dt id="advertisementFileLabel" class="advertisement-file" hidden>Advertisement</dt><dd id="advertisementFileSummary" class="advertisement-file" hidden></dd>
         <dt>Total</dt><dd id="estimatedTotal" class="total">Enter dates</dd>
       </dl>
+      <div class="currency-control" id="currencyControl">
+        <button type="button" class="currency-link" id="currencyLink">Change currency</button>
+        <select class="currency-select" id="currencySelect" aria-label="Display currency"><option value="USD">USD ($)</option></select>
+      </div>
       <form id="bookingForm">
         <div class="field">
           <label for="brand">Campaign name</label>
@@ -319,7 +328,9 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     var dailyRate = selected.reduce(function(total, device){ return total + Number(device.daily_cost_usd ?? 10); }, 0);
     var dateRanges = {};
     var activeDateDeviceId = null;
-    var currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+    var currencyCode = "USD";
+    var conversionRates = { USD: 1 };
+    var currency = new Intl.NumberFormat("en-US", { style: "currency", currency: currencyCode });
     var submitButton = $("bookingForm").querySelector("button[type=submit]");
     var requiredFields = ["brand", "contactEmail"];
     var invoiceInputIds = ["businessName", "businessRegistration", "taxNumber", "invoiceContactName", "invoicePhone", "invoiceAddress", "invoiceCity", "invoicePostcode", "invoiceCountry"];
@@ -333,6 +344,31 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       var advertisement = window.wallAdvertisement;
       return Boolean(advertisement && advertisement.bytes instanceof Uint8Array && advertisement.bytes.byteLength === 800 * 480 / 2 && /^[A-Za-z0-9_-]+\.bin$/.test(advertisement.filename));
     }
+    function formatMoney(usdAmount){
+      var converted = usdAmount * Number(conversionRates[currencyCode] || 1);
+      return new Intl.NumberFormat("en-US", { style: "currency", currency: currencyCode }).format(converted);
+    }
+    var currencyLabels = { USD: "USD ($)", AUD: "AUD ($)", CAD: "CAD ($)", EUR: "EUR (€)", GBP: "GBP (£)", NZD: "NZD ($)", SGD: "SGD ($)" };
+    $("currencyLink").addEventListener("click", function(){ $("currencyControl").classList.toggle("open"); });
+    $("currencySelect").addEventListener("change", function(){
+      currencyCode = this.value;
+      $("dailyRate").textContent = formatMoney(dailyRate);
+      updateEstimatedTotal();
+    });
+    fetch("/api/exchange-rates").then(function(rateResponse){
+      return rateResponse.ok ? rateResponse.json() : null;
+    }).then(function(ratePayload){
+      if (!ratePayload || !ratePayload.conversion_rates) return;
+      conversionRates = ratePayload.conversion_rates;
+      var currencySelect = $("currencySelect");
+      Object.keys(currencyLabels).forEach(function(code){
+        if (code !== "USD" && !Number.isFinite(Number(conversionRates[code]))) return;
+        var option = document.createElement("option");
+        option.value = code;
+        option.textContent = currencyLabels[code];
+        currencySelect.appendChild(option);
+      });
+    }).catch(function(){});
     function updateSubmitState(){
       var form = $("bookingForm");
       var hasAdvertisement = hasValidAdvertisement();
@@ -444,7 +480,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 
     $("siteCount").textContent = selected.length;
     $("screenCount").textContent = screens;
-    $("dailyRate").textContent = currency.format(dailyRate);
+    $("dailyRate").textContent = formatMoney(dailyRate);
     if (!selected.length) {
       $("emptyState").hidden = false;
       $("bookingForm").hidden = true;
@@ -479,7 +515,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
         $("estimatedTotal").textContent = "Minimum 5 days";
         return false;
       }
-      $("estimatedTotal").textContent = currency.format(total);
+      $("estimatedTotal").textContent = formatMoney(total);
       return true;
     }
     requiredFields.forEach(function(fieldId){ $(fieldId).addEventListener("input", updateSubmitState); });

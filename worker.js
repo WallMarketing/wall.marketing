@@ -588,6 +588,18 @@ export default {
       });
     }
 
+    // --- Public exchange rates for checkout display; the provider key stays server-side ---
+    if (url.pathname === '/api/exchange-rates' && request.method === 'GET') {
+      if (!env.EXCHANGE_RATE_API_KEY) return jsonResponse({ base_code: 'USD', conversion_rates: { USD: 1 } });
+      const ratesResponse = await fetch(`https://v6.exchangerate-api.com/v6/${env.EXCHANGE_RATE_API_KEY}/latest/USD`);
+      if (!ratesResponse.ok) return jsonResponse({ error: 'exchange rates unavailable' }, 502);
+      const rates = await ratesResponse.json();
+      if (rates.result !== 'success' || !rates.conversion_rates) return jsonResponse({ error: 'exchange rates unavailable' }, 502);
+      return new Response(JSON.stringify({ base_code: 'USD', conversion_rates: rates.conversion_rates }), {
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' },
+      });
+    }
+
     // --- Orders: save the booking before starting payment ---
     if (url.pathname === '/api/orders' && request.method === 'POST') {
       let form;
