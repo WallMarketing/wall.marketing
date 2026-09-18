@@ -70,6 +70,8 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 .order-item:first-child { border-top: 0; padding-top: 0; }
 .order-item h3 { margin: 0; font-size: 1rem; font-weight: 700; }
 .order-item p { margin: 4px 0 0; color: var(--steel); font-size: .9rem; }
+.order-item .date-link { display: inline-block; margin-top: 8px; padding: 0; border: 0; background: transparent; color: var(--volt); font-size: .82rem; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.order-item .date-link:hover { background: transparent; color: var(--ink); }
 .order-item strong { color: var(--volt); white-space: nowrap; }
 .advertising-actions { display: grid; gap: 10px; margin-top: 24px; }
 .advertising-actions .btn { margin-top: 0; }
@@ -130,6 +132,18 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 .invoice-suggestion { display: block; width: 100%; padding: 9px 10px; border: 0; border-bottom: 1px solid #4A5050; background: #25282A; color: #fff; text-align: left; cursor: pointer; }
 .invoice-suggestion:last-child { border-bottom: 0; }
 .invoice-suggestion:hover, .invoice-suggestion:focus-visible { background: #3A3E40; }
+.booking-date-modal[hidden] { display: none; }
+.booking-date-modal { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; background: rgba(27,29,31,.72); }
+.booking-date-box { position: relative; width: min(100%, 420px); padding: 28px; border: 1px solid var(--hair); border-radius: 3px; background: var(--panel-2); }
+.booking-date-box h2 { margin: 0 0 18px; font-size: 1.35rem; }
+.booking-date-close { position: absolute; top: 10px; right: 12px; padding: 2px 6px; border: 0; background: transparent; color: var(--steel); font-size: 1.4rem; cursor: pointer; }
+.booking-date-close:hover { background: transparent; color: var(--volt); }
+.booking-date-fields { display: grid; gap: 14px; }
+.booking-date-fields label { color: var(--steel); font-size: .84rem; }
+.booking-date-fields input { width: 100%; margin-top: 5px; padding: 10px 11px; border: 1px solid var(--hair); border-radius: 3px; background: #fff; color: var(--ink); }
+.booking-date-status { min-height: 1.3em; margin-top: 12px; color: #A52B2B; font-size: .82rem; }
+.booking-date-actions { display: flex; gap: 10px; margin-top: 18px; }
+.booking-date-actions .btn { width: auto; margin-top: 0; }
 @media (max-width: 760px) {
   .nav-links { display: none; position: absolute; top: 100%; left: 0; right: 0; flex-direction: column; align-items: stretch; gap: 0; background: var(--panel-2); border-bottom: 1px solid var(--hair); padding: 8px 20px 20px; }
   .nav-links.open { display: flex; }
@@ -213,15 +227,6 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
           <input id="contactEmail" name="contact_email" type="email" autocomplete="email" required>
         </div>
         <div class="field">
-          <label for="start">Preferred start date</label>
-          <input id="start" name="start" type="date" required>
-        </div>
-        <div class="field">
-          <label for="end">Preferred end date</label>
-          <input id="end" name="end" type="date" required>
-          <div class="date-hint" id="dateHint">Minimum booking: 5 days</div>
-        </div>
-        <div class="field">
           <label for="promo">Promo code</label>
           <input id="promo" name="promo" type="text" autocomplete="off">
         </div>
@@ -245,6 +250,19 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
   </div>
 
 </main>
+
+<div id="bookingDateModal" class="booking-date-modal" hidden>
+  <div class="booking-date-box">
+    <button id="bookingDateClose" class="booking-date-close" type="button" aria-label="Close date selector">&times;</button>
+    <h2 id="bookingDateTitle">Choose booking dates</h2>
+    <div class="booking-date-fields">
+      <label>Start date<input id="bookingDateStart" type="date"></label>
+      <label>End date<input id="bookingDateEnd" type="date"></label>
+    </div>
+    <div id="bookingDateStatus" class="booking-date-status" aria-live="polite"></div>
+    <div class="booking-date-actions"><button id="bookingDateSave" class="btn" type="button">Save dates</button><button id="bookingDateCancel" class="btn btn--ghost" type="button">Cancel</button></div>
+  </div>
+</div>
 
 <script>
 (function(){
@@ -274,9 +292,11 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     var selected = ids.map(function(id){ return byId[id]; }).filter(Boolean);
     var screens = selected.length;
     var dailyRate = selected.reduce(function(total, device){ return total + Number(device.daily_cost_usd ?? 10); }, 0);
+    var dateRanges = {};
+    var activeDateDeviceId = null;
     var currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
     var submitButton = $("bookingForm").querySelector("button[type=submit]");
-    var requiredFields = ["brand", "contactEmail", "start", "end"];
+    var requiredFields = ["brand", "contactEmail"];
     var invoiceInputIds = ["businessName", "businessRegistration", "taxNumber", "invoiceContactName", "invoicePhone", "invoiceAddress", "invoiceCity", "invoicePostcode", "invoiceCountry"];
     function updateInvoiceFields(){
       var enabled = $("invoiceRequired").checked;
@@ -291,13 +311,64 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     function updateSubmitState(){
       var form = $("bookingForm");
       var hasAdvertisement = hasValidAdvertisement();
-      submitButton.disabled = !form.checkValidity() || !hasAdvertisement;
+      var hasDates = updateEstimatedTotal();
+      submitButton.disabled = !form.checkValidity() || !hasAdvertisement || !hasDates;
       if (form.checkValidity() && !hasAdvertisement) {
         $("formStatus").textContent = "Add your advertisement before continuing to payment.";
-      } else if ($("formStatus").textContent === "Add your advertisement before continuing to payment.") {
+      } else if (form.checkValidity() && !hasDates) {
+        $("formStatus").textContent = "Choose dates for every screen before continuing to payment.";
+      } else if ($("formStatus").textContent === "Add your advertisement before continuing to payment." || $("formStatus").textContent === "Choose dates for every screen before continuing to payment.") {
         $("formStatus").textContent = "";
       }
     }
+    function formatDateRange(range){
+      if (!range || !range.start || !range.end) return "Choose dates";
+      return range.start + " to " + range.end;
+    }
+    function closeDateModal(){
+      $("bookingDateModal").hidden = true;
+      activeDateDeviceId = null;
+    }
+    function openDateModal(deviceId){
+      var device = byId[deviceId];
+      activeDateDeviceId = deviceId;
+      $("bookingDateTitle").textContent = (device.site_name || device.device_id) + " dates";
+      var range = dateRanges[deviceId] || {};
+      $("bookingDateStart").value = range.start || "";
+      $("bookingDateEnd").value = range.end || "";
+      $("bookingDateEnd").min = range.start || "";
+      $("bookingDateStatus").textContent = "";
+      $("bookingDateModal").hidden = false;
+    }
+    $("orderList").addEventListener("click", function(event){
+      var link = event.target.closest(".date-link");
+      if (!link) return;
+      openDateModal(link.dataset.dateDevice);
+    });
+    $("bookingDateStart").addEventListener("input", function(){
+      var start = $("bookingDateStart").value;
+      $("bookingDateEnd").min = start || "";
+    });
+    $("bookingDateSave").addEventListener("click", function(){
+      var start = $("bookingDateStart").value;
+      var end = $("bookingDateEnd").value;
+      if (!start || !end || daysBetween(start, end) < 5) {
+        $("bookingDateStatus").textContent = "Choose a date range of at least 5 days.";
+        return;
+      }
+      dateRanges[activeDateDeviceId] = { start: start, end: end };
+      var link = document.querySelector('[data-date-device="' + CSS.escape(activeDateDeviceId) + '"]');
+      if (link) link.textContent = formatDateRange(dateRanges[activeDateDeviceId]);
+      closeDateModal();
+      updateSubmitState();
+    });
+    $("bookingDateClose").addEventListener("click", closeDateModal);
+    $("bookingDateCancel").addEventListener("click", closeDateModal);
+    $("bookingDateModal").addEventListener("click", function(event){
+      if (event.target === $("bookingDateModal")) closeDateModal();
+    });
+    $("bookingDateStart").addEventListener("change", updateSubmitState);
+    $("bookingDateEnd").addEventListener("change", updateSubmitState);
     window.updateCheckoutSubmitState = updateSubmitState;
 
     $("siteCount").textContent = selected.length;
@@ -312,7 +383,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     $("orderList").innerHTML = selected.map(function(device){
       var name = device.site_name || device.device_id;
       var location = device.site_location || "Location not set";
-      return '<li class="order-item"><div><h3>' + esc(name) + '</h3><p>' + esc(location) + '</p></div><strong>1 screen</strong></li>';
+      return '<li class="order-item"><div><h3>' + esc(name) + '</h3><p>' + esc(location) + '</p><button type="button" class="date-link" data-date-device="' + esc(device.device_id) + '">Choose dates</button></div><strong>1 screen</strong></li>';
     }).join("");
 
     function daysBetween(start, end){
@@ -321,35 +392,25 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       return Math.round((endDate - startDate) / 86400000);
     }
     function updateEstimatedTotal(){
-      var start = $("start").value;
-      var end = $("end").value;
-      var days = start && end ? daysBetween(start, end) : 0;
-      if (!start || !end) {
+      var total = 0, missingDates = false, invalidDates = false;
+      selected.forEach(function(device){
+        var range = dateRanges[device.device_id];
+        if (!range || !range.start || !range.end) { missingDates = true; return; }
+        var days = daysBetween(range.start, range.end);
+        if (days < 5) { invalidDates = true; return; }
+        total += Number(device.daily_cost_usd ?? 10) * days;
+      });
+      if (missingDates) {
         $("estimatedTotal").textContent = "Enter dates";
-        $("dateHint").textContent = "Minimum booking: 5 days";
         return false;
       }
-      if (days < 5) {
+      if (invalidDates) {
         $("estimatedTotal").textContent = "Minimum 5 days";
-        $("dateHint").textContent = "Choose an end date at least 5 days after the start date";
         return false;
       }
-      $("estimatedTotal").textContent = currency.format(dailyRate * days);
-      $("dateHint").textContent = days + (days === 1 ? " day" : " days");
+      $("estimatedTotal").textContent = currency.format(total);
       return true;
     }
-    $("start").addEventListener("input", function(){
-      if ($("start").value) {
-        var minimumEnd = new Date($("start").value + "T00:00:00Z");
-        minimumEnd.setUTCDate(minimumEnd.getUTCDate() + 5);
-        $("end").min = minimumEnd.toISOString().slice(0, 10);
-      } else {
-        $("end").removeAttribute("min");
-      }
-      updateEstimatedTotal();
-      updateSubmitState();
-    });
-    $("end").addEventListener("input", function(){ updateEstimatedTotal(); updateSubmitState(); });
     requiredFields.forEach(function(fieldId){ $(fieldId).addEventListener("input", updateSubmitState); });
     invoiceInputIds.forEach(function(fieldId){ $(fieldId).addEventListener("input", updateSubmitState); });
     $("invoiceRequired").addEventListener("change", updateInvoiceFields);
@@ -367,9 +428,14 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       submitButton.disabled = true;
       $("formStatus").textContent = "Saving your booking...";
       data.set("campaign_name", data.get("brand"));
-      data.set("start_date", data.get("start"));
-      data.set("end_date", data.get("end"));
       data.set("device_ids", JSON.stringify(selected.map(function(device){ return device.device_id; })));
+      var overallStart = selected.map(function(device){ return dateRanges[device.device_id].start; }).sort()[0];
+      var overallEnd = selected.map(function(device){ return dateRanges[device.device_id].end; }).sort().reverse()[0];
+      var deviceDates = {};
+      selected.forEach(function(device){ deviceDates[device.device_id] = dateRanges[device.device_id]; });
+      data.set("start_date", overallStart);
+      data.set("end_date", overallEnd);
+      data.set("device_dates", JSON.stringify(deviceDates));
       data.set("advertisement_filename", window.wallAdvertisement.filename);
       data.set("advertisement", new File([window.wallAdvertisement.bytes], window.wallAdvertisement.filename, { type: "application/octet-stream" }));
       try {

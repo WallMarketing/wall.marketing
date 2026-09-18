@@ -613,17 +613,36 @@ export default {
       } catch {
         return jsonResponse({ error: 'device_ids must be valid JSON' }, 400);
       }
-      if (!campaignName || campaignName.length > 200 || !contactEmail || contactEmail.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail) || !startDate || !endDate || !Array.isArray(deviceIds) || !deviceIds.length || deviceIds.length > 100) {
+      let submittedDeviceDates = {};
+      try {
+        submittedDeviceDates = JSON.parse(String(form.get('device_dates') || '{}'));
+      } catch {
+        return jsonResponse({ error: 'device_dates must be valid JSON' }, 400);
+      }
+      if (!submittedDeviceDates || typeof submittedDeviceDates !== 'object' || Array.isArray(submittedDeviceDates)) {
+        return jsonResponse({ error: 'device_dates must be an object' }, 400);
+      }
+      if (!campaignName || campaignName.length > 200 || !contactEmail || contactEmail.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail) || !Array.isArray(deviceIds) || !deviceIds.length || deviceIds.length > 100) {
         return jsonResponse({ error: 'campaign, contact email, dates, and at least one device are required' }, 400);
       }
       if (invoiceRequired && Object.values(invoiceDetails).some((value) => !value || value.length > 200)) {
         return jsonResponse({ error: 'all invoice details are required' }, 400);
       }
 
-      const start = new Date(`${startDate}T00:00:00Z`);
-      const end = new Date(`${endDate}T00:00:00Z`);
-      const days = Math.round((end - start) / 86400000);
-      if (!Number.isFinite(days) || days < 5) return jsonResponse({ error: 'booking must be at least 5 days' }, 400);
+      const deviceDateRanges = {};
+      for (const deviceId of deviceIds) {
+        const range = submittedDeviceDates[deviceId];
+        const rangeStart = parseDate(range?.start_date || range?.start);
+        const rangeEnd = parseDate(range?.end_date || range?.end);
+        if (!rangeStart || !rangeEnd) return jsonResponse({ error: `dates are required for device ${deviceId}` }, 400);
+        const rangeDays = Math.round((new Date(`${rangeEnd}T00:00:00Z`) - new Date(`${rangeStart}T00:00:00Z`)) / 86400000);
+        if (!Number.isFinite(rangeDays) || rangeDays < 5) return jsonResponse({ error: `booking for device ${deviceId} must be at least 5 days` }, 400);
+        deviceDateRanges[deviceId] = { startDate: rangeStart, endDate: rangeEnd, days: rangeDays };
+      }
+      const startDateValues = deviceIds.map((deviceId) => deviceDateRanges[deviceId].startDate).sort();
+      const endDateValues = deviceIds.map((deviceId) => deviceDateRanges[deviceId].endDate).sort().reverse();
+      const overallStartDate = startDateValues[0];
+      const overallEndDate = endDateValues[0];
 
       const placeholders = deviceIds.map(() => '?').join(', ');
       const { results: devices } = await env.DB.prepare(
@@ -631,20 +650,20 @@ export default {
       ).bind(...deviceIds).all();
       if (devices.length !== deviceIds.length) return jsonResponse({ error: 'one or more devices are unavailable' }, 409);
 
+      const conflictClauses = deviceIds.map(() => '(oi.device_id = ? AND oi.start_date < ? AND oi.end_date > ?)').join(' OR ');
+      const conflictBindings = deviceIds.flatMap((deviceId) => [deviceId, deviceDateRanges[deviceId].endDate, deviceDateRanges[deviceId].startDate]);
       const { results: conflicts } = await env.DB.prepare(
         `SELECT DISTINCT oi.device_id
            FROM order_items oi
            JOIN orders o ON o.id = oi.order_id
-          WHERE oi.device_id IN (${placeholders})
+          WHERE (${conflictClauses})
             AND oi.status IN ('pending_payment', 'scheduled')
-            AND (o.status IN ('paid', 'scheduled') OR (o.status = 'pending_payment' AND o.created_at >= datetime('now', '-30 minutes')))
-            AND oi.start_date < ?
-            AND oi.end_date > ?`
-      ).bind(...deviceIds, endDate, startDate).all();
+            AND (o.status IN ('paid', 'scheduled') OR (o.status = 'pending_payment' AND o.created_at >= datetime('now', '-30 minutes')))`
+      ).bind(...conflictBindings).all();
       if (conflicts.length) return jsonResponse({ error: 'one or more devices are already booked for those dates', device_ids: conflicts.map((row) => row.device_id) }, 409);
 
       const dailyRate = devices.reduce((total, device) => total + Number(device.daily_cost_usd || 0), 0);
-      const totalUsd = Math.round(dailyRate * days * 100) / 100;
+      const totalUsd = Math.round(devices.reduce((total, device) => total + Number(device.daily_cost_usd || 0) * deviceDateRanges[device.device_id].days, 0) * 100) / 100;
       const orderId = crypto.randomUUID();
       const checkoutCode = crypto.randomUUID().replaceAll('-', '').slice(0, 10).toUpperCase();
       const advertisement = form.get('advertisement');
@@ -662,7 +681,7 @@ export default {
              invoice_phone, invoice_address, invoice_city, invoice_postcode, invoice_country
            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).bind(
-          orderId, checkoutCode, campaignName, contactEmail, startDate, endDate,
+          orderId, checkoutCode, campaignName, contactEmail, overallStartDate, overallEndDate,
           dailyRate, totalUsd, invoiceRequired ? 1 : 0,
           invoiceDetails.businessName || null, invoiceDetails.businessRegistrationNumber || null,
           invoiceDetails.taxNumber || null, invoiceDetails.contactName || null,
@@ -671,7 +690,7 @@ export default {
         ).run();
       await env.DB.batch(devices.map((device) => env.DB.prepare(
         `INSERT INTO order_items (order_id, device_id, daily_rate_usd, start_date, end_date) VALUES (?, ?, ?, ?, ?)`
-      ).bind(orderId, device.device_id, Number(device.daily_cost_usd || 0), startDate, endDate)));
+      ).bind(orderId, device.device_id, Number(device.daily_cost_usd || 0), deviceDateRanges[device.device_id].startDate, deviceDateRanges[device.device_id].endDate)));
       await env.IMAGES.put(r2Key, await advertisement.arrayBuffer());
       await env.DB.prepare(
         `INSERT INTO advertisements (order_id, filename, r2_key, byte_size) VALUES (?, ?, ?, ?)`
