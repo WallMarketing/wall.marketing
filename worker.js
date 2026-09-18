@@ -640,6 +640,8 @@ export default {
         const rangeStart = parseDate(range?.start_date || range?.start);
         const rangeEnd = parseDate(range?.end_date || range?.end);
         if (!rangeStart || !rangeEnd) return jsonResponse({ error: `dates are required for device ${deviceId}` }, 400);
+        const today = new Date().toISOString().slice(0, 10);
+        if (rangeStart < today) return jsonResponse({ error: `booking for device ${deviceId} cannot start in the past` }, 400);
         const rangeDays = Math.round((new Date(`${rangeEnd}T00:00:00Z`) - new Date(`${rangeStart}T00:00:00Z`)) / 86400000);
         if (!Number.isFinite(rangeDays) || rangeDays < 5) return jsonResponse({ error: `booking for device ${deviceId} must be at least 5 days` }, 400);
         deviceDateRanges[deviceId] = { startDate: rangeStart, endDate: rangeEnd, days: rangeDays };

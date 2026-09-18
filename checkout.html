@@ -150,6 +150,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 .booking-date-day { background: #E8F6EC; color: #176B3A; font-size: .78rem; cursor: pointer; }
 .booking-date-day:hover { outline: 2px solid var(--volt); outline-offset: -2px; }
 .booking-date-day.muted { color: var(--hair); background: var(--panel-2); cursor: default; }
+.booking-date-day.past { color: var(--hair); background: var(--panel-2); cursor: not-allowed; }
 .booking-date-day.booked { background: #FCE8E6; color: #A52B2B; font-weight: 700; cursor: not-allowed; }
 .booking-date-day.selected { background: var(--volt); color: #fff; font-weight: 700; }
 .booking-date-day.in-range { background: #DCD8FF; color: var(--ink); }
@@ -364,6 +365,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     }
     function renderBookingCalendar(){
       var year = calendarMonth.getFullYear(), month = calendarMonth.getMonth();
+      var todayKey = dateKey(new Date());
       $("bookingDateMonth").textContent = calendarMonth.toLocaleDateString("en-US", { month:"long", year:"numeric" });
       $("bookingDateCalendar").replaceChildren();
       ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(function(day){ var header = document.createElement("div"); header.className = "booking-date-weekday"; header.textContent = day; $("bookingDateCalendar").appendChild(header); });
@@ -373,6 +375,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
         var key = dateKey(cellDate);
         cell.className = "booking-date-day";
         if (dayOffset < 1 || dayOffset > daysInMonth) cell.classList.add("muted");
+        else if (key < todayKey) cell.classList.add("past");
         else if (isBookedDate(activeDateDeviceId, key)) cell.classList.add("booked");
         else {
           if (key === calendarDraftStart || key === calendarDraftEnd) cell.classList.add("selected");
@@ -416,7 +419,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     });
     $("bookingDateSave").addEventListener("click", function(){
       var start = calendarDraftStart, end = calendarDraftEnd;
-      if (!start || !end || daysBetween(start, end) < 5) {
+      if (!start || !end || start < dateKey(new Date()) || daysBetween(start, end) < 5) {
         $("bookingDateStatus").textContent = "Choose a date range of at least 5 days.";
         return;
       }
