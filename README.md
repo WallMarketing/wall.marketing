@@ -34,6 +34,8 @@ for `/api/sites*` and `/api/orders` on both `wall.marketing` and
 `/api/stripe/webhook`; keep `/api/devices` protected by the owner-only policy.
 The admin order list uses `/api/admin/orders` and must remain protected by the
 owner-only policy.
+Paid orders whose confirmation email failed can be retried with the protected
+`POST /api/admin/orders/{order_id}/email` endpoint after fixing Email Sending.
 Device firmware downloads require a Public Bypass rule for
 `/api/device-content/*`; the Worker still requires the device's own token.
 

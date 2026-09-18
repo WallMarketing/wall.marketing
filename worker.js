@@ -166,9 +166,38 @@ function makeEmailMessage(from, to, subject, text, pdfBytes, filename) {
 }
 
 async function sendOrderEmail(env, order, subject, text, pdfBytes, filename) {
-  if (!env.EMAIL || !env.EMAIL_FROM || !order.contact_email) throw new Error('email sending is not configured');
+  if (!env.EMAIL || !env.EMAIL_FROM || !order.contact_email) {
+    console.error('Order email send skipped: email binding, sender, or recipient is missing', JSON.stringify({
+      orderId: order.id,
+      hasBinding: Boolean(env.EMAIL),
+      hasSender: Boolean(env.EMAIL_FROM),
+      hasRecipient: Boolean(order.contact_email),
+    }));
+    throw new Error('email sending is not configured');
+  }
   const raw = makeEmailMessage(env.EMAIL_FROM, order.contact_email, subject, text, pdfBytes, filename);
-  await env.EMAIL.send(new EmailMessage(env.EMAIL_FROM, order.contact_email, raw));
+  try {
+    await env.EMAIL.send(new EmailMessage(env.EMAIL_FROM, order.contact_email, raw));
+  } catch (error) {
+    console.error('Order email send failed', JSON.stringify({
+      orderId: order.id,
+      recipientDomain: String(order.contact_email).split('@')[1] || null,
+      message: error?.message || String(error),
+    }));
+    throw error;
+  }
+}
+
+async function sendSuccessEmailForOrder(env, order) {
+  const pdf = buildInvoicePdf(order);
+  await sendOrderEmail(
+    env,
+    order,
+    `WALL advertisement scheduled - ${order.checkout_code}`,
+    `Your WALL advertisement is scheduled.\n\nOrder reference: ${order.checkout_code}\nCampaign: ${order.campaign_name}\nBooking: ${order.start_date} to ${order.end_date}\n\nYour invoice is attached as a PDF.`,
+    pdf,
+    `invoice-${order.checkout_code}.pdf`
+  );
 }
 
 export default {
@@ -684,15 +713,7 @@ export default {
         ).bind(orderId).run();
         const order = await env.DB.prepare(`SELECT * FROM orders WHERE id = ?`).bind(orderId).first();
         if (order && !order.success_email_sent) {
-          const pdf = buildInvoicePdf(order);
-          await sendOrderEmail(
-            env,
-            order,
-            `WALL advertisement scheduled - ${order.checkout_code}`,
-            `Your WALL advertisement is scheduled.\n\nOrder reference: ${order.checkout_code}\nCampaign: ${order.campaign_name}\nBooking: ${order.start_date} to ${order.end_date}\n\nYour invoice is attached as a PDF.`,
-            pdf,
-            `invoice-${order.checkout_code}.pdf`
-          );
+          await sendSuccessEmailForOrder(env, order);
           await env.DB.prepare(`UPDATE orders SET success_email_sent = 1, updated_at = datetime('now') WHERE id = ?`).bind(orderId).run();
         }
       } else if (orderId && failedEvent) {
@@ -708,6 +729,24 @@ export default {
         }
       }
       return jsonResponse({ received: true });
+    }
+
+    // --- Email: retry a paid order's confirmation from the protected admin ---
+    const retryOrderEmailMatch = url.pathname.match(/^\/api\/admin\/orders\/([^/]+)\/email$/);
+    if (retryOrderEmailMatch && request.method === 'POST') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
+      const orderId = decodeURIComponent(retryOrderEmailMatch[1]);
+      const order = await env.DB.prepare(`SELECT * FROM orders WHERE id = ?`).bind(orderId).first();
+      if (!order) return jsonResponse({ error: 'order not found' }, 404);
+      if (order.status !== 'paid' && order.status !== 'scheduled') return jsonResponse({ error: 'order is not paid' }, 409);
+      if (order.success_email_sent) return jsonResponse({ ok: true, already_sent: true });
+      try {
+        await sendSuccessEmailForOrder(env, order);
+        await env.DB.prepare(`UPDATE orders SET success_email_sent = 1, updated_at = datetime('now') WHERE id = ?`).bind(orderId).run();
+        return jsonResponse({ ok: true });
+      } catch (error) {
+        return jsonResponse({ error: error?.message || 'email send failed' }, 502);
+      }
     }
 
     // --- Orders: admin view with booking, payment, invoice, and device details ---
