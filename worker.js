@@ -474,6 +474,52 @@ export default {
       });
     }
 
+    // --- Advertisement generation via Gemini; the API key remains server-side only ---
+    if (url.pathname === '/api/advertisement/generate' && request.method === 'POST') {
+      if (!env.GEMINI_API_KEY) {
+        return jsonResponse({ error: 'Gemini API key is not configured' }, 503);
+      }
+
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return jsonResponse({ error: 'request body must be JSON' }, 400);
+      }
+
+      const subject = String(body?.subject || '').trim() || 'your business';
+      const requestedChanges = String(body?.requestedChanges || '').trim();
+      const prompt = `A flat 2D graphic design layout for a billboard advertisement, 5:3 aspect ratio, featuring ${subject}. Vector art style, clean modern typography, graphic background with geometric accents and bold color blocks. Strictly flat art only, edge-to-edge graphic design, direct digital export, no physical billboard structure, no street background, no mockups, no 3D rendering of surroundings. Palette limited strictly to Black, white, yellow, red, blue, and green.${requestedChanges ? `\n\nRequested changes: ${requestedChanges}` : ''}`;
+
+      const geminiUrl = new URL('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent');
+      geminiUrl.searchParams.set('key', env.GEMINI_API_KEY);
+
+      const geminiResponse = await fetch(geminiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+        }),
+      });
+
+      const payload = await geminiResponse.json().catch(() => ({}));
+      if (!geminiResponse.ok) {
+        const message = payload?.error?.message || 'Gemini image generation failed';
+        return jsonResponse({ error: message }, geminiResponse.status || 502);
+      }
+
+      const imagePart = payload?.candidates?.[0]?.content?.parts?.find((part) => part?.inlineData?.data);
+      if (!imagePart?.inlineData?.data) {
+        return jsonResponse({ error: 'Gemini response did not include an image' }, 502);
+      }
+
+      return jsonResponse({
+        mimeType: imagePart.inlineData.mimeType || 'image/png',
+        data: imagePart.inlineData.data,
+      });
+    }
+
     // --- Public site map: location and display metadata only ---
     if (url.pathname === '/api/sites' && request.method === 'GET') {
       const { results } = await env.DB.prepare(
