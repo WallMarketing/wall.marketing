@@ -500,7 +500,7 @@ export default {
         body: JSON.stringify({
           model: 'gpt-image-1',
           prompt,
-          size: '1024x768',
+          size: 'auto',
           quality: 'high',
         }),
       });
