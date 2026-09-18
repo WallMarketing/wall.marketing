@@ -189,6 +189,28 @@ header{
 .free{display:inline-flex;align-items:center;gap:6px;}
 .free::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--live);flex:none;}
 .free.later::before{background:transparent;box-shadow:inset 0 0 0 1.5px var(--steel);}
+.free-button{border:0;background:transparent;color:inherit;font:inherit;padding:0;text-decoration:underline;text-decoration-color:var(--hair);text-underline-offset:3px;cursor:pointer;}
+.free-button:hover{background:transparent;color:var(--volt);}
+.availability-calendar-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;}
+.availability-calendar-head h3{margin:0;font-size:1.05rem;}
+.availability-calendar-nav{display:flex;gap:6px;}
+.availability-calendar-nav button{width:auto;margin:0;padding:5px 10px;font-size:.8rem;}
+.availability-calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);border-top:1px solid var(--hair);border-left:1px solid var(--hair);}
+.availability-calendar-grid>*{min-height:38px;padding:8px 6px;border-right:1px solid var(--hair);border-bottom:1px solid var(--hair);}
+.availability-calendar-weekday{color:var(--steel);font-size:.72rem;font-weight:600;text-align:center;}
+.availability-calendar-day{background:#fff;font-size:.82rem;}
+.availability-calendar-day.muted{color:var(--hair);background:var(--panel-2);}
+.availability-calendar-day.booked{background:#EEECFF;color:var(--volt);font-weight:700;}
+.availability-calendar-legend{display:flex;gap:16px;margin-top:14px;color:var(--steel);font-size:.78rem;}
+.availability-calendar-legend span{display:inline-flex;align-items:center;gap:6px;}
+.availability-calendar-legend i{width:12px;height:12px;border:1px solid var(--hair);background:#fff;}
+.availability-calendar-legend .booked-key{background:#EEECFF;border-color:var(--volt);}
+.modal-overlay{position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(27,29,31,.72);}
+.modal-overlay[hidden]{display:none;}
+.availability-calendar-box{position:relative;width:min(100%,520px);padding:24px;background:var(--panel-2);border:1px solid var(--hair);border-radius:3px;}
+.availability-calendar-box h2{margin:0 0 18px;font-size:1.35rem;}
+.availability-calendar-box .close{position:absolute;top:10px;right:12px;width:auto;margin:0;padding:2px 6px;background:transparent;color:var(--steel);border:0;}
+.availability-calendar-box .close:hover{background:transparent;color:var(--volt);}
 .inplan{color:var(--ad);font-variation-settings:"wdth" 104,"wght" 600;}
 
 .empty{padding:28px clamp(18px,2vw,24px);display:grid;gap:14px;justify-items:start;font-size:0.95rem;color:#3C4144;}
@@ -482,6 +504,21 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
 
 </section>
 
+<div id="availabilityCalendarModal" class="modal-overlay" hidden>
+  <div class="availability-calendar-box">
+    <button id="closeAvailabilityCalendar" class="close" type="button" aria-label="Close availability calendar">
+      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+    <h2 id="availabilityCalendarTitle">Availability</h2>
+    <div class="availability-calendar-head">
+      <h3 id="availabilityCalendarMonth"></h3>
+      <div class="availability-calendar-nav"><button id="availabilityCalendarPrevious" type="button">Previous</button><button id="availabilityCalendarNext" type="button">Next</button></div>
+    </div>
+    <div id="availabilityCalendarGrid" class="availability-calendar-grid"></div>
+    <div class="availability-calendar-legend"><span><i class="booked-key"></i>Booked</span><span><i></i>Available</span></div>
+  </div>
+</div>
+
 <!-- ============ not here yet ============ -->
 <section class="band">
   <div class="shell split">
@@ -516,9 +553,14 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
   /* ---------- venue types (copy matches the network table on index.html) ---------- */
   /* ---------- sites from the live device network ---------- */
   var TYPES = {device:{label:"WALL devices",chip:"Devices",hours:"Live network",good:"local advertising and venue messaging."}};
-  var siteResponse = await fetch("/api/sites");
-  if (!siteResponse.ok) throw new Error("Could not load the site network");
-  var siteRows = await siteResponse.json();
+  var responses = await Promise.all([fetch("/api/sites"), fetch("/api/site-availability")]);
+  if (!responses[0].ok) throw new Error("Could not load the site network");
+  var siteRows = await responses[0].json();
+  var availabilityRows = responses[1].ok ? await responses[1].json() : [];
+  var bookingsByDevice = {};
+  availabilityRows.forEach(function(row){
+    (bookingsByDevice[row.device_id] || (bookingsByDevice[row.device_id] = [])).push({ start_date: row.start_date, end_date: row.end_date });
+  });
   var venuesByAddress = {};
   siteRows.forEach(function(row){
     var area = (row.site_location || "Location not set").trim();
@@ -531,16 +573,21 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
         area: area,
         type: "device",
         lat: Number(row.site_latitude), lng: Number(row.site_longitude),
-        screens: 0, deviceIds: [], views: 0, booked: 0,
+        screens: 0, deviceIds: [], bookings: [], views: 0, booked: 0,
         hours: "Last seen " + (row.last_seen_at || "unknown")
       };
     }
     venue.deviceIds.push(row.device_id);
+    venue.bookings = venue.bookings.concat(bookingsByDevice[row.device_id] || []);
     venue.screens += 1;
     if (!venue.name && row.site_name) venue.name = row.site_name;
     if (row.last_seen_at && venue.hours === "Last seen unknown") venue.hours = "Last seen " + row.last_seen_at;
   });
   var SITES = Object.keys(venuesByAddress).map(function(key){ return venuesByAddress[key]; });
+  var todayKey = scheduleDateKey(new Date());
+  SITES.forEach(function(site){
+    site.booked = site.bookings.some(function(booking){ return todayKey >= booking.start_date && todayKey < booking.end_date; }) ? 1 : 0;
+  });
 
 
   /* ---------- state ---------- */
@@ -558,12 +605,45 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
   /* ---------- helpers ---------- */
   var $ = function(id){ return document.getElementById(id); };
   var fmt = function(n){ return n.toLocaleString("en-US"); };
+  function scheduleDateKey(date){ return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"); }
+  var availabilityCalendarModal = $("availabilityCalendarModal");
+  var availabilityCalendarMonth = $("availabilityCalendarMonth");
+  var availabilityCalendarGrid = $("availabilityCalendarGrid");
+  var availabilityCalendarSite = null;
+  var availabilityCalendarDate = new Date();
+  function availabilityDateBooked(dateKey){
+    return availabilityCalendarSite && availabilityCalendarSite.bookings.some(function(booking){ return dateKey >= booking.start_date && dateKey < booking.end_date; });
+  }
+  function renderAvailabilityCalendar(){
+    var year = availabilityCalendarDate.getFullYear(), month = availabilityCalendarDate.getMonth();
+    availabilityCalendarMonth.textContent = availabilityCalendarDate.toLocaleDateString("en-US", { month:"long", year:"numeric" });
+    availabilityCalendarGrid.replaceChildren();
+    ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(function(day){
+      var header = document.createElement("div"); header.className = "availability-calendar-weekday"; header.textContent = day; availabilityCalendarGrid.appendChild(header);
+    });
+    var firstDay = new Date(year, month, 1), daysInMonth = new Date(year, month + 1, 0).getDate();
+    for (var index = 0; index < 42; index++) {
+      var dayOffset = index - firstDay.getDay() + 1, cellDate = new Date(year, month, dayOffset), cell = document.createElement("div");
+      cell.className = "availability-calendar-day";
+      if (dayOffset < 1 || dayOffset > daysInMonth) cell.classList.add("muted");
+      if (availabilityDateBooked(scheduleDateKey(cellDate))) cell.classList.add("booked");
+      cell.textContent = String(cellDate.getDate()); availabilityCalendarGrid.appendChild(cell);
+    }
+  }
+  function openAvailabilityCalendar(site){
+    availabilityCalendarSite = site;
+    availabilityCalendarDate = new Date();
+    $("availabilityCalendarTitle").textContent = site.name + " availability";
+    renderAvailabilityCalendar(); availabilityCalendarModal.hidden = false;
+  }
+  $("closeAvailabilityCalendar").addEventListener("click", function(){ availabilityCalendarModal.hidden = true; });
+  $("availabilityCalendarPrevious").addEventListener("click", function(){ availabilityCalendarDate.setMonth(availabilityCalendarDate.getMonth() - 1); renderAvailabilityCalendar(); });
+  $("availabilityCalendarNext").addEventListener("click", function(){ availabilityCalendarDate.setMonth(availabilityCalendarDate.getMonth() + 1); renderAvailabilityCalendar(); });
   function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
   function freeFrom(s){
-    if (!s.booked) return {now:true, text:"Free now"};
-    var d = new Date(); var day = d.getDay();
-    d.setDate(d.getDate() + ((8 - day) % 7 || 7) + (s.booked - 1) * 7); // the Monday after the booked weeks
-    return {now:false, text:"From " + d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})};
+    var today = scheduleDateKey(new Date());
+    var bookedNow = s.bookings.some(function(booking){ return today >= booking.start_date && today < booking.end_date; });
+    return bookedNow ? {now:false, text:"See available dates"} : {now:true, text:"Free now"};
   }
   function visible(s){
     if (state.types.size && !state.types.has(s.type)) return false;
@@ -685,7 +765,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
           '<h3>' + esc(s.name) + '</h3>' +
           '<span class="n">' + s.screens + '<small>' + (s.screens===1?'screen':'screens') + '</small></span>' +
           '<span class="meta"><span>' + esc(TYPES[s.type].chip) + ', ' + esc(s.area) + '</span>' +
-          '<span class="free' + (f.now?'':' later') + '">' + f.text + '</span>' +
+          '<span class="free free-button' + (f.now?'':' later') + '" role="button" tabindex="0" data-site-id="' + esc(s.id) + '">' + f.text + '</span>' +
           (s.deviceIds.some(function(deviceId){ return state.plan.has(deviceId); }) ? '<span class="inplan">In your plan</span>' : '') +
           '</span></button></li>';
       }).join("");
@@ -700,7 +780,13 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     }
   }
   list.addEventListener("click", function(e){
+    var availability = e.target.closest(".free-button");
+    if (availability) { e.stopPropagation(); openAvailabilityCalendar(byId[availability.dataset.siteId]); return; }
     var b = e.target.closest(".site"); if (b) open(b.dataset.id, true);
+  });
+  list.addEventListener("keydown", function(e){
+    var availability = e.target.closest(".free-button");
+    if (availability && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openAvailabilityCalendar(byId[availability.dataset.siteId]); }
   });
 
   /* ---------- card ---------- */
@@ -724,6 +810,8 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     $("cardViews").textContent = fmt(s.views);
     $("cardHours").textContent = s.hours || t.hours;
     $("cardFree").textContent = f.text;
+    $("cardFree").onclick = f.now ? null : function(){ openAvailabilityCalendar(s); };
+    $("cardFree").style.cursor = f.now ? "default" : "pointer";
     $("cardFor").textContent = t.good.charAt(0).toUpperCase() + t.good.slice(1);
     $("cardScreenChoices").innerHTML = s.deviceIds.map(function(deviceId, index){
       var checked = state.plan.has(deviceId) ? ' checked' : '';

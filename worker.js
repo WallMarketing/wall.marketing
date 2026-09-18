@@ -566,6 +566,21 @@ export default {
       });
     }
 
+    // --- Public site availability: dates only, with no campaign or customer data ---
+    if (url.pathname === '/api/site-availability' && request.method === 'GET') {
+      const { results } = await env.DB.prepare(
+        `SELECT oi.device_id, oi.start_date, oi.end_date
+           FROM order_items oi
+           JOIN orders o ON o.id = oi.order_id
+          WHERE oi.status = 'scheduled'
+            AND o.status IN ('paid', 'scheduled')
+          ORDER BY oi.device_id, oi.start_date`
+      ).all();
+      return new Response(JSON.stringify(results), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     // --- Orders: save the booking before starting payment ---
     if (url.pathname === '/api/orders' && request.method === 'POST') {
       let form;
