@@ -436,7 +436,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     <div class="tally" aria-live="polite">
       <div><b id="tVenues">00</b><span>venues hosting a screen</span></div>
       <div><b id="tScreens">00</b><span>screens on the network</span></div>
-      <div><b id="tFree">00</b><span>venues free to book now</span></div>
+      <div><b id="tFree">00</b><span>screens free to book now</span></div>
     </div>
   </div>
 </section>
@@ -685,7 +685,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
   /* ---------- tallies ---------- */
   $("tVenues").textContent = SITES.length;
   $("tScreens").textContent = SITES.reduce(function(a,s){return a+s.screens;},0);
-  $("tFree").textContent = SITES.filter(function(s){return !s.booked;}).length;
+  $("tFree").textContent = SITES.reduce(function(total, site){ return total + (site.booked ? 0 : site.screens); }, 0);
 
   /* ---------- chips ---------- */
   var chips = $("chips");
