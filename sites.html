@@ -584,13 +584,14 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
         area: area,
         type: "device",
         lat: Number(row.site_latitude), lng: Number(row.site_longitude),
-        screens: 0, deviceIds: [], deviceNames: {}, bookings: [], views: 0, booked: 0,
+        screens: 0, deviceIds: [], deviceNames: {}, deviceViews: {}, bookings: [], views: 0, booked: 0,
         hours: "Last seen " + (row.last_seen_at || "unknown")
       };
     }
     venue.deviceIds.push(row.device_id);
     venue.deviceNames[row.device_id] = row.site_name || row.device_id;
-    venue.views += Number(row.views_per_day || 0);
+    venue.deviceViews[row.device_id] = Number(row.views_per_day || 0);
+    venue.views += venue.deviceViews[row.device_id];
     venue.bookings = venue.bookings.concat(bookingsByDevice[row.device_id] || []);
     venue.screens += 1;
     if (!venue.name && row.site_name) venue.name = row.site_name;
@@ -920,7 +921,11 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
       return site.deviceIds.some(function(deviceId){ return state.plan.has(deviceId); });
     });
     var screens = ids.length;
-    var views = sites.reduce(function(a,s){return a+s.views;},0);
+    var views = sites.reduce(function(total, site){
+      return total + site.deviceIds.reduce(function(siteTotal, deviceId){
+        return siteTotal + (state.plan.has(deviceId) ? site.deviceViews[deviceId] : 0);
+      }, 0);
+    }, 0);
     var has = ids.length > 0;
     $("planEmpty").hidden = has;
     $("plan").classList.toggle("has", has);
