@@ -890,7 +890,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     btn.classList.toggle("btn--solid", !inPlan);
     btn.classList.toggle("btn--line", inPlan);
     btn.setAttribute("aria-pressed", inPlan);
-    if (site && selectedCount > 0 && !inPlan) btn.textContent = "Add all screens";
+    if (site && selectedCount > 0 && !inPlan) btn.textContent = "Add to plan";
     if (site) {
       $("cardScreenChoices").querySelectorAll("input[data-device-id]").forEach(function(input){
         input.checked = state.plan.has(input.dataset.deviceId);
