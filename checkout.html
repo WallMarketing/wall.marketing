@@ -139,8 +139,25 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 .booking-date-close { position: absolute; top: 10px; right: 12px; padding: 2px 6px; border: 0; background: transparent; color: var(--steel); font-size: 1.4rem; cursor: pointer; }
 .booking-date-close:hover { background: transparent; color: var(--volt); }
 .booking-date-fields { display: grid; gap: 14px; }
-.booking-date-fields label { color: var(--steel); font-size: .84rem; }
-.booking-date-fields input { width: 100%; margin-top: 5px; padding: 10px 11px; border: 1px solid var(--hair); border-radius: 3px; background: #fff; color: var(--ink); }
+.booking-date-range { color: var(--steel); font-size: .84rem; }
+.booking-date-calendar-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.booking-date-calendar-head h3 { margin: 0; font-size: 1rem; }
+.booking-date-calendar-nav { display: flex; gap: 6px; }
+.booking-date-calendar-nav button { width: auto; margin: 0; padding: 5px 10px; font-size: .8rem; }
+.booking-date-calendar { display: grid; grid-template-columns: repeat(7, 1fr); border-top: 1px solid var(--hair); border-left: 1px solid var(--hair); }
+.booking-date-calendar > * { min-height: 34px; padding: 7px 5px; border-right: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+.booking-date-weekday { color: var(--steel); font-size: .68rem; font-weight: 600; text-align: center; }
+.booking-date-day { background: #E8F6EC; color: #176B3A; font-size: .78rem; cursor: pointer; }
+.booking-date-day:hover { outline: 2px solid var(--volt); outline-offset: -2px; }
+.booking-date-day.muted { color: var(--hair); background: var(--panel-2); cursor: default; }
+.booking-date-day.booked { background: #FCE8E6; color: #A52B2B; font-weight: 700; cursor: not-allowed; }
+.booking-date-day.selected { background: var(--volt); color: #fff; font-weight: 700; }
+.booking-date-day.in-range { background: #DCD8FF; color: var(--ink); }
+.booking-date-legend { display: flex; gap: 12px; color: var(--steel); font-size: .7rem; }
+.booking-date-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.booking-date-legend i { width: 10px; height: 10px; border: 1px solid #A8D9B5; background: #E8F6EC; }
+.booking-date-legend .booked-key { border-color: #E3A39D; background: #FCE8E6; }
+.booking-date-legend .selected-key { border-color: var(--volt); background: var(--volt); }
 .booking-date-status { min-height: 1.3em; margin-top: 12px; color: #A52B2B; font-size: .82rem; }
 .booking-date-actions { display: flex; gap: 10px; margin-top: 18px; }
 .booking-date-actions .btn { width: auto; margin-top: 0; }
@@ -256,8 +273,10 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     <button id="bookingDateClose" class="booking-date-close" type="button" aria-label="Close date selector">&times;</button>
     <h2 id="bookingDateTitle">Choose booking dates</h2>
     <div class="booking-date-fields">
-      <label>Start date<input id="bookingDateStart" type="date"></label>
-      <label>End date<input id="bookingDateEnd" type="date"></label>
+      <div id="bookingDateRange" class="booking-date-range">Select a start date, then a finish date.</div>
+      <div class="booking-date-calendar-head"><h3 id="bookingDateMonth"></h3><div class="booking-date-calendar-nav"><button id="bookingDatePrevious" type="button">Previous</button><button id="bookingDateNext" type="button">Next</button></div></div>
+      <div id="bookingDateCalendar" class="booking-date-calendar"></div>
+      <div class="booking-date-legend"><span><i class="booked-key"></i>Booked</span><span><i></i>Available</span><span><i class="selected-key"></i>Selected</span></div>
     </div>
     <div id="bookingDateStatus" class="booking-date-status" aria-live="polite"></div>
     <div class="booking-date-actions"><button id="bookingDateSave" class="btn" type="button">Save dates</button><button id="bookingDateCancel" class="btn btn--ghost" type="button">Cancel</button></div>
@@ -284,9 +303,14 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
   var ids = params ? decodeURIComponent(params[1]).split(",").filter(Boolean) : [];
 
   try {
-    var response = await fetch("/api/sites");
-    if (!response.ok) throw new Error("Could not load the screen network");
-    var devices = await response.json();
+    var responses = await Promise.all([fetch("/api/sites"), fetch("/api/site-availability")]);
+    if (!responses[0].ok) throw new Error("Could not load the screen network");
+    var devices = await responses[0].json();
+    var availabilityRows = responses[1].ok ? await responses[1].json() : [];
+    var availabilityByDevice = {};
+    availabilityRows.forEach(function(row){
+      (availabilityByDevice[row.device_id] || (availabilityByDevice[row.device_id] = [])).push(row);
+    });
     var byId = {};
     devices.forEach(function(device){ byId[device.device_id] = device; });
     var selected = ids.map(function(id){ return byId[id]; }).filter(Boolean);
@@ -325,6 +349,49 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       if (!range || !range.start || !range.end) return "Choose dates";
       return range.start + " to " + range.end;
     }
+    var calendarDraftStart = "", calendarDraftEnd = "", calendarMonth = new Date();
+    function dateKey(date){ return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"); }
+    function isBookedDate(deviceId, key){
+      return (availabilityByDevice[deviceId] || []).some(function(range){ return key >= range.start_date && key < range.end_date; });
+    }
+    function rangeIncludesBooked(deviceId, start, end){
+      var cursor = new Date(start + "T00:00:00Z"), finish = new Date(end + "T00:00:00Z");
+      while (cursor < finish) {
+        if (isBookedDate(deviceId, dateKey(cursor))) return true;
+        cursor.setUTCDate(cursor.getUTCDate() + 1);
+      }
+      return false;
+    }
+    function renderBookingCalendar(){
+      var year = calendarMonth.getFullYear(), month = calendarMonth.getMonth();
+      $("bookingDateMonth").textContent = calendarMonth.toLocaleDateString("en-US", { month:"long", year:"numeric" });
+      $("bookingDateCalendar").replaceChildren();
+      ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(function(day){ var header = document.createElement("div"); header.className = "booking-date-weekday"; header.textContent = day; $("bookingDateCalendar").appendChild(header); });
+      var firstDay = new Date(year, month, 1), daysInMonth = new Date(year, month + 1, 0).getDate();
+      for (var index = 0; index < 42; index++) {
+        var dayOffset = index - firstDay.getDay() + 1, cellDate = new Date(year, month, dayOffset), cell = document.createElement("div");
+        var key = dateKey(cellDate);
+        cell.className = "booking-date-day";
+        if (dayOffset < 1 || dayOffset > daysInMonth) cell.classList.add("muted");
+        else if (isBookedDate(activeDateDeviceId, key)) cell.classList.add("booked");
+        else {
+          if (key === calendarDraftStart || key === calendarDraftEnd) cell.classList.add("selected");
+          else if (calendarDraftStart && calendarDraftEnd && key > calendarDraftStart && key < calendarDraftEnd) cell.classList.add("in-range");
+          cell.addEventListener("click", function(){
+            var selectedKey = this.dataset.date;
+            if (calendarDraftStart && !calendarDraftEnd && selectedKey > calendarDraftStart) calendarDraftEnd = selectedKey;
+            else { calendarDraftStart = selectedKey; calendarDraftEnd = ""; }
+            $("bookingDateStatus").textContent = "";
+            updateBookingDateRangeText(); renderBookingCalendar();
+          });
+          cell.dataset.date = key;
+        }
+        cell.textContent = String(cellDate.getDate()); $("bookingDateCalendar").appendChild(cell);
+      }
+    }
+    function updateBookingDateRangeText(){
+      $("bookingDateRange").textContent = calendarDraftStart && calendarDraftEnd ? formatDateRange({start:calendarDraftStart,end:calendarDraftEnd}) : calendarDraftStart ? calendarDraftStart + " — choose a finish date" : "Select a start date, then a finish date.";
+    }
     function closeDateModal(){
       $("bookingDateModal").hidden = true;
       activeDateDeviceId = null;
@@ -334,9 +401,11 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       activeDateDeviceId = deviceId;
       $("bookingDateTitle").textContent = (device.site_name || device.device_id) + " dates";
       var range = dateRanges[deviceId] || {};
-      $("bookingDateStart").value = range.start || "";
-      $("bookingDateEnd").value = range.end || "";
-      $("bookingDateEnd").min = range.start || "";
+      calendarDraftStart = range.start || "";
+      calendarDraftEnd = range.end || "";
+      calendarMonth = new Date((calendarDraftStart || dateKey(new Date())) + "T00:00:00Z");
+      updateBookingDateRangeText();
+      renderBookingCalendar();
       $("bookingDateStatus").textContent = "";
       $("bookingDateModal").hidden = false;
     }
@@ -345,15 +414,14 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       if (!link) return;
       openDateModal(link.dataset.dateDevice);
     });
-    $("bookingDateStart").addEventListener("input", function(){
-      var start = $("bookingDateStart").value;
-      $("bookingDateEnd").min = start || "";
-    });
     $("bookingDateSave").addEventListener("click", function(){
-      var start = $("bookingDateStart").value;
-      var end = $("bookingDateEnd").value;
+      var start = calendarDraftStart, end = calendarDraftEnd;
       if (!start || !end || daysBetween(start, end) < 5) {
         $("bookingDateStatus").textContent = "Choose a date range of at least 5 days.";
+        return;
+      }
+      if (rangeIncludesBooked(activeDateDeviceId, start, end)) {
+        $("bookingDateStatus").textContent = "That range includes booked dates. Choose available dates only.";
         return;
       }
       dateRanges[activeDateDeviceId] = { start: start, end: end };
@@ -364,11 +432,11 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     });
     $("bookingDateClose").addEventListener("click", closeDateModal);
     $("bookingDateCancel").addEventListener("click", closeDateModal);
+    $("bookingDatePrevious").addEventListener("click", function(){ calendarMonth.setMonth(calendarMonth.getMonth() - 1); renderBookingCalendar(); });
+    $("bookingDateNext").addEventListener("click", function(){ calendarMonth.setMonth(calendarMonth.getMonth() + 1); renderBookingCalendar(); });
     $("bookingDateModal").addEventListener("click", function(event){
       if (event.target === $("bookingDateModal")) closeDateModal();
     });
-    $("bookingDateStart").addEventListener("change", updateSubmitState);
-    $("bookingDateEnd").addEventListener("change", updateSubmitState);
     window.updateCheckoutSubmitState = updateSubmitState;
 
     $("siteCount").textContent = selected.length;
