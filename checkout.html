@@ -118,6 +118,9 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 .converter-controls .btn:hover { background: var(--volt); }
 .converter-controls .btn:disabled { background: var(--hair); color: var(--steel); cursor: default; }
 .converter-status { min-height: 1.5em; margin-top: 14px; color: var(--steel); font-size: .82rem; }
+.ai-generator-busy { display: inline-flex; align-items: center; gap: 10px; }
+.ai-generator-spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(56, 38, 240, 0.25); border-top-color: var(--volt); animation: ai-spin 0.8s linear infinite; }
+@keyframes ai-spin { to { transform: rotate(360deg); } }
 .invoice-toggle { display: flex; align-items: center; gap: 9px; margin-top: 20px; font-size: .9rem; }
 .invoice-toggle input { width: 16px; height: 16px; accent-color: var(--volt-2); }
 .invoice-fields[hidden] { display: none; }
@@ -197,7 +200,9 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
                 <button id="generateAdvertisement" class="btn" type="button">Generate ad</button>
                 <button id="refineAdvertisement" class="btn btn--ghost" type="button" hidden>Request changes</button>
               </div>
-              <div id="aiGeneratorBusy" class="converter-status" aria-live="polite" hidden>Generating your artwork… please wait.</div>
+              <div id="aiGeneratorBusy" class="converter-status" aria-live="polite" hidden>
+                <span class="ai-generator-busy"><span class="ai-generator-spinner"></span>Generating your artwork… please wait.</span>
+              </div>
             </div>
           </div>
           <div class="converter-preview">
@@ -503,7 +508,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
   }
   function createGeminiPrompt(subject, requestedChanges){
     var business = (subject || 'your business').trim() || 'your business';
-    var prompt = "A flat 2D graphic design layout for a billboard advertisement, 5:3 aspect ratio, featuring " + business + ". Vector art style, clean modern typography, graphic background with geometric accents and bold color blocks. Strictly flat art only, edge-to-edge graphic design, direct digital export, no physical billboard structure, no street background, no mockups, no 3D rendering of surroundings. Palette limited strictly to Black, white, yellow, red, blue, and green.";
+    var prompt = "A flat 2D graphic design layout for a billboard advertisement, 5:3 aspect ratio, promoting " + business + ". High Quality and professional. Strictly flat art only, edge-to-edge graphic design, direct digital export, no physical billboard structure, no street background, no mockups, no 3D rendering of surroundings. Palette limited strictly to Black, white, yellow, red, blue, and green.";
     if (requestedChanges && requestedChanges.trim()) prompt += "\n\nRequested changes: " + requestedChanges.trim();
     return prompt;
   }
