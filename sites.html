@@ -611,6 +611,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     document.head.appendChild(script);
   });
   var defaultMapZoom = 17;
+  var cityWideZoom = 12;
   map = new google.maps.Map($("map"), {
     center:{lat:30.2745,lng:-97.7420}, zoom:defaultMapZoom, mapId:"DEMO_MAP_ID",
     mapTypeControl:false, streetViewControl:false, fullscreenControl:false,
@@ -824,7 +825,9 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
   SITES.forEach(function(s){ allBounds.extend({lat:s.lat,lng:s.lng}); });
   if (SITES.length) {
     map.fitBounds(allBounds, 50);
-    map.setZoom(defaultMapZoom);
+    google.maps.event.addListenerOnce(map, "idle", function(){
+      if (map.getZoom() > cityWideZoom) map.setZoom(cityWideZoom);
+    });
   }
 })();
 </script>
