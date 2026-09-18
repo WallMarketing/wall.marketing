@@ -72,7 +72,7 @@
   }
   .nav-link:hover { color: var(--ink); border-bottom-color: var(--volt); }
   main { padding: clamp(52px, 7vw, 96px) 20px clamp(70px, 9vw, 124px); }
-  .wrap { max-width: 1440px; margin: 0 auto; }
+  .wrap { max-width: 1720px; margin: 0 auto; }
   .whoami {
     color: var(--steel);
     font-size: .82rem;
@@ -131,16 +131,20 @@
   }
   th { color: var(--steel); font-weight: 600; }
   .card:has(table) { overflow-x: visible; }
-  .card:has(#devicesBody) { overflow-x: auto; }
-  .card:has(#devicesBody) table { table-layout: auto; min-width: 1550px; }
+  .card:has(#devicesBody) table { table-layout: fixed; }
   .card:has(#devicesBody) th, .card:has(#devicesBody) td { overflow-wrap: anywhere; }
-  .card:has(#devicesBody) th:nth-child(1) { width: 13%; }
-  .card:has(#devicesBody) th:nth-child(2), .card:has(#devicesBody) th:nth-child(3) { width: 11%; }
-  .card:has(#devicesBody) th:nth-child(4) { width: 9%; }
-  .card:has(#devicesBody) th:nth-child(5) { width: 10%; }
-  .card:has(#devicesBody) th:nth-child(6), .card:has(#devicesBody) th:nth-child(7), .card:has(#devicesBody) th:nth-child(8), .card:has(#devicesBody) th:nth-child(9), .card:has(#devicesBody) th:nth-child(10) { width: 6%; }
-  .card:has(#devicesBody) th:nth-child(11) { width: 9%; }
-  .card:has(#devicesBody) th:nth-child(12) { width: 9%; }
+  .card:has(#devicesBody) th:nth-child(1) { width: 12%; }
+  .card:has(#devicesBody) th:nth-child(2) { width: 6%; }
+  .card:has(#devicesBody) th:nth-child(3) { width: 11%; }
+  .card:has(#devicesBody) th:nth-child(4) { width: 13%; }
+  .card:has(#devicesBody) th:nth-child(5) { width: 6%; }
+  .card:has(#devicesBody) th:nth-child(6) { width: 8%; }
+  .card:has(#devicesBody) th:nth-child(7) { width: 6%; }
+  .card:has(#devicesBody) th:nth-child(8) { width: 5%; }
+  .card:has(#devicesBody) th:nth-child(9) { width: 6%; }
+  .card:has(#devicesBody) th:nth-child(10) { width: 5%; }
+  .card:has(#devicesBody) th:nth-child(11) { width: 5%; }
+  .card:has(#devicesBody) th:nth-child(12) { width: 7%; }
   .card:has(#devicesBody) th:nth-child(13) { width: 10%; }
   .card:has(#ordersBody) { overflow-x: auto; }
   .card:has(#ordersBody) table { min-width: 1120px; }
@@ -172,10 +176,10 @@
   }
   .last-seen-btn:hover { background: transparent; color: var(--volt); }
   .last-seen-btn:focus-visible { outline: 2px solid var(--volt); outline-offset: 3px; }
-  .site-edit-cell { min-width: 220px; }
+  .site-edit-cell { min-width: 0; }
   .site-input {
     width: 100%;
-    min-width: 130px;
+    min-width: 0;
     background: #fff;
     border: 1px solid var(--hair);
     border-radius: 3px;
@@ -184,8 +188,8 @@
     font-size: .82rem;
   }
   .site-input:focus { border-color: var(--volt); outline: none; }
-  .site-edit-cell:has(.daily-cost-input) { min-width: 110px; }
-  .daily-cost-input { width: 90px; min-width: 90px; }
+  .site-edit-cell:has(.daily-cost-input) { min-width: 0; }
+  .daily-cost-input { width: 58px; min-width: 0; }
   .location-editor { position: relative; }
   .location-suggestions {
     position: static;
