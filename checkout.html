@@ -281,7 +281,14 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       return Boolean(advertisement && advertisement.bytes instanceof Uint8Array && advertisement.bytes.byteLength === 800 * 480 / 2 && /^[A-Za-z0-9_-]+\.bin$/.test(advertisement.filename));
     }
     function updateSubmitState(){
-      submitButton.disabled = !$("bookingForm").checkValidity() || !hasValidAdvertisement();
+      var form = $("bookingForm");
+      var hasAdvertisement = hasValidAdvertisement();
+      submitButton.disabled = !form.checkValidity() || !hasAdvertisement;
+      if (form.checkValidity() && !hasAdvertisement) {
+        $("formStatus").textContent = "Add your advertisement before continuing to payment.";
+      } else if ($("formStatus").textContent === "Add your advertisement before continuing to payment.") {
+        $("formStatus").textContent = "";
+      }
     }
     window.updateCheckoutSubmitState = updateSubmitState;
 
