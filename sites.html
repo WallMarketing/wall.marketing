@@ -513,26 +513,41 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
   var siteResponse = await fetch("/api/sites");
   if (!siteResponse.ok) throw new Error("Could not load the site network");
   var siteRows = await siteResponse.json();
-  var SITES = siteRows.map(function(row){
-    return {
-      id:row.device_id,
-      name:row.site_name || row.device_id,
-      area:row.site_location || "Location not set",
-      type:"device",
-      lat:Number(row.site_latitude), lng:Number(row.site_longitude),
-      screens:1, views:0, booked:0,
-      hours:"Last seen " + (row.last_seen_at || "unknown")
-    };
+  var venuesByAddress = {};
+  siteRows.forEach(function(row){
+    var area = (row.site_location || "Location not set").trim();
+    var addressKey = area === "Location not set" ? "device:" + row.device_id : area.toLowerCase().replace(/\s+/g, " ");
+    var venue = venuesByAddress[addressKey];
+    if (!venue) {
+      venue = venuesByAddress[addressKey] = {
+        id: "venue:" + addressKey,
+        name: row.site_name || row.device_id,
+        area: area,
+        type: "device",
+        lat: Number(row.site_latitude), lng: Number(row.site_longitude),
+        screens: 0, deviceIds: [], views: 0, booked: 0,
+        hours: "Last seen " + (row.last_seen_at || "unknown")
+      };
+    }
+    venue.deviceIds.push(row.device_id);
+    venue.screens += 1;
+    if (!venue.name && row.site_name) venue.name = row.site_name;
+    if (row.last_seen_at && venue.hours === "Last seen unknown") venue.hours = "Last seen " + row.last_seen_at;
   });
+  var SITES = Object.keys(venuesByAddress).map(function(key){ return venuesByAddress[key]; });
 
 
   /* ---------- state ---------- */
   var state = {types:new Set(), freeOnly:false, active:null, plan:new Set()};
-  var byId = {}; SITES.forEach(function(s){ byId[s.id] = s; });
+  var byId = {}, venueByDeviceId = {};
+  SITES.forEach(function(s){
+    byId[s.id] = s;
+    s.deviceIds.forEach(function(deviceId){ venueByDeviceId[deviceId] = s; });
+  });
 
   // restore a shared plan from the address, e.g. sites.html#plan=low-anchor,ironline
   var m = location.hash.match(/plan=([^&]+)/);
-  if (m) decodeURIComponent(m[1]).split(",").forEach(function(id){ if (byId[id]) state.plan.add(id); });
+  if (m) decodeURIComponent(m[1]).split(",").forEach(function(id){ if (venueByDeviceId[id]) state.plan.add(id); });
 
   /* ---------- helpers ---------- */
   var $ = function(id){ return document.getElementById(id); };
@@ -609,7 +624,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
   function pinHTML(s){
     var cls = ["pin"];
     if (s.booked) cls.push("is-booked");
-    if (state.plan.has(s.id)) cls.push("is-planned");
+    if (s.deviceIds.some(function(deviceId){ return state.plan.has(deviceId); })) cls.push("is-planned");
     if (state.active === s.id) cls.push("is-active");
     return '<div class="' + cls.join(" ") + '">' +
       '<span class="pin-foot"></span><span class="pin-post"></span>' +
@@ -734,21 +749,28 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
   document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !card.hidden) close(); });
 
   function syncAddBtn(){
-    var btn = $("cardAdd"), inPlan = state.plan.has(state.active);
+    var btn = $("cardAdd"), site = byId[state.active];
+    var inPlan = site && site.deviceIds.every(function(deviceId){ return state.plan.has(deviceId); });
     btn.textContent = inPlan ? "Remove from plan" : "Add to plan";
     btn.classList.toggle("btn--solid", !inPlan);
     btn.classList.toggle("btn--line", inPlan);
     btn.setAttribute("aria-pressed", inPlan);
   }
   $("cardAdd").addEventListener("click", function(){
-    var id = state.active; if (!id) return;
-    state.plan.has(id) ? state.plan.delete(id) : state.plan.add(id);
+    var id = state.active, site = byId[id]; if (!site) return;
+    var inPlan = site.deviceIds.every(function(deviceId){ return state.plan.has(deviceId); });
+    site.deviceIds.forEach(function(deviceId){
+      if (inPlan) state.plan.delete(deviceId);
+      else state.plan.add(deviceId);
+    });
     syncAddBtn(); refreshPin(id); renderPlan(); render(false);
   });
 
   /* ---------- plan ---------- */
   function renderPlan(){
-    var ids = Array.from(state.plan), sites = ids.map(function(id){return byId[id];});
+    var ids = Array.from(state.plan), sites = SITES.filter(function(site){
+      return site.deviceIds.some(function(deviceId){ return state.plan.has(deviceId); });
+    });
     var screens = sites.reduce(function(a,s){return a+s.screens;},0);
     var views = sites.reduce(function(a,s){return a+s.views;},0);
     var has = ids.length > 0;
@@ -756,7 +778,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     $("plan").classList.toggle("has", has);
     $("planActions").hidden = !has;
     $("planSum").innerHTML = has
-      ? '<b>' + ids.length + '</b> ' + (ids.length===1?'site':'sites') + ', <b>' + screens + '</b> screens, <b>' + fmt(views) + '</b> views a week'
+      ? '<b>' + sites.length + '</b> ' + (sites.length===1?'site':'sites') + ', <b>' + screens + '</b> screens, <b>' + fmt(views) + '</b> views a week'
       : '';
 
     $("planReview").href = "checkout.html#plan=" + encodeURIComponent(ids.join(","));
@@ -764,8 +786,9 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     history.replaceState(null, "", has ? "#plan=" + ids.join(",") : location.pathname + location.search);
   }
   $("planClear").addEventListener("click", function(){
-    var ids = Array.from(state.plan); state.plan.clear();
-    ids.forEach(refreshPin); renderPlan(); render(false);
+    state.plan.clear();
+    SITES.forEach(function(site){ refreshPin(site.id); });
+    renderPlan(); render(false);
     if (state.active) syncAddBtn();
   });
 
