@@ -402,7 +402,7 @@
       <h2>Orders</h2>
       <table>
         <thead>
-          <tr><th>Created</th><th>Code</th><th>Campaign</th><th>Contact</th><th>Dates</th><th>Total</th><th>Status</th><th>Devices</th><th>Advertisement</th><th>Invoice</th></tr>
+          <tr><th>Created</th><th>Code</th><th>Campaign</th><th>Contact</th><th>Dates</th><th>Total</th><th>Status</th><th>Devices</th><th>Advertisement</th><th>Invoice</th><th>Email</th></tr>
         </thead>
         <tbody id="ordersBody"></tbody>
       </table>
@@ -920,7 +920,33 @@
           <td>${escapeHtml(row.device_ids || '—')}</td>
           <td class="order-advertisement-cell"></td>
           <td>${escapeHtml(invoice)}</td>
+          <td class="order-email-cell"></td>
         `;
+        const emailCell = tr.querySelector('.order-email-cell');
+        if ((row.status === 'paid' || row.status === 'scheduled') && !row.success_email_sent) {
+          const emailButton = document.createElement('button');
+          emailButton.type = 'button';
+          emailButton.className = 'preview-btn';
+          emailButton.textContent = 'Retry email';
+          emailButton.addEventListener('click', async () => {
+            emailButton.disabled = true;
+            emailButton.textContent = 'Sending...';
+            try {
+              const emailResponse = await fetch(`/api/admin/orders/${encodeURIComponent(row.id)}/email`, { method: 'POST' });
+              const emailResult = await emailResponse.json();
+              if (!emailResponse.ok) throw new Error(emailResult.error || 'Email send failed');
+              emailButton.textContent = emailResult.already_sent ? 'Already sent' : 'Sent';
+              row.success_email_sent = 1;
+            } catch (error) {
+              emailButton.disabled = false;
+              emailButton.textContent = 'Retry email';
+              ordersStatus.textContent = 'Email retry failed: ' + error.message;
+            }
+          });
+          emailCell.appendChild(emailButton);
+        } else {
+          emailCell.textContent = row.success_email_sent ? 'Sent' : '—';
+        }
         const advertisementCell = tr.querySelector('.order-advertisement-cell');
         if (row.advertisement_filename) {
           const advertisementButton = document.createElement('button');

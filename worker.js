@@ -1,3 +1,5 @@
+import { EmailMessage } from 'cloudflare:email';
+
 // This is the code that runs for every request to wall.marketing.
 // Static site + whoami + checkin (unchanged) + new image generate/history
 // endpoints, all in one place.
@@ -776,6 +778,7 @@ export default {
                 o.invoice_city, o.invoice_postcode, o.invoice_country,
                 o.stripe_checkout_session_id, o.stripe_payment_intent_id,
                 o.created_at, o.updated_at,
+                o.success_email_sent,
                 group_concat(oi.device_id, ', ') AS device_ids,
                 a.filename AS advertisement_filename
            FROM orders o
