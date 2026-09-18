@@ -322,6 +322,11 @@ header{
 .card-body{padding:16px 18px 18px;display:grid;gap:14px;}
 .card-body p{font-size:0.92rem;color:#3C4144;}
 .card-body p b{font-weight:inherit;font-variation-settings:"wdth" 104,"wght" 600;color:var(--ink);}
+.screen-choices{display:grid;gap:7px;}
+.screen-choice{display:flex;align-items:center;gap:9px;padding:9px 10px;border:1px solid var(--hair);border-radius:3px;background:var(--panel-2);font-size:.85rem;cursor:pointer;}
+.screen-choice:hover{border-color:var(--volt);}
+.screen-choice input{width:16px;height:16px;accent-color:var(--volt);}
+.screen-choice small{margin-left:auto;color:var(--steel);font-size:.72rem;}
 .card-body .btn{width:100%;}
 
 /* ============ below the map ============ */
@@ -469,6 +474,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
       </dl>
       <div class="card-body">
         <p><b>Works well for</b> <span id="cardFor"></span></p>
+        <div class="screen-choices" id="cardScreenChoices"></div>
         <button type="button" class="btn btn--solid" id="cardAdd">Add to plan</button>
       </div>
     </article>
@@ -679,7 +685,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
           '<span class="n">' + s.screens + '<small>' + (s.screens===1?'screen':'screens') + '</small></span>' +
           '<span class="meta"><span>' + esc(TYPES[s.type].chip) + ', ' + esc(s.area) + '</span>' +
           '<span class="free' + (f.now?'':' later') + '">' + f.text + '</span>' +
-          (state.plan.has(s.id) ? '<span class="inplan">In your plan</span>' : '') +
+          (s.deviceIds.some(function(deviceId){ return state.plan.has(deviceId); }) ? '<span class="inplan">In your plan</span>' : '') +
           '</span></button></li>';
       }).join("");
     }
@@ -718,6 +724,10 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     $("cardHours").textContent = s.hours || t.hours;
     $("cardFree").textContent = f.text;
     $("cardFor").textContent = t.good.charAt(0).toUpperCase() + t.good.slice(1);
+    $("cardScreenChoices").innerHTML = s.deviceIds.map(function(deviceId, index){
+      var checked = state.plan.has(deviceId) ? ' checked' : '';
+      return '<label class="screen-choice"><input type="checkbox" data-device-id="' + esc(deviceId) + '"' + checked + '>Screen ' + (index + 1) + '<small>' + esc(deviceId) + '</small></label>';
+    }).join("");
     syncAddBtn();
     card.hidden = false;
     list.querySelectorAll(".site").forEach(function(el){
@@ -751,11 +761,23 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
   function syncAddBtn(){
     var btn = $("cardAdd"), site = byId[state.active];
     var inPlan = site && site.deviceIds.every(function(deviceId){ return state.plan.has(deviceId); });
+    var selectedCount = site ? site.deviceIds.filter(function(deviceId){ return state.plan.has(deviceId); }).length : 0;
     btn.textContent = inPlan ? "Remove from plan" : "Add to plan";
     btn.classList.toggle("btn--solid", !inPlan);
     btn.classList.toggle("btn--line", inPlan);
     btn.setAttribute("aria-pressed", inPlan);
+    if (site && selectedCount > 0 && !inPlan) btn.textContent = "Add all screens";
   }
+  $("cardScreenChoices").addEventListener("change", function(event){
+    var input = event.target.closest("input[data-device-id]");
+    if (!input) return;
+    if (input.checked) state.plan.add(input.dataset.deviceId);
+    else state.plan.delete(input.dataset.deviceId);
+    syncAddBtn();
+    refreshPin(state.active);
+    renderPlan();
+    render(false);
+  });
   $("cardAdd").addEventListener("click", function(){
     var id = state.active, site = byId[id]; if (!site) return;
     var inPlan = site.deviceIds.every(function(deviceId){ return state.plan.has(deviceId); });
