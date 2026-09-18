@@ -132,7 +132,7 @@
   th { color: var(--steel); font-weight: 600; }
   .card:has(table) { overflow-x: visible; }
   .card:has(#devicesBody) { overflow-x: auto; }
-  .card:has(#devicesBody) table { table-layout: fixed; min-width: 1400px; }
+  .card:has(#devicesBody) table { table-layout: auto; min-width: 1550px; }
   .card:has(#devicesBody) th, .card:has(#devicesBody) td { overflow-wrap: anywhere; }
   .card:has(#devicesBody) th:nth-child(1) { width: 13%; }
   .card:has(#devicesBody) th:nth-child(2), .card:has(#devicesBody) th:nth-child(3) { width: 11%; }
@@ -172,7 +172,7 @@
   }
   .last-seen-btn:hover { background: transparent; color: var(--volt); }
   .last-seen-btn:focus-visible { outline: 2px solid var(--volt); outline-offset: 3px; }
-  .site-edit-cell { min-width: 150px; }
+  .site-edit-cell { min-width: 220px; }
   .site-input {
     width: 100%;
     min-width: 130px;
@@ -184,8 +184,8 @@
     font-size: .82rem;
   }
   .site-input:focus { border-color: var(--volt); outline: none; }
-  .site-edit-cell:has(.daily-cost-input) { min-width: 0; }
-  .daily-cost-input { width: 72px; min-width: 72px; }
+  .site-edit-cell:has(.daily-cost-input) { min-width: 110px; }
+  .daily-cost-input { width: 90px; min-width: 90px; }
   .location-editor { position: relative; }
   .location-suggestions {
     position: static;
@@ -575,10 +575,11 @@
     }[character]));
   }
 
-  function wallPinElement() {
+  function wallPinElement(screenCount) {
     const pin = document.createElement('div');
     pin.className = 'pin-wrap';
-    pin.innerHTML = '<div class="pin"><span class="pin-foot"></span><span class="pin-post"></span><span class="pin-unit"><i class="pin-sol"></i><span class="pin-scr"><span class="pin-ad"></span></span><i class="pin-sol"></i></span><span class="pin-n">1</span></div>';
+    pin.innerHTML = '<div class="pin"><span class="pin-foot"></span><span class="pin-post"></span><span class="pin-unit"><i class="pin-sol"></i><span class="pin-scr"><span class="pin-ad"></span></span><i class="pin-sol"></i></span><span class="pin-n"></span></div>';
+    pin.querySelector('.pin-n').textContent = String(screenCount);
     return pin;
   }
 
@@ -596,20 +597,35 @@
       mapStatus.textContent = 'No devices have a geocoded site location yet.';
       return;
     }
-    const bounds = [];
+    const venues = new Map();
     locatedRows.forEach((row) => {
-      const point = [Number(row.site_latitude), Number(row.site_longitude)];
-      bounds.push(point);
-      const label = row.site_name || row.device_id;
-      const detail = row.site_location || 'Location not named';
+      const location = (row.site_location || '').trim();
+      const key = location
+        ? location.toLowerCase().replace(/\s+/g, ' ')
+        : `${row.site_latitude},${row.site_longitude}`;
+      const venue = venues.get(key) || {
+        rows: [],
+        point: [Number(row.site_latitude), Number(row.site_longitude)],
+        label: row.site_name || row.device_id,
+        detail: location || 'Location not named',
+      };
+      venue.rows.push(row);
+      if (!venue.label && row.site_name) venue.label = row.site_name;
+      venues.set(key, venue);
+    });
+    const bounds = [];
+    venues.forEach((venue) => {
+      const screenCount = venue.rows.length;
+      bounds.push(venue.point);
       const marker = new AdvancedMarkerElement({
-        position: { lat: point[0], lng: point[1] },
+        position: { lat: venue.point[0], lng: venue.point[1] },
         map: deviceMap,
-        title: label,
-        content: wallPinElement(),
+        title: `${venue.label}, ${screenCount} screens`,
+        content: wallPinElement(screenCount),
       });
       marker.addListener('click', () => {
-        deviceInfoWindow.setContent(`<strong>${escapeHtml(label)}</strong><br>${escapeHtml(detail)}<br><small>${escapeHtml(row.device_id)}</small>`);
+        const deviceIds = venue.rows.map((row) => row.device_id).join(', ');
+        deviceInfoWindow.setContent(`<strong>${escapeHtml(venue.label)}</strong><br>${escapeHtml(venue.detail)}<br><small>${screenCount} screen${screenCount === 1 ? '' : 's'}<br>${escapeHtml(deviceIds)}</small>`);
         deviceInfoWindow.open({ anchor: marker, map: deviceMap });
       });
       deviceMarkers.push(marker);
