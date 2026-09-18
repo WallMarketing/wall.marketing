@@ -474,10 +474,10 @@ export default {
       });
     }
 
-    // --- Advertisement generation via Gemini; the API key remains server-side only ---
+    // --- Advertisement generation via OpenAI; the API key remains server-side only ---
     if (url.pathname === '/api/advertisement/generate' && request.method === 'POST') {
-      if (!env.GEMINI_API_KEY) {
-        return jsonResponse({ error: 'Gemini API key is not configured' }, 503);
+      if (!env.OPENAI_API_KEY) {
+        return jsonResponse({ error: 'OpenAI API key is not configured' }, 503);
       }
 
       let body;
@@ -491,32 +491,34 @@ export default {
       const requestedChanges = String(body?.requestedChanges || '').trim();
       const prompt = `A flat 2D graphic design layout for a billboard advertisement, 5:3 aspect ratio, featuring ${subject}. Vector art style, clean modern typography, graphic background with geometric accents and bold color blocks. Strictly flat art only, edge-to-edge graphic design, direct digital export, no physical billboard structure, no street background, no mockups, no 3D rendering of surroundings. Palette limited strictly to Black, white, yellow, red, blue, and green.${requestedChanges ? `\n\nRequested changes: ${requestedChanges}` : ''}`;
 
-      const geminiUrl = new URL('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent');
-      geminiUrl.searchParams.set('key', env.GEMINI_API_KEY);
-
-      const geminiResponse = await fetch(geminiUrl, {
+      const openAiResponse = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+        },
         body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+          model: 'gpt-image-1',
+          prompt,
+          size: '1024x768',
+          quality: 'high',
         }),
       });
 
-      const payload = await geminiResponse.json().catch(() => ({}));
-      if (!geminiResponse.ok) {
-        const message = payload?.error?.message || 'Gemini image generation failed';
-        return jsonResponse({ error: message }, geminiResponse.status || 502);
+      const payload = await openAiResponse.json().catch(() => ({}));
+      if (!openAiResponse.ok) {
+        const message = payload?.error?.message || 'OpenAI image generation failed';
+        return jsonResponse({ error: message }, openAiResponse.status || 502);
       }
 
-      const imagePart = payload?.candidates?.[0]?.content?.parts?.find((part) => part?.inlineData?.data);
-      if (!imagePart?.inlineData?.data) {
-        return jsonResponse({ error: 'Gemini response did not include an image' }, 502);
+      const imageData = payload?.data?.[0]?.b64_json;
+      if (!imageData) {
+        return jsonResponse({ error: 'OpenAI response did not include an image' }, 502);
       }
 
       return jsonResponse({
-        mimeType: imagePart.inlineData.mimeType || 'image/png',
-        data: imagePart.inlineData.data,
+        mimeType: 'image/png',
+        data: imageData,
       });
     }
 
