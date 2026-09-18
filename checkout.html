@@ -195,8 +195,9 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
               </div>
               <div class="ai-generator-actions">
                 <button id="generateAdvertisement" class="btn" type="button">Generate ad</button>
-                <button id="refineAdvertisement" class="btn btn--ghost" type="button">Request changes</button>
+                <button id="refineAdvertisement" class="btn btn--ghost" type="button" hidden>Request changes</button>
               </div>
+              <div id="aiGeneratorBusy" class="converter-status" aria-live="polite" hidden>Generating your artwork… please wait.</div>
             </div>
           </div>
           <div class="converter-preview">
@@ -489,6 +490,17 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     status.textContent = message;
     status.classList.toggle('error', Boolean(error));
   }
+  function setGeneratingState(isGenerating){
+    var generatorBusy = document.getElementById('aiGeneratorBusy');
+    var generateAdButton = document.getElementById('generateAdvertisement');
+    var refineAdButton = document.getElementById('refineAdvertisement');
+    generatorBusy.hidden = !isGenerating;
+    generateAdButton.disabled = isGenerating;
+    refineAdButton.disabled = isGenerating;
+    if (isGenerating) {
+      setStatus('Generating your artwork… please wait.');
+    }
+  }
   function createGeminiPrompt(subject, requestedChanges){
     var business = (subject || 'your business').trim() || 'your business';
     var prompt = "A flat 2D graphic design layout for a billboard advertisement, 5:3 aspect ratio, featuring " + business + ". Vector art style, clean modern typography, graphic background with geometric accents and bold color blocks. Strictly flat art only, edge-to-edge graphic design, direct digital export, no physical billboard structure, no street background, no mockups, no 3D rendering of surroundings. Palette limited strictly to Black, white, yellow, red, blue, and green.";
@@ -505,7 +517,8 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
   async function generateImageFromGemini(){
     var subject = document.getElementById('advertisementSubject').value.trim();
     var requestedChanges = document.getElementById('advertisementPrompt').value.trim();
-    setStatus('Generating an advertisement with Gemini...');
+    var refineButton = document.getElementById('refineAdvertisement');
+    setGeneratingState(true);
     try {
       var response = await fetch('/api/advertisement/generate', {
         method: 'POST',
@@ -515,21 +528,26 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
           requestedChanges: requestedChanges
         })
       });
-      var payload = await response.json();
       if (!response.ok) {
-        throw new Error(payload && payload.error ? payload.error : 'Gemini image generation failed.');
+        var errorPayload = await response.json().catch(function(){ return {}; });
+        throw new Error(errorPayload && errorPayload.error ? errorPayload.error : 'Gemini image generation failed.');
       }
+      var payload = await response.json();
       var image = new Image();
       image.onload = function(){
         setGeneratedImage(image);
+        refineButton.hidden = false;
         setStatus('Advertisement generated and ready to add to booking.');
+        setGeneratingState(false);
       };
       image.onerror = function(){
         setStatus('The generated image could not be loaded in the browser.', true);
+        setGeneratingState(false);
       };
       image.src = 'data:' + (payload.mimeType || 'image/png') + ';base64,' + payload.data;
     } catch (error) {
       setStatus(error.message || 'Could not generate the advertisement.', true);
+      setGeneratingState(false);
     }
   }
   function clamp(value){ return Math.max(0, Math.min(255, value)); }
@@ -613,13 +631,21 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
   uploadButton.addEventListener('click', function(){ fileInput.click(); });
   generateButton.addEventListener('click', function(){
     editor.hidden = false;
-    setStatus('Add your subject and Gemini API key to generate an ad.');
+    document.getElementById('refineAdvertisement').hidden = true;
+    setStatus('Add your subject and request details to generate an ad.');
     editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
     var subjectInput = document.getElementById('advertisementSubject');
     if (!subjectInput.value) subjectInput.focus();
   });
   generateAdButton.addEventListener('click', function(){ generateImageFromGemini(); });
-  refineAdButton.addEventListener('click', function(){ generateImageFromGemini(); });
+  refineAdButton.addEventListener('click', function(){
+    if (document.getElementById('advertisementPrompt').value.trim()) {
+      generateImageFromGemini();
+    } else {
+      document.getElementById('advertisementPrompt').focus();
+      setStatus('Tell Gemini what to change before requesting an update.', true);
+    }
+  });
   fileInput.addEventListener('change', function(){
     var file = fileInput.files[0];
     if (!file) return;
