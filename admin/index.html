@@ -299,13 +299,14 @@
   .schedule-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); border-top: 1px solid var(--hair); border-left: 1px solid var(--hair); }
   .schedule-calendar-grid > * { min-height: 38px; padding: 8px 6px; border-right: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
   .schedule-calendar-weekday { color: var(--steel); font-size: .72rem; font-weight: 600; text-align: center; }
-  .schedule-calendar-day { background: #fff; font-size: .82rem; }
+  .schedule-calendar-day { background: #E8F6EC; color: #176B3A; font-size: .82rem; }
   .schedule-calendar-day.muted { color: var(--hair); background: var(--panel-2); }
-  .schedule-calendar-day.booked { background: #EEECFF; color: var(--volt); font-weight: 700; }
+  .schedule-calendar-day.booked { background: #FCE8E6; color: #A52B2B; font-weight: 700; }
   .schedule-calendar-legend { display: flex; gap: 16px; margin-top: 14px; color: var(--steel); font-size: .78rem; }
   .schedule-calendar-legend span { display: inline-flex; align-items: center; gap: 6px; }
-  .schedule-calendar-legend i { width: 12px; height: 12px; border: 1px solid var(--hair); background: #fff; }
-  .schedule-calendar-legend .booked-key { background: #EEECFF; border-color: var(--volt); }
+  .schedule-calendar-legend i { width: 12px; height: 12px; border: 1px solid #A8D9B5; background: #E8F6EC; }
+  .schedule-calendar-legend .booked-key { background: #FCE8E6; border-color: #E3A39D; }
+  .schedule-calendar-legend .available-key { background: #E8F6EC; border-color: #A8D9B5; }
   .modal-overlay .box h2 {
     margin-top: 0;
     font-size: 1.35rem;
@@ -459,7 +460,7 @@
         </div>
       </div>
       <div id="scheduleCalendarGrid" class="schedule-calendar-grid"></div>
-      <div class="schedule-calendar-legend"><span><i class="booked-key"></i>Booked</span><span><i></i>Available</span></div>
+      <div class="schedule-calendar-legend"><span><i class="booked-key"></i>Booked</span><span><i class="available-key"></i>Available</span></div>
     </div>
   </div>
 
@@ -992,7 +993,8 @@
       const cell = document.createElement('div');
       cell.className = 'schedule-calendar-day';
       if (dayOffset < 1 || dayOffset > daysInMonth) cell.classList.add('muted');
-      if (isDateBooked(scheduleDateKey(cellDate))) cell.classList.add('booked');
+      else if (isDateBooked(scheduleDateKey(cellDate))) cell.classList.add('booked');
+      else cell.classList.add('available');
       cell.textContent = String(cellDate.getDate());
       scheduleCalendarGrid.appendChild(cell);
     }
