@@ -726,7 +726,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     $("cardFor").textContent = t.good.charAt(0).toUpperCase() + t.good.slice(1);
     $("cardScreenChoices").innerHTML = s.deviceIds.map(function(deviceId, index){
       var checked = state.plan.has(deviceId) ? ' checked' : '';
-      return '<label class="screen-choice"><input type="checkbox" data-device-id="' + esc(deviceId) + '"' + checked + '>Screen ' + (index + 1) + '<small>' + esc(deviceId) + '</small></label>';
+      return '<label class="screen-choice"><input type="checkbox" data-device-id="' + esc(deviceId) + '"' + checked + '>Screen ' + (index + 1) + '<small>' + esc(s.name) + '</small></label>';
     }).join("");
     syncAddBtn();
     card.hidden = false;
