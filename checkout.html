@@ -362,7 +362,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       conversionRates = ratePayload.conversion_rates;
       var currencySelect = $("currencySelect");
       Object.keys(currencyLabels).forEach(function(code){
-        if (code !== "USD" && !Number.isFinite(Number(conversionRates[code]))) return;
+        if (code === "USD" || !Number.isFinite(Number(conversionRates[code]))) return;
         var option = document.createElement("option");
         option.value = code;
         option.textContent = currencyLabels[code];
