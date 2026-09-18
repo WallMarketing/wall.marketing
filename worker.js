@@ -232,7 +232,7 @@ export default {
       }
 
       const existingDevice = await env.DB.prepare(
-        `SELECT device_token_hash, setup_status, site_name, site_location, site_latitude, site_longitude FROM devices WHERE device_id = ?`
+        `SELECT device_token_hash, setup_status, site_name, site_location, site_latitude, site_longitude, views_per_day FROM devices WHERE device_id = ?`
       ).bind(deviceId).first();
       if (existingDevice?.setup_status === 'disabled') return jsonResponse({ error: 'device disabled' }, 403);
       const presentedToken = request.headers.get('X-Device-Token');
@@ -257,6 +257,10 @@ export default {
       const firmwareVersion = params.get('fw') || null;
       const submittedSiteName = (params.get('site_name') || '').trim();
       const submittedSiteLocation = (params.get('site_location') || '').trim();
+      const submittedViewsPerDay = Number(params.get('views_per_day'));
+      const viewsPerDay = Number.isInteger(submittedViewsPerDay) && submittedViewsPerDay >= 0 && submittedViewsPerDay <= 100000000
+        ? submittedViewsPerDay
+        : (existingDevice?.views_per_day ?? 0);
       const hasSiteMetadata = submittedSiteName && submittedSiteLocation && submittedSiteName.length <= 200 && submittedSiteLocation.length <= 200;
       let siteName = hasSiteMetadata ? submittedSiteName : null;
       let siteLocation = hasSiteMetadata ? submittedSiteLocation : null;
@@ -294,8 +298,8 @@ export default {
         ).bind(deviceId, uptime, rssi, heap, imageHash, errors, firmwareVersion),
 
         env.DB.prepare(
-          `INSERT INTO devices (device_id, last_seen_at, device_token_hash, registered_at, site_name, site_location, site_latitude, site_longitude)
-           VALUES (?, datetime('now'), ?, datetime('now'), ?, ?, ?, ?)
+            `INSERT INTO devices (device_id, last_seen_at, device_token_hash, registered_at, site_name, site_location, site_latitude, site_longitude, views_per_day)
+              VALUES (?, datetime('now'), ?, datetime('now'), ?, ?, ?, ?, ?)
            ON CONFLICT(device_id) DO UPDATE SET
              last_seen_at = datetime('now'),
              device_token_hash = COALESCE(?, devices.device_token_hash),
@@ -303,8 +307,9 @@ export default {
              site_location = COALESCE(?, devices.site_location),
              site_latitude = COALESCE(?, devices.site_latitude),
              site_longitude = COALESCE(?, devices.site_longitude),
+               views_per_day = COALESCE(?, devices.views_per_day),
              registered_at = COALESCE(devices.registered_at, datetime('now'))`
-        ).bind(deviceId, issuedTokenHash, siteName, siteLocation, siteLatitude, siteLongitude, issuedTokenHash, siteName, siteLocation, siteLatitude, siteLongitude),
+             ).bind(deviceId, issuedTokenHash, siteName, siteLocation, siteLatitude, siteLongitude, viewsPerDay, issuedTokenHash, siteName, siteLocation, siteLatitude, siteLongitude, viewsPerDay),
       ]);
 
       return new Response(JSON.stringify({ ok: true, device_token: issuedToken }), {
@@ -557,7 +562,7 @@ export default {
     // --- Public site map: location and display metadata only ---
     if (url.pathname === '/api/sites' && request.method === 'GET') {
       const { results } = await env.DB.prepare(
-        `SELECT device_id, site_name, site_location, daily_cost_usd, site_latitude, site_longitude, last_seen_at
+        `SELECT device_id, site_name, site_location, daily_cost_usd, views_per_day, site_latitude, site_longitude, last_seen_at
            FROM devices
           WHERE site_latitude IS NOT NULL AND site_longitude IS NOT NULL
           ORDER BY site_name, device_id`
@@ -898,7 +903,8 @@ export default {
            d.friendly_name,
            d.site_name,
            d.site_location,
-           d.daily_cost_usd,
+                d.daily_cost_usd,
+                d.views_per_day,
            d.site_latitude,
            d.site_longitude,
            d.target_firmware_version,
@@ -964,6 +970,14 @@ export default {
         });
       }
 
+      const viewsPerDay = Number(body.views_per_day);
+      if (!Number.isInteger(viewsPerDay) || viewsPerDay < 0 || viewsPerDay > 100000000) {
+        return new Response(JSON.stringify({ error: 'views_per_day must be a non-negative whole number' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
       const siteName = body.site_name.trim() || null;
       const siteLocation = body.site_location.trim() || null;
       let latitude = null;
@@ -1009,10 +1023,10 @@ export default {
       }
       const result = await env.DB.prepare(
         `UPDATE devices
-          SET site_name = ?, site_location = ?, daily_cost_usd = ?, site_latitude = ?, site_longitude = ?,
+          SET site_name = ?, site_location = ?, daily_cost_usd = ?, views_per_day = ?, site_latitude = ?, site_longitude = ?,
             setup_status = CASE WHEN setup_status = 'new' THEN 'active' ELSE setup_status END
           WHERE device_id = ?`
-      ).bind(siteName, siteLocation, dailyCostUsd, latitude, longitude, deviceId).run();
+      ).bind(siteName, siteLocation, dailyCostUsd, viewsPerDay, latitude, longitude, deviceId).run();
 
       if (!result.meta.changes) {
         return new Response(JSON.stringify({ error: 'device not found' }), {
@@ -1026,6 +1040,7 @@ export default {
         site_name: siteName,
         site_location: siteLocation,
         daily_cost_usd: dailyCostUsd,
+        views_per_day: viewsPerDay,
         site_latitude: latitude,
         site_longitude: longitude,
       }), {

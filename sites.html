@@ -590,6 +590,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     }
     venue.deviceIds.push(row.device_id);
     venue.deviceNames[row.device_id] = row.site_name || row.device_id;
+    venue.views += Number(row.views_per_day || 0);
     venue.bookings = venue.bookings.concat(bookingsByDevice[row.device_id] || []);
     venue.screens += 1;
     if (!venue.name && row.site_name) venue.name = row.site_name;

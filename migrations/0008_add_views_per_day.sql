@@ -1,0 +1,1 @@
+ALTER TABLE devices ADD COLUMN views_per_day INTEGER NOT NULL DEFAULT 0;

@@ -141,19 +141,20 @@
   .card:has(table) { overflow-x: visible; }
   .card:has(#devicesBody) table { table-layout: fixed; }
   .card:has(#devicesBody) th, .card:has(#devicesBody) td { overflow-wrap: anywhere; }
-  .card:has(#devicesBody) th:nth-child(1) { width: 12%; }
-  .card:has(#devicesBody) th:nth-child(2) { width: 6%; }
-  .card:has(#devicesBody) th:nth-child(3) { width: 11%; }
-  .card:has(#devicesBody) th:nth-child(4) { width: 13%; }
-  .card:has(#devicesBody) th:nth-child(5) { width: 6%; }
-  .card:has(#devicesBody) th:nth-child(6) { width: 8%; }
-  .card:has(#devicesBody) th:nth-child(7) { width: 6%; }
+  .card:has(#devicesBody) th:nth-child(1) { width: 11%; }
+  .card:has(#devicesBody) th:nth-child(2) { width: 5%; }
+  .card:has(#devicesBody) th:nth-child(3) { width: 10%; }
+  .card:has(#devicesBody) th:nth-child(4) { width: 12%; }
+  .card:has(#devicesBody) th:nth-child(5) { width: 5%; }
+  .card:has(#devicesBody) th:nth-child(6) { width: 6%; }
+  .card:has(#devicesBody) th:nth-child(7) { width: 7%; }
   .card:has(#devicesBody) th:nth-child(8) { width: 5%; }
-  .card:has(#devicesBody) th:nth-child(9) { width: 6%; }
+  .card:has(#devicesBody) th:nth-child(9) { width: 5%; }
   .card:has(#devicesBody) th:nth-child(10) { width: 5%; }
   .card:has(#devicesBody) th:nth-child(11) { width: 5%; }
   .card:has(#devicesBody) th:nth-child(12) { width: 7%; }
-  .card:has(#devicesBody) th:nth-child(13) { width: 10%; }
+  .card:has(#devicesBody) th:nth-child(13) { width: 7%; }
+  .card:has(#devicesBody) th:nth-child(14) { width: 10%; }
   .card:has(#ordersBody) { overflow-x: auto; }
   .card:has(#ordersBody) table { min-width: 1120px; }
   .card:has(#schedulesBody) { overflow-x: auto; }
@@ -199,6 +200,7 @@
   .site-input:focus { border-color: var(--volt); outline: none; }
   .site-edit-cell:has(.daily-cost-input) { min-width: 0; }
   .daily-cost-input { width: 58px; min-width: 0; }
+  .views-per-day-input { width: 72px; min-width: 0; }
   .location-editor { position: relative; }
   .location-suggestions {
     position: static;
@@ -329,6 +331,10 @@
   }
   .status-dot.online { background: #37C77E; }
   .status-dot.stale { background: var(--hair); }
+  .heap-value { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .heap-dot { width: 8px; height: 8px; border-radius: 50%; background: #37C77E; flex: none; }
+  .heap-value.warn .heap-dot { background: #D99A22; }
+  .heap-value.critical .heap-dot { background: #C8202C; }
   .map-card { padding-bottom: 20px; }
   #deviceMap {
     width: 100%;
@@ -398,8 +404,8 @@
       <table>
         <thead>
           <tr>
-            <th>Device</th><th>Setup</th><th>Site name</th><th>Site location</th><th>Daily cost (USD)</th><th>Last seen</th><th>Uptime</th><th>RSSI</th>
-            <th>Heap</th><th>FW</th><th>Errors</th><th>Image</th><th>Actions</th>
+            <th>Device</th><th>Setup</th><th>Site name</th><th>Site location</th><th>Daily cost (USD)</th><th>Views per day</th><th>Last seen</th><th>Uptime</th><th>RSSI</th>
+            <th>Free RAM</th><th>FW</th><th>Errors</th><th>Image</th><th>Actions</th>
           </tr>
         </thead>
         <tbody id="devicesBody"></tbody>
@@ -447,7 +453,7 @@
           <thead>
             <tr>
               <th>Checked in</th><th>Uptime</th><th>RSSI</th>
-              <th>Heap</th><th>FW</th><th>Errors</th><th>Image</th>
+              <th>Free RAM</th><th>FW</th><th>Errors</th><th>Image</th>
             </tr>
           </thead>
           <tbody id="deviceHistoryBody"></tbody>
@@ -632,6 +638,14 @@
     }[character]));
   }
 
+  function formatFreeHeap(bytes) {
+    if (!Number.isFinite(Number(bytes))) return '<span class="heap-value">—</span>';
+    const value = Number(bytes);
+    const amount = value >= 1048576 ? `${(value / 1048576).toFixed(1)} MB` : `${Math.round(value / 1024)} KB`;
+    const state = value < 51200 ? 'critical' : value < 102400 ? 'warn' : 'healthy';
+    return `<span class="heap-value ${state}" title="${value.toLocaleString()} bytes free"><span class="heap-dot"></span>${amount}</span>`;
+  }
+
   function wallPinElement(screenCount) {
     const pin = document.createElement('div');
     pin.className = 'pin-wrap';
@@ -745,7 +759,7 @@
     input.addEventListener('blur', () => setTimeout(closeSuggestions, 150));
   }
 
-  async function saveDeviceSite(deviceId, siteNameInput, siteLocationInput, dailyCostInput, saveButton, saveStatus) {
+  async function saveDeviceSite(deviceId, siteNameInput, siteLocationInput, dailyCostInput, viewsPerDayInput, saveButton, saveStatus) {
     saveButton.disabled = true;
     saveStatus.textContent = 'Saving...';
     try {
@@ -756,6 +770,7 @@
           site_name: siteNameInput.value,
           site_location: siteLocationInput.value,
           daily_cost_usd: Number(dailyCostInput.value),
+          views_per_day: Number(viewsPerDayInput.value),
         }),
       });
       const result = await resp.json();
@@ -808,10 +823,11 @@
           <td class="site-edit-cell"></td>
           <td class="site-edit-cell"></td>
           <td class="site-edit-cell"></td>
+          <td class="site-edit-cell"></td>
           <td><button type="button" class="last-seen-btn" title="View check-in history"><span class="status-dot ${dotClass}"></span>${formatRelativeTime(row.last_seen_at)}</button></td>
           <td>${row.uptime_seconds ?? '—'}s</td>
           <td>${row.rssi ?? '—'}</td>
-          <td>${row.free_heap ?? '—'}</td>
+          <td>${formatFreeHeap(row.free_heap)}</td>
           <td>${row.firmware_version ?? '—'}</td>
           <td>${row.error_count ?? '—'}</td>
           <td class="image-cell"></td>
@@ -887,6 +903,16 @@
         dailyCostInput.setAttribute('aria-label', `Daily cost in USD for ${row.device_id}`);
         siteCells[2].appendChild(dailyCostInput);
 
+        const viewsPerDayInput = document.createElement('input');
+        viewsPerDayInput.className = 'site-input views-per-day-input';
+        viewsPerDayInput.type = 'number';
+        viewsPerDayInput.min = '0';
+        viewsPerDayInput.step = '1';
+        viewsPerDayInput.inputMode = 'numeric';
+        viewsPerDayInput.value = row.views_per_day ?? 0;
+        viewsPerDayInput.setAttribute('aria-label', `Views per day for ${row.device_id}`);
+        siteCells[3].appendChild(viewsPerDayInput);
+
         tr.querySelectorAll('.site-edit-cell, .site-edit-actions').forEach((cell) => {
           cell.addEventListener('click', (event) => event.stopPropagation());
         });
@@ -894,7 +920,7 @@
         const lastSeenButton = tr.querySelector('.last-seen-btn');
         const saveStatus = tr.querySelector('.site-save-status');
         saveButton.addEventListener('click', () => saveDeviceSite(
-          row.device_id, siteNameInput, siteLocationInput, dailyCostInput, saveButton, saveStatus
+          row.device_id, siteNameInput, siteLocationInput, dailyCostInput, viewsPerDayInput, saveButton, saveStatus
         ));
         lastSeenButton.addEventListener('click', () => openDeviceHistory(row.device_id));
         devicesBody.appendChild(tr);
@@ -1112,7 +1138,7 @@
         <td>${checkedIn}</td>
         <td>${row.uptime_seconds ?? '—'}s</td>
         <td>${row.rssi ?? '—'}</td>
-        <td>${row.free_heap ?? '—'}</td>
+        <td>${formatFreeHeap(row.free_heap)}</td>
         <td>${row.firmware_version ?? '—'}</td>
         <td>${row.error_count ?? '—'}</td>
         <td class="history-image-cell"></td>
