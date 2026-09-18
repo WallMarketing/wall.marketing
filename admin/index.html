@@ -537,6 +537,7 @@
   let deviceInfoWindow = null;
   let AdvancedMarkerElement = null;
   const defaultMapZoom = 17;
+  const cityWideZoom = 13;
 
   const deviceMapReady = (async () => {
     const configResponse = await fetch('/api/maps-config');
@@ -638,7 +639,9 @@
     const mapBounds = new google.maps.LatLngBounds();
     bounds.forEach((point) => mapBounds.extend({ lat: point[0], lng: point[1] }));
     deviceMap.fitBounds(mapBounds, 40);
-    deviceMap.setZoom(defaultMapZoom);
+    google.maps.event.addListenerOnce(deviceMap, 'idle', () => {
+      if (deviceMap.getZoom() > cityWideZoom) deviceMap.setZoom(cityWideZoom);
+    });
   }
 
   function attachLocationSuggestions(input) {
