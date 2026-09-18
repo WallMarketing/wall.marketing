@@ -91,18 +91,6 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 .converter-panel { background: var(--panel-2); border: 1px solid var(--hair); border-radius: 3px; padding: clamp(22px, 4vw, 36px); }
 .converter-panel h2 { font-size: 1.55rem; margin-bottom: 22px; }
 .converter-preview { width: min(100%, 820px); margin: 0 auto; }
-.ai-generator { width: min(100%, 820px); margin: 0 auto 26px; padding: 20px; border: 1px solid var(--hair); border-radius: 3px; background: #fff; }
-.ai-generator h3 { margin: 0 0 16px; font-size: 1.08rem; }
-.ai-generator-grid { display: grid; gap: 14px; }
-.ai-generator-field { display: grid; gap: 6px; }
-.ai-generator-field label { color: var(--steel); font-size: .84rem; }
-.ai-generator-field input, .ai-generator-field textarea { width: 100%; padding: 10px 11px; border: 1px solid var(--hair); border-radius: 3px; background: #fff; color: var(--ink); }
-.ai-generator-field textarea { min-height: 96px; resize: vertical; }
-.ai-generator-field input:focus, .ai-generator-field textarea:focus { border-color: var(--volt); outline: none; }
-.ai-generator-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
-.ai-generator-actions .btn { width: auto; margin-top: 0; }
-.ai-generator-actions .btn--ghost { background: transparent; color: var(--ink); border-color: var(--hair); }
-.ai-generator-actions .btn--ghost:hover { background: #f3f4f2; }
 .wallbot { position: relative; display: flex; flex-direction: column; justify-content: space-between; width: min(100%, 720px); aspect-ratio: 360 / 322; margin: 0 auto; padding: 6.5%; border-radius: 5px; background-color: #25282A; background-image: radial-gradient(rgba(255,255,255,.055) .5px, transparent .6px), linear-gradient(152deg, #3B3F43 0%, #242729 55%, #15171A 100%); background-size: 3px 3px, 100% 100%; box-shadow: inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(0,0,0,.55), 0 28px 46px -28px rgba(18,24,22,.8); }
 .wallbot-solar { flex: none; width: 100%; aspect-ratio: 9 / 1; border-radius: 2px; background-color: #6F4C9B; background-image: radial-gradient(rgba(0,0,0,.55) 42%, transparent 44%); background-size: 4px 4px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.45); }
 .wallbot-screen { position: relative; flex: none; width: 100%; overflow: hidden; background: #fff; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0,0,0,.6); }
@@ -118,9 +106,6 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 .converter-controls .btn:hover { background: var(--volt); }
 .converter-controls .btn:disabled { background: var(--hair); color: var(--steel); cursor: default; }
 .converter-status { min-height: 1.5em; margin-top: 14px; color: var(--steel); font-size: .82rem; }
-.ai-generator-busy { display: inline-flex; align-items: center; gap: 10px; }
-.ai-generator-spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(56, 38, 240, 0.25); border-top-color: var(--volt); animation: ai-spin 0.8s linear infinite; }
-@keyframes ai-spin { to { transform: rotate(360deg); } }
 .invoice-toggle { display: flex; align-items: center; gap: 9px; margin-top: 20px; font-size: .9rem; }
 .invoice-toggle input { width: 16px; height: 16px; accent-color: var(--volt-2); }
 .invoice-fields[hidden] { display: none; }
@@ -179,32 +164,10 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       <div class="advertising-actions">
         <button type="button" class="btn btn--line" id="uploadAdvertisementButton">Upload your advertisment</button>
         <input id="advertisementFile" type="file" accept="image/*" hidden>
-        <div class="advertising-or">or</div>
-        <button type="button" class="btn btn--line" id="generateAdvertisementButton">Help me create an advertisment</button>
       </div>
       <section class="advertisement-editor" id="advertisementEditor" hidden>
         <div class="converter-panel">
           <h2>Advertisment Preview</h2>
-          <div class="ai-generator" id="aiGeneratorPanel">
-            <h3>How would you like your ad to look?</h3>
-            <div class="ai-generator-grid">
-              <div class="ai-generator-field">
-                <label for="advertisementSubject">Subject / business</label>
-                <input id="advertisementSubject" type="text" placeholder="e.g. Brew House Coffee" value="">
-              </div>
-              <div class="ai-generator-field">
-                <label for="advertisementPrompt">Requested changes</label>
-                <textarea id="advertisementPrompt" placeholder="Add a brighter headline, a warmer color palette, or try a more premium feel."></textarea>
-              </div>
-              <div class="ai-generator-actions">
-                <button id="generateAdvertisement" class="btn" type="button">Generate ad</button>
-                <button id="refineAdvertisement" class="btn btn--ghost" type="button" hidden>Request changes</button>
-              </div>
-              <div id="aiGeneratorBusy" class="converter-status" aria-live="polite" hidden>
-                <span class="ai-generator-busy"><span class="ai-generator-spinner"></span>Generating your artwork… please wait.</span>
-              </div>
-            </div>
-          </div>
           <div class="converter-preview">
             <div class="wallbot" role="img" aria-label="WALL Bot advertisement preview">
               <span class="wallbot-solar"></span>
@@ -470,9 +433,6 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
   ];
   var fileInput = document.getElementById('advertisementFile');
   var uploadButton = document.getElementById('uploadAdvertisementButton');
-  var generateButton = document.getElementById('generateAdvertisementButton');
-  var generateAdButton = document.getElementById('generateAdvertisement');
-  var refineAdButton = document.getElementById('refineAdvertisement');
   var editor = document.getElementById('advertisementEditor');
   var fitInput = document.getElementById('advertisementFit');
   var saturationInput = document.getElementById('advertisementSaturation');
@@ -495,65 +455,12 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     status.textContent = message;
     status.classList.toggle('error', Boolean(error));
   }
-  function setGeneratingState(isGenerating){
-    var generatorBusy = document.getElementById('aiGeneratorBusy');
-    var generateAdButton = document.getElementById('generateAdvertisement');
-    var refineAdButton = document.getElementById('refineAdvertisement');
-    generatorBusy.hidden = !isGenerating;
-    generateAdButton.disabled = isGenerating;
-    refineAdButton.disabled = isGenerating;
-    if (isGenerating) {
-      setStatus('Generating your artwork… please wait.');
-    }
-  }
-  function createGeminiPrompt(subject, requestedChanges){
-    var business = (subject || 'your business').trim() || 'your business';
-    var prompt = "A flat 2D graphic design layout for a billboard advertisement, 5:3 aspect ratio, promoting " + business + ". High Quality and professional. Strictly flat art only, edge-to-edge graphic design, direct digital export, no physical billboard structure, no street background, no mockups, no 3D rendering of surroundings. Palette limited strictly to Black, white, yellow, red, blue, and green.";
-    if (requestedChanges && requestedChanges.trim()) prompt += "\n\nRequested changes: " + requestedChanges.trim();
-    return prompt;
-  }
   function setGeneratedImage(image){
     sourceImage = image;
     editor.hidden = false;
     convertButton.disabled = false;
     convert();
     editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-  async function generateImageFromGemini(){
-    var subject = document.getElementById('advertisementSubject').value.trim();
-    var requestedChanges = document.getElementById('advertisementPrompt').value.trim();
-    var refineButton = document.getElementById('refineAdvertisement');
-    setGeneratingState(true);
-    try {
-      var response = await fetch('/api/advertisement/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subject: subject,
-          requestedChanges: requestedChanges
-        })
-      });
-      if (!response.ok) {
-        var errorPayload = await response.json().catch(function(){ return {}; });
-        throw new Error(errorPayload && errorPayload.error ? errorPayload.error : 'Gemini image generation failed.');
-      }
-      var payload = await response.json();
-      var image = new Image();
-      image.onload = function(){
-        setGeneratedImage(image);
-        refineButton.hidden = false;
-        setStatus('Advertisement generated and ready to add to booking.');
-        setGeneratingState(false);
-      };
-      image.onerror = function(){
-        setStatus('The generated image could not be loaded in the browser.', true);
-        setGeneratingState(false);
-      };
-      image.src = 'data:' + (payload.mimeType || 'image/png') + ';base64,' + payload.data;
-    } catch (error) {
-      setStatus(error.message || 'Could not generate the advertisement.', true);
-      setGeneratingState(false);
-    }
   }
   function clamp(value){ return Math.max(0, Math.min(255, value)); }
   function nearestPaletteIndex(r, g, b){
@@ -634,23 +541,6 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     setStatus('Converted 800 × 480 image');
   }
   uploadButton.addEventListener('click', function(){ fileInput.click(); });
-  generateButton.addEventListener('click', function(){
-    editor.hidden = false;
-    document.getElementById('refineAdvertisement').hidden = true;
-    setStatus('Add your subject and request details to generate an ad.');
-    editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    var subjectInput = document.getElementById('advertisementSubject');
-    if (!subjectInput.value) subjectInput.focus();
-  });
-  generateAdButton.addEventListener('click', function(){ generateImageFromGemini(); });
-  refineAdButton.addEventListener('click', function(){
-    if (document.getElementById('advertisementPrompt').value.trim()) {
-      generateImageFromGemini();
-    } else {
-      document.getElementById('advertisementPrompt').focus();
-      setStatus('Tell Gemini what to change before requesting an update.', true);
-    }
-  });
   fileInput.addEventListener('change', function(){
     var file = fileInput.files[0];
     if (!file) return;

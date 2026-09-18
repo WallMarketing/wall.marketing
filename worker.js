@@ -474,54 +474,6 @@ export default {
       });
     }
 
-    // --- Advertisement generation via OpenAI; the API key remains server-side only ---
-    if (url.pathname === '/api/advertisement/generate' && request.method === 'POST') {
-      if (!env.OPENAI_API_KEY) {
-        return jsonResponse({ error: 'OpenAI API key is not configured' }, 503);
-      }
-
-      let body;
-      try {
-        body = await request.json();
-      } catch {
-        return jsonResponse({ error: 'request body must be JSON' }, 400);
-      }
-
-      const subject = String(body?.subject || '').trim() || 'your business';
-      const requestedChanges = String(body?.requestedChanges || '').trim();
-      const prompt = `Create a finished, professional advertisement artwork for ${subject}, composed for a wide 5:3 digital e-paper display. Make it immediately readable from a distance: use one short bold headline, very large simple shapes, strong hierarchy, generous spacing, and a clear focal point. Use a polished editorial advertising composition with crisp edges and intentional visual detail, not a rough concept or generic logo. The final artwork must use only black, white, yellow, red, blue, and green because it will be converted to a six-color e-paper display. Avoid gradients, photorealistic scenes, tiny text, fine texture, clutter, physical billboard structures, street backgrounds, mockups, and 3D surroundings. Fill the entire image with the artwork and keep important content safely inside the edges.${requestedChanges ? `\n\nRequested changes: ${requestedChanges}` : ''}`;
-
-      const openAiResponse = await fetch('https://api.openai.com/v1/images/generations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-image-1',
-          prompt,
-          size: '1536x1024',
-          quality: 'high',
-        }),
-      });
-
-      const payload = await openAiResponse.json().catch(() => ({}));
-      if (!openAiResponse.ok) {
-        const message = payload?.error?.message || 'OpenAI image generation failed';
-        return jsonResponse({ error: message }, openAiResponse.status || 502);
-      }
-
-      const imageData = payload?.data?.[0]?.b64_json;
-      if (!imageData) {
-        return jsonResponse({ error: 'OpenAI response did not include an image' }, 502);
-      }
-
-      return jsonResponse({
-        mimeType: 'image/png',
-        data: imageData,
-      });
-    }
-
     // --- Public site map: location and display metadata only ---
     if (url.pathname === '/api/sites' && request.method === 'GET') {
       const { results } = await env.DB.prepare(
