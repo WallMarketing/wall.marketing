@@ -410,7 +410,6 @@ export default {
 
     // --- Google Maps browser configuration for the admin map ---
     if (url.pathname === '/api/maps-config' && request.method === 'GET') {
-      if (!isAdminRequest(request)) return unauthorizedResponse();
       if (!env.GOOGLE_MAPS_BROWSER_KEY) {
         return new Response(JSON.stringify({ error: 'Google Maps API key is not configured' }), {
           status: 503,
