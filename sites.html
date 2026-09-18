@@ -884,13 +884,10 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
 
   function syncAddBtn(){
     var btn = $("cardAdd"), site = byId[state.active];
-    var inPlan = site && site.deviceIds.every(function(deviceId){ return state.plan.has(deviceId); });
-    var selectedCount = site ? site.deviceIds.filter(function(deviceId){ return state.plan.has(deviceId); }).length : 0;
-    btn.textContent = inPlan ? "Remove from plan" : "Add to plan";
-    btn.classList.toggle("btn--solid", !inPlan);
-    btn.classList.toggle("btn--line", inPlan);
-    btn.setAttribute("aria-pressed", inPlan);
-    if (site && selectedCount > 0 && !inPlan) btn.textContent = "Add to plan";
+    btn.textContent = "Add to plan";
+    btn.classList.add("btn--solid");
+    btn.classList.remove("btn--line");
+    btn.removeAttribute("aria-pressed");
     if (site) {
       $("cardScreenChoices").querySelectorAll("input[data-device-id]").forEach(function(input){
         input.checked = state.plan.has(input.dataset.deviceId);
@@ -908,13 +905,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     render(false);
   });
   $("cardAdd").addEventListener("click", function(){
-    var id = state.active, site = byId[id]; if (!site) return;
-    var inPlan = site.deviceIds.every(function(deviceId){ return state.plan.has(deviceId); });
-    site.deviceIds.forEach(function(deviceId){
-      if (inPlan) state.plan.delete(deviceId);
-      else state.plan.add(deviceId);
-    });
-    syncAddBtn(); refreshPin(id); renderPlan(); render(false);
+    return;
   });
 
   /* ---------- plan ---------- */
