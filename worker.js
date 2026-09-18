@@ -489,7 +489,7 @@ export default {
 
       const subject = String(body?.subject || '').trim() || 'your business';
       const requestedChanges = String(body?.requestedChanges || '').trim();
-      const prompt = `A flat 2D graphic design layout for a billboard advertisement, 5:3 aspect ratio, featuring ${subject}. Vector art style, clean modern typography, graphic background with geometric accents and bold color blocks. Strictly flat art only, edge-to-edge graphic design, direct digital export, no physical billboard structure, no street background, no mockups, no 3D rendering of surroundings. Palette limited strictly to Black, white, yellow, red, blue, and green.${requestedChanges ? `\n\nRequested changes: ${requestedChanges}` : ''}`;
+      const prompt = `Create a finished, professional advertisement artwork for ${subject}, composed for a wide 5:3 digital e-paper display. Make it immediately readable from a distance: use one short bold headline, very large simple shapes, strong hierarchy, generous spacing, and a clear focal point. Use a polished editorial advertising composition with crisp edges and intentional visual detail, not a rough concept or generic logo. The final artwork must use only black, white, yellow, red, blue, and green because it will be converted to a six-color e-paper display. Avoid gradients, photorealistic scenes, tiny text, fine texture, clutter, physical billboard structures, street backgrounds, mockups, and 3D surroundings. Fill the entire image with the artwork and keep important content safely inside the edges.${requestedChanges ? `\n\nRequested changes: ${requestedChanges}` : ''}`;
 
       const openAiResponse = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
@@ -500,7 +500,7 @@ export default {
         body: JSON.stringify({
           model: 'gpt-image-1',
           prompt,
-          size: 'auto',
+          size: '1536x1024',
           quality: 'high',
         }),
       });
