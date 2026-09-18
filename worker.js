@@ -778,10 +778,12 @@ export default {
       const { results } = await env.DB.prepare(
         `SELECT oi.id, oi.order_id, oi.device_id, oi.start_date, oi.end_date, oi.status,
                 o.checkout_code, o.campaign_name, o.status AS order_status,
-                a.filename AS advertisement_filename
+           a.filename AS advertisement_filename,
+           d.site_name, d.site_location
            FROM order_items oi
            JOIN orders o ON o.id = oi.order_id
            LEFT JOIN advertisements a ON a.order_id = oi.order_id
+         LEFT JOIN devices d ON d.device_id = oi.device_id
           WHERE oi.status != 'cleared'
           ORDER BY oi.device_id, oi.start_date, oi.id`
       ).all();

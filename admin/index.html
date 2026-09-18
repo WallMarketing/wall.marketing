@@ -131,7 +131,8 @@
   }
   th { color: var(--steel); font-weight: 600; }
   .card:has(table) { overflow-x: visible; }
-  .card:has(#devicesBody) table { table-layout: fixed; }
+  .card:has(#devicesBody) { overflow-x: auto; }
+  .card:has(#devicesBody) table { table-layout: fixed; min-width: 1400px; }
   .card:has(#devicesBody) th, .card:has(#devicesBody) td { overflow-wrap: anywhere; }
   .card:has(#devicesBody) th:nth-child(1) { width: 13%; }
   .card:has(#devicesBody) th:nth-child(2), .card:has(#devicesBody) th:nth-child(3) { width: 11%; }
@@ -140,6 +141,7 @@
   .card:has(#devicesBody) th:nth-child(6), .card:has(#devicesBody) th:nth-child(7), .card:has(#devicesBody) th:nth-child(8), .card:has(#devicesBody) th:nth-child(9), .card:has(#devicesBody) th:nth-child(10) { width: 6%; }
   .card:has(#devicesBody) th:nth-child(11) { width: 9%; }
   .card:has(#devicesBody) th:nth-child(12) { width: 9%; }
+  .card:has(#devicesBody) th:nth-child(13) { width: 10%; }
   .card:has(#ordersBody) { overflow-x: auto; }
   .card:has(#ordersBody) table { min-width: 1120px; }
   .card:has(#schedulesBody) { overflow-x: auto; }
@@ -380,7 +382,7 @@
       <h2>Device schedules</h2>
       <table>
         <thead>
-          <tr><th>Device</th><th>Campaign</th><th>Dates</th><th>Status</th><th>Order</th><th>Advertisement</th><th>Actions</th></tr>
+          <tr><th>Device</th><th>Site name</th><th>Site location</th><th>Campaign</th><th>Dates</th><th>Status</th><th>Order</th><th>Advertisement</th><th>Actions</th></tr>
         </thead>
         <tbody id="schedulesBody"></tbody>
       </table>
@@ -897,6 +899,8 @@
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${escapeHtml(row.device_id)}</td>
+          <td>${escapeHtml(row.site_name || '—')}</td>
+          <td>${escapeHtml(row.site_location || '—')}</td>
           <td>${escapeHtml(row.campaign_name || '—')}</td>
           <td>${escapeHtml(row.start_date)} to ${escapeHtml(row.end_date)}</td>
           <td class="order-status">${escapeHtml(row.status)} / ${escapeHtml(row.order_status)}</td>
@@ -905,14 +909,6 @@
           <td class="schedule-actions"></td>
         `;
         const actions = tr.querySelector('.schedule-actions');
-        if (row.order_status === 'paid' || row.order_status === 'scheduled') {
-          const activateButton = document.createElement('button');
-          activateButton.type = 'button';
-          activateButton.className = 'preview-btn';
-          activateButton.textContent = 'Activate now';
-          activateButton.addEventListener('click', () => updateSchedule(row.id, 'activate'));
-          actions.appendChild(activateButton);
-        }
         const clearButton = document.createElement('button');
         clearButton.type = 'button';
         clearButton.className = 'preview-btn';
