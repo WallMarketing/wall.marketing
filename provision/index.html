@@ -300,6 +300,11 @@
           </div>
         </div>
 
+        <label for="siteNameInput">Site name</label>
+        <input type="text" id="siteNameInput" maxlength="200" autocomplete="organization" placeholder="e.g. Flux Co-Working">
+        <label for="siteLocationInput">Site address</label>
+        <input type="text" id="siteLocationInput" maxlength="200" autocomplete="street-address" placeholder="e.g. 12 Main Street, Da Nang">
+
         <button id="sendBtn">Send WiFi details</button>
         <div class="status" id="sendStatus"></div>
       </div>
@@ -323,6 +328,8 @@
   const passwordWrap = document.getElementById('passwordWrap');
   const ssidInput = document.getElementById('ssidInput');
   const passwordInput = document.getElementById('passwordInput');
+  const siteNameInput = document.getElementById('siteNameInput');
+  const siteLocationInput = document.getElementById('siteLocationInput');
   const togglePasswordBtn = document.getElementById('togglePasswordBtn');
   const eyeIcon = document.getElementById('eyeIcon');
   const eyeOffIcon = document.getElementById('eyeOffIcon');
@@ -507,10 +514,21 @@
       setStatus(sendStatus, "Network names containing '|' aren't supported.", 'err');
       return;
     }
+    const siteName = siteNameInput.value.trim();
+    const siteLocation = siteLocationInput.value.trim();
+    if (!siteName || !siteLocation) {
+      setStatus(sendStatus, 'Enter the site name and address first.', 'err');
+      return;
+    }
+    if (siteName.includes('|') || siteLocation.includes('|')) {
+      setStatus(sendStatus, "Site details containing '|' aren't supported.", 'err');
+      return;
+    }
 
     sendBtn.disabled = true;
     setStatus(sendStatus, 'Sending...', 'busy');
     try {
+      await rxCharacteristic.writeValue(new TextEncoder().encode(`SITE:${siteName}|${siteLocation}`));
       const payload = `WIFI:${ssid}|${password}`;
       await rxCharacteristic.writeValue(new TextEncoder().encode(payload));
       setStatus(sendStatus, 'Sent — waiting for the display to connect...', 'busy');

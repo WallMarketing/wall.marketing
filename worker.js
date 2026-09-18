@@ -201,7 +201,7 @@ export default {
       }
 
       const existingDevice = await env.DB.prepare(
-        `SELECT device_token_hash, setup_status FROM devices WHERE device_id = ?`
+        `SELECT device_token_hash, setup_status, site_name, site_location, site_latitude, site_longitude FROM devices WHERE device_id = ?`
       ).bind(deviceId).first();
       if (existingDevice?.setup_status === 'disabled') return jsonResponse({ error: 'device disabled' }, 403);
       const presentedToken = request.headers.get('X-Device-Token');
@@ -224,6 +224,36 @@ export default {
       const errors = toIntOrNull(params.get('errors'));
       const imageHash = params.get('image_hash') || null;
       const firmwareVersion = params.get('fw') || null;
+      const submittedSiteName = (params.get('site_name') || '').trim();
+      const submittedSiteLocation = (params.get('site_location') || '').trim();
+      const hasSiteMetadata = submittedSiteName && submittedSiteLocation && submittedSiteName.length <= 200 && submittedSiteLocation.length <= 200;
+      let siteName = hasSiteMetadata ? submittedSiteName : null;
+      let siteLocation = hasSiteMetadata ? submittedSiteLocation : null;
+      let siteLatitude = existingDevice?.site_latitude ?? null;
+      let siteLongitude = existingDevice?.site_longitude ?? null;
+
+      if (hasSiteMetadata && submittedSiteLocation !== existingDevice?.site_location) {
+        siteLatitude = null;
+        siteLongitude = null;
+        if (env.GOOGLE_MAPS_SERVER_KEY) {
+          const geocodeUrl = new URL('https://maps.googleapis.com/maps/api/geocode/json');
+          geocodeUrl.searchParams.set('address', submittedSiteLocation);
+          geocodeUrl.searchParams.set('key', env.GOOGLE_MAPS_SERVER_KEY);
+          const geocodeResponse = await fetch(geocodeUrl);
+          if (geocodeResponse.ok) {
+            const geocode = await geocodeResponse.json();
+            const location = geocode.results?.[0]?.geometry?.location;
+            if (geocode.status === 'OK' && Number.isFinite(Number(location?.lat)) && Number.isFinite(Number(location?.lng))) {
+              siteLatitude = Number(location.lat);
+              siteLongitude = Number(location.lng);
+            }
+          }
+        }
+      }
+      if (hasSiteMetadata && submittedSiteLocation !== existingDevice?.site_location && (siteLatitude === null || siteLongitude === null)) {
+        siteName = null;
+        siteLocation = null;
+      }
 
       await env.DB.batch([
         env.DB.prepare(
@@ -233,13 +263,17 @@ export default {
         ).bind(deviceId, uptime, rssi, heap, imageHash, errors, firmwareVersion),
 
         env.DB.prepare(
-          `INSERT INTO devices (device_id, last_seen_at, device_token_hash, registered_at)
-           VALUES (?, datetime('now'), ?, datetime('now'))
+          `INSERT INTO devices (device_id, last_seen_at, device_token_hash, registered_at, site_name, site_location, site_latitude, site_longitude)
+           VALUES (?, datetime('now'), ?, datetime('now'), ?, ?, ?, ?)
            ON CONFLICT(device_id) DO UPDATE SET
              last_seen_at = datetime('now'),
              device_token_hash = COALESCE(?, devices.device_token_hash),
+             site_name = COALESCE(?, devices.site_name),
+             site_location = COALESCE(?, devices.site_location),
+             site_latitude = COALESCE(?, devices.site_latitude),
+             site_longitude = COALESCE(?, devices.site_longitude),
              registered_at = COALESCE(devices.registered_at, datetime('now'))`
-        ).bind(deviceId, issuedTokenHash, issuedTokenHash),
+        ).bind(deviceId, issuedTokenHash, siteName, siteLocation, siteLatitude, siteLongitude, issuedTokenHash, siteName, siteLocation, siteLatitude, siteLongitude),
       ]);
 
       return new Response(JSON.stringify({ ok: true, device_token: issuedToken }), {
