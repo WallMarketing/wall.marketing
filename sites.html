@@ -661,7 +661,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     site.deviceIds.forEach(function(deviceId, index){
       var option = document.createElement("option");
       option.value = deviceId;
-      option.textContent = "Screen " + (index + 1);
+      option.textContent = site.name + " — Screen " + (index + 1);
       availabilityCalendarScreenSelect.appendChild(option);
     });
     availabilityCalendarScreenSelect.value = availabilityCalendarDeviceId;
