@@ -589,11 +589,12 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
         area: area,
         type: "device",
         lat: Number(row.site_latitude), lng: Number(row.site_longitude),
-        screens: 0, deviceIds: [], bookings: [], views: 0, booked: 0,
+        screens: 0, deviceIds: [], deviceNames: {}, bookings: [], views: 0, booked: 0,
         hours: "Last seen " + (row.last_seen_at || "unknown")
       };
     }
     venue.deviceIds.push(row.device_id);
+    venue.deviceNames[row.device_id] = row.site_name || row.device_id;
     venue.bookings = venue.bookings.concat(bookingsByDevice[row.device_id] || []);
     venue.screens += 1;
     if (!venue.name && row.site_name) venue.name = row.site_name;
@@ -661,7 +662,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     site.deviceIds.forEach(function(deviceId, index){
       var option = document.createElement("option");
       option.value = deviceId;
-      option.textContent = site.name + " — Screen " + (index + 1);
+      option.textContent = site.deviceNames[deviceId] || site.name;
       availabilityCalendarScreenSelect.appendChild(option);
     });
     availabilityCalendarScreenSelect.value = availabilityCalendarDeviceId;
@@ -850,7 +851,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     $("cardFor").textContent = t.good.charAt(0).toUpperCase() + t.good.slice(1);
     $("cardScreenChoices").innerHTML = s.deviceIds.map(function(deviceId, index){
       var checked = state.plan.has(deviceId) ? ' checked' : '';
-      return '<label class="screen-choice"><input type="checkbox" data-device-id="' + esc(deviceId) + '"' + checked + '>Screen ' + (index + 1) + '<small>' + esc(s.name) + '</small></label>';
+      return '<label class="screen-choice"><input type="checkbox" data-device-id="' + esc(deviceId) + '"' + checked + '>' + esc(s.deviceNames[deviceId] || s.name) + '</label>';
     }).join("");
     syncAddBtn();
     card.hidden = false;
