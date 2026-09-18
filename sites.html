@@ -232,8 +232,11 @@ header{
 .plan{background:var(--graphite);color:var(--chalk);padding:18px clamp(18px,2vw,24px) 20px;display:grid;gap:14px;}
 .plan-top{display:flex;justify-content:space-between;align-items:baseline;gap:14px;}
 .plan h2{font-size:1.15rem;font-variation-settings:"wdth" 112,"wght" 700;letter-spacing:-0.015em;}
-.plan-sum{font-size:0.86rem;color:#9AA19C;}
+.plan-sum{display:flex;align-items:baseline;gap:12px;flex:1;font-size:0.86rem;color:#9AA19C;}
 .plan-sum b{color:var(--volt-2);font-weight:inherit;font-variation-settings:"wdth" 110,"wght" 700;}
+.plan-details{min-width:0;}
+.plan-rate{margin-left:auto;color:#fff;white-space:nowrap;}
+.plan-rate b{color:#fff;}
 .plan-actions{display:flex;gap:10px;flex-wrap:wrap;}
 .plan-actions .btn{padding:11px 18px;font-size:0.9rem;flex:1;}
 .plan-empty{font-size:0.88rem;color:#9AA19C;max-width:36ch;}
@@ -930,7 +933,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     $("plan").classList.toggle("has", has);
     $("planActions").hidden = !has;
     $("planSum").innerHTML = has
-      ? '<b>' + sites.length + '</b> ' + (sites.length===1?'site':'sites') + ', <b>' + screens + '</b> screens, <b>' + fmt(views) + '</b> views a day, <b>$' + dailyRate.toFixed(2) + '</b>/day'
+      ? '<span class="plan-details"><b>' + sites.length + '</b> ' + (sites.length===1?'site':'sites') + ', <b>' + screens + '</b> screens, <b>' + fmt(views) + '</b> views a day</span><span class="plan-rate"><b>$' + dailyRate.toFixed(2) + '</b>/day</span>'
       : '';
 
     $("planReview").href = "checkout.html#plan=" + encodeURIComponent(ids.join(","));
