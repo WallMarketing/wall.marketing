@@ -280,6 +280,32 @@
     padding: 6px 10px;
     font-size: .8rem;
   }
+  .schedule-date-link {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    text-align: left;
+    text-decoration: underline;
+    text-decoration-color: var(--hair);
+    text-underline-offset: 3px;
+  }
+  .schedule-date-link:hover { background: transparent; color: var(--volt); }
+  .schedule-calendar-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .schedule-calendar-head h3 { margin: 0; font-size: 1.05rem; }
+  .schedule-calendar-nav { display: flex; gap: 6px; }
+  .schedule-calendar-nav button { padding: 5px 10px; font-size: .8rem; }
+  .schedule-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); border-top: 1px solid var(--hair); border-left: 1px solid var(--hair); }
+  .schedule-calendar-grid > * { min-height: 38px; padding: 8px 6px; border-right: 1px solid var(--hair); border-bottom: 1px solid var(--hair); }
+  .schedule-calendar-weekday { color: var(--steel); font-size: .72rem; font-weight: 600; text-align: center; }
+  .schedule-calendar-day { background: #fff; font-size: .82rem; }
+  .schedule-calendar-day.muted { color: var(--hair); background: var(--panel-2); }
+  .schedule-calendar-day.booked { background: #EEECFF; color: var(--volt); font-weight: 700; }
+  .schedule-calendar-legend { display: flex; gap: 16px; margin-top: 14px; color: var(--steel); font-size: .78rem; }
+  .schedule-calendar-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .schedule-calendar-legend i { width: 12px; height: 12px; border: 1px solid var(--hair); background: #fff; }
+  .schedule-calendar-legend .booked-key { background: #EEECFF; border-color: var(--volt); }
   .modal-overlay .box h2 {
     margin-top: 0;
     font-size: 1.35rem;
@@ -418,6 +444,22 @@
         </table>
       </div>
       <button id="deviceHistoryMore" class="device-history-more" type="button" hidden>Show more</button>
+    </div>
+  </div>
+
+  <div id="scheduleCalendarModal" class="modal-overlay" hidden>
+    <div class="box wide">
+      <button id="closeScheduleCalendar" class="modal-close" type="button" aria-label="Close schedule calendar" title="Close">&times;</button>
+      <h2 id="scheduleCalendarTitle">Schedule calendar</h2>
+      <div class="schedule-calendar-head">
+        <h3 id="scheduleCalendarMonth"></h3>
+        <div class="schedule-calendar-nav">
+          <button id="scheduleCalendarPrevious" type="button">Previous</button>
+          <button id="scheduleCalendarNext" type="button">Next</button>
+        </div>
+      </div>
+      <div id="scheduleCalendarGrid" class="schedule-calendar-grid"></div>
+      <div class="schedule-calendar-legend"><span><i class="booked-key"></i>Booked</span><span><i></i>Available</span></div>
     </div>
   </div>
 
@@ -910,6 +952,72 @@
     }
   }
 
+  const scheduleCalendarModal = document.getElementById('scheduleCalendarModal');
+  const scheduleCalendarTitle = document.getElementById('scheduleCalendarTitle');
+  const scheduleCalendarMonth = document.getElementById('scheduleCalendarMonth');
+  const scheduleCalendarGrid = document.getElementById('scheduleCalendarGrid');
+  let scheduleCalendarRows = [];
+  let scheduleCalendarDeviceId = '';
+  let scheduleCalendarDate = new Date();
+
+  function scheduleDateKey(date) {
+    return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+  }
+
+  function isDateBooked(dateKey) {
+    return scheduleCalendarRows.some((row) => {
+      if (row.device_id !== scheduleCalendarDeviceId || row.status === 'cleared') return false;
+      return dateKey >= row.start_date && dateKey < row.end_date;
+    });
+  }
+
+  function renderScheduleCalendar() {
+    const year = scheduleCalendarDate.getFullYear();
+    const month = scheduleCalendarDate.getMonth();
+    scheduleCalendarMonth.textContent = scheduleCalendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    scheduleCalendarGrid.innerHTML = '';
+    ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach((day) => {
+      const header = document.createElement('div');
+      header.className = 'schedule-calendar-weekday';
+      header.textContent = day;
+      scheduleCalendarGrid.appendChild(header);
+    });
+    const firstDay = new Date(year, month, 1);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const leadingDays = firstDay.getDay();
+    const previousMonthDays = new Date(year, month, 0).getDate();
+    for (let index = 0; index < 42; index++) {
+      const dayOffset = index - leadingDays + 1;
+      const cellDate = new Date(year, month, dayOffset);
+      const cell = document.createElement('div');
+      cell.className = 'schedule-calendar-day';
+      if (dayOffset < 1 || dayOffset > daysInMonth) cell.classList.add('muted');
+      if (isDateBooked(scheduleDateKey(cellDate))) cell.classList.add('booked');
+      cell.textContent = String(cellDate.getDate());
+      scheduleCalendarGrid.appendChild(cell);
+    }
+  }
+
+  function openScheduleCalendar(row) {
+    scheduleCalendarDeviceId = row.device_id;
+    scheduleCalendarDate = new Date(`${row.start_date}T00:00:00`);
+    scheduleCalendarTitle.textContent = `${row.site_name || row.device_id} schedule`;
+    renderScheduleCalendar();
+    scheduleCalendarModal.hidden = false;
+  }
+
+  document.getElementById('closeScheduleCalendar').addEventListener('click', () => {
+    scheduleCalendarModal.hidden = true;
+  });
+  document.getElementById('scheduleCalendarPrevious').addEventListener('click', () => {
+    scheduleCalendarDate.setMonth(scheduleCalendarDate.getMonth() - 1);
+    renderScheduleCalendar();
+  });
+  document.getElementById('scheduleCalendarNext').addEventListener('click', () => {
+    scheduleCalendarDate.setMonth(scheduleCalendarDate.getMonth() + 1);
+    renderScheduleCalendar();
+  });
+
   async function loadSchedules() {
     const schedulesBody = document.getElementById('schedulesBody');
     const schedulesStatus = document.getElementById('schedulesStatus');
@@ -917,6 +1025,7 @@
       const resp = await fetch('/api/schedules');
       const rows = await resp.json();
       if (!resp.ok) throw new Error(rows.error || 'Could not load schedules');
+      scheduleCalendarRows = rows;
       schedulesBody.innerHTML = '';
       for (const row of rows) {
         const tr = document.createElement('tr');
@@ -925,13 +1034,14 @@
           <td>${escapeHtml(row.site_name || '—')}</td>
           <td>${escapeHtml(row.site_location || '—')}</td>
           <td>${escapeHtml(row.campaign_name || '—')}</td>
-          <td>${escapeHtml(row.start_date)} to ${escapeHtml(row.end_date)}</td>
+          <td><button type="button" class="schedule-date-link" data-schedule-id="${escapeHtml(row.id)}">${escapeHtml(row.start_date)} to ${escapeHtml(row.end_date)}</button></td>
           <td class="order-status">${escapeHtml(row.status)} / ${escapeHtml(row.order_status)}</td>
           <td>${escapeHtml(row.checkout_code || '—')}</td>
           <td>${escapeHtml(row.advertisement_filename || '—')}</td>
           <td class="schedule-actions"></td>
         `;
         const actions = tr.querySelector('.schedule-actions');
+        tr.querySelector('.schedule-date-link').addEventListener('click', () => openScheduleCalendar(row));
         const clearButton = document.createElement('button');
         clearButton.type = 'button';
         clearButton.className = 'preview-btn';
