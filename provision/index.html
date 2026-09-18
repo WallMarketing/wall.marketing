@@ -117,6 +117,34 @@
     font-size: .95rem;
   }
   input:focus { border-color: var(--volt); outline: none; }
+  .location-field { position: relative; }
+  .location-suggestions {
+    position: absolute;
+    z-index: 5;
+    left: 0;
+    right: 0;
+    display: grid;
+    margin-top: 3px;
+    background: #fff;
+    border: 1px solid var(--hair);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .location-suggestion {
+    width: 100%;
+    margin: 0;
+    padding: 10px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--hair);
+    border-radius: 0;
+    background: #fff;
+    color: var(--ink);
+    font-size: .9rem;
+    font-weight: 400;
+    text-align: left;
+  }
+  .location-suggestion:last-child { border-bottom: 0; }
+  .location-suggestion:hover, .location-suggestion:focus-visible { background: #EEECFF; color: var(--volt); }
   button {
     width: 100%;
     background: var(--ink);
@@ -302,8 +330,11 @@
 
         <label for="siteNameInput">Site name</label>
         <input type="text" id="siteNameInput" maxlength="200" autocomplete="organization" placeholder="e.g. Flux Co-Working">
-        <label for="siteLocationInput">Site address</label>
-        <input type="text" id="siteLocationInput" maxlength="200" autocomplete="street-address" placeholder="e.g. 12 Main Street, Da Nang">
+        <div class="location-field">
+          <label for="siteLocationInput">Site address</label>
+          <input type="text" id="siteLocationInput" maxlength="200" autocomplete="street-address" placeholder="e.g. 12 Main Street, Da Nang">
+          <div class="location-suggestions" id="siteLocationSuggestions" hidden></div>
+        </div>
 
         <button id="sendBtn">Send WiFi details</button>
         <div class="status" id="sendStatus"></div>
@@ -330,6 +361,7 @@
   const passwordInput = document.getElementById('passwordInput');
   const siteNameInput = document.getElementById('siteNameInput');
   const siteLocationInput = document.getElementById('siteLocationInput');
+  const siteLocationSuggestions = document.getElementById('siteLocationSuggestions');
   const togglePasswordBtn = document.getElementById('togglePasswordBtn');
   const eyeIcon = document.getElementById('eyeIcon');
   const eyeOffIcon = document.getElementById('eyeOffIcon');
@@ -341,11 +373,52 @@
   // Keyed by SSID so repeat scans (or the same network heard on multiple
   // channels/APs) collapse into one entry, keeping the strongest signal.
   let discoveredNetworks = new Map();
+  let locationSearchTimer = null;
+  let locationSearchRequest = 0;
 
   function setStatus(el, text, kind) {
     el.textContent = text;
     el.className = 'status' + (kind ? ' ' + kind : '');
   }
+
+  function closeLocationSuggestions() {
+    siteLocationSuggestions.hidden = true;
+    siteLocationSuggestions.replaceChildren();
+  }
+
+  siteLocationInput.addEventListener('input', () => {
+    clearTimeout(locationSearchTimer);
+    const query = siteLocationInput.value.trim();
+    if (query.length < 3) {
+      closeLocationSuggestions();
+      return;
+    }
+    locationSearchTimer = setTimeout(async () => {
+      const requestId = ++locationSearchRequest;
+      try {
+        const response = await fetch(`/api/location-search?q=${encodeURIComponent(query)}`);
+        if (requestId !== locationSearchRequest || !response.ok) return;
+        const results = await response.json();
+        siteLocationSuggestions.replaceChildren();
+        results.slice(0, 5).forEach((result) => {
+          const option = document.createElement('button');
+          option.type = 'button';
+          option.className = 'location-suggestion';
+          option.textContent = result.label;
+          option.addEventListener('click', () => {
+            siteLocationInput.value = result.label;
+            closeLocationSuggestions();
+            siteLocationInput.focus();
+          });
+          siteLocationSuggestions.appendChild(option);
+        });
+        siteLocationSuggestions.hidden = results.length === 0;
+      } catch {
+        closeLocationSuggestions();
+      }
+    }, 300);
+  });
+  siteLocationInput.addEventListener('blur', () => setTimeout(closeLocationSuggestions, 150));
 
   if (!navigator.bluetooth) {
     document.getElementById('unsupportedNotice').hidden = false;
