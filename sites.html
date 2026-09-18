@@ -193,6 +193,7 @@ header{
 .site h3{font-size:1rem;line-height:1.15;}
 .site .n{font-variation-settings:"wdth" 112,"wght" 700;color:var(--volt);font-size:1rem;white-space:nowrap;}
 .site .n small{font-size:0.78rem;color:var(--steel);font-variation-settings:"wdth" 100,"wght" 500;margin-left:3px;}
+.site .views{color:var(--steel);font-size:.78rem;white-space:nowrap;}
 .site .meta{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px 14px;}
 .free{display:inline-flex;align-items:center;gap:6px;}
 .free::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--live);flex:none;}
@@ -797,6 +798,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
         return '<li><button type="button" class="site" data-id="' + s.id + '"' + (state.active===s.id?' aria-current="true"':'') + '>' +
           '<h3>' + esc(s.name) + '</h3>' +
           '<span class="n">' + s.screens + '<small>' + (s.screens===1?'screen':'screens') + '</small></span>' +
+          '<span class="views">' + fmt(s.views) + ' views/day</span>' +
           '<span class="meta"><span>' + esc(TYPES[s.type].chip) + ', ' + esc(s.area) + '</span>' +
           '<span class="free free-button' + (f.now?'':' later') + '" role="button" tabindex="0" data-site-id="' + esc(s.id) + '">' + f.text + '</span>' +
           (s.deviceIds.some(function(deviceId){ return state.plan.has(deviceId); }) ? '<span class="inplan">In your plan</span>' : '') +
