@@ -497,7 +497,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
       </div>
       <dl>
         <div><dt>Screens</dt><dd class="big" id="cardScreens"></dd></div>
-        <div><dt>Views a week, est.</dt><dd class="big" id="cardViews"></dd></div>
+        <div><dt>Views a day, est.</dt><dd class="big" id="cardViews"></dd></div>
         <div><dt>Busiest</dt><dd id="cardHours"></dd></div>
         <div><dt>Next free</dt><dd id="cardFree"></dd></div>
       </dl>
@@ -925,7 +925,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     $("plan").classList.toggle("has", has);
     $("planActions").hidden = !has;
     $("planSum").innerHTML = has
-      ? '<b>' + sites.length + '</b> ' + (sites.length===1?'site':'sites') + ', <b>' + screens + '</b> screens, <b>' + fmt(views) + '</b> views a week'
+      ? '<b>' + sites.length + '</b> ' + (sites.length===1?'site':'sites') + ', <b>' + screens + '</b> screens, <b>' + fmt(views) + '</b> views a day'
       : '';
 
     $("planReview").href = "checkout.html#plan=" + encodeURIComponent(ids.join(","));
