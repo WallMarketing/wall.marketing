@@ -1,0 +1,13 @@
+User-agent: *
+Disallow: /checkout
+Disallow: /checkout.html
+Disallow: /payment-success
+Disallow: /payment-success.html
+Disallow: /payment-cancelled
+Disallow: /payment-cancelled.html
+Disallow: /admin
+Disallow: /provision
+Disallow: /test
+Disallow: /test.html
+
+Sitemap: https://www.wall.marketing/sitemap.xml

@@ -33,8 +33,17 @@ function isAuthorizedDevice(request, env) {
 function unauthorizedResponse() {
   return new Response(JSON.stringify({ error: 'unauthorized' }), {
     status: 401,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
   });
+}
+
+function isAdminRequest(request) {
+  const hostname = new URL(request.url).hostname;
+  if (hostname !== 'wall.marketing' && hostname !== 'www.wall.marketing') return false;
+  return Boolean(
+    request.headers.get('Cf-Access-Authenticated-User-Email') &&
+    request.headers.get('Cf-Access-Jwt-Assertion')
+  );
 }
 
 function jsonResponse(body, status = 200) {
@@ -168,6 +177,7 @@ export default {
 
     // --- Cloudflare Access identity check ---
     if (url.pathname === '/api/whoami') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
       const email = request.headers.get('Cf-Access-Authenticated-User-Email');
       const jwt = request.headers.get('Cf-Access-Jwt-Assertion');
       return new Response(
@@ -239,6 +249,7 @@ export default {
 
     // --- Images: list history ---
     if (url.pathname === '/api/images' && request.method === 'GET') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
       const limitParam = url.searchParams.get('limit');
       const limit = limitParam ? Math.min(parseInt(limitParam, 10) || 50, 200) : 50;
 
@@ -255,6 +266,7 @@ export default {
     // --- Images: generate a new one (admin page sends the already-packed
     //     raw bytes; this just stores them) ---
     if (url.pathname === '/api/images' && request.method === 'POST') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
       const number = parseInt(url.searchParams.get('number') ?? '', 10);
       if (!Number.isFinite(number)) {
         return new Response(
@@ -319,6 +331,7 @@ export default {
     //     the admin page's "Preview" button) ---
     const rawMatch = url.pathname.match(/^\/api\/images\/(\d+)\/raw$/);
     if (rawMatch && request.method === 'GET') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
       const id = parseInt(rawMatch[1], 10);
       const row = await env.DB.prepare(
         `SELECT r2_key FROM images WHERE id = ?`
@@ -337,6 +350,7 @@ export default {
     // --- Images: upload a packed bin file from the admin device row ---
     const deviceImageUploadMatch = url.pathname.match(/^\/api\/devices\/([^/]+)\/image$/);
     if (deviceImageUploadMatch && request.method === 'POST') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
       const bytes = await request.arrayBuffer();
       const expectedBytes = 800 * 480 / 2;
       if (bytes.byteLength !== expectedBytes) {
@@ -374,6 +388,7 @@ export default {
     // --- Images: the image most recently reported by one device ---
     const deviceImageMatch = url.pathname.match(/^\/api\/devices\/([^/]+)\/image$/);
     if (deviceImageMatch && request.method === 'GET') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
       const deviceId = decodeURIComponent(deviceImageMatch[1]);
       const checkin = await env.DB.prepare(
         `SELECT image_hash FROM checkins WHERE device_id = ? ORDER BY id DESC LIMIT 1`
@@ -395,6 +410,7 @@ export default {
 
     // --- Google Maps browser configuration for the admin map ---
     if (url.pathname === '/api/maps-config' && request.method === 'GET') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
       if (!env.GOOGLE_MAPS_BROWSER_KEY) {
         return new Response(JSON.stringify({ error: 'Google Maps API key is not configured' }), {
           status: 503,
@@ -490,7 +506,12 @@ export default {
 
     // --- Orders: save the booking before starting payment ---
     if (url.pathname === '/api/orders' && request.method === 'POST') {
-      const form = await request.formData();
+      let form;
+      try {
+        form = await request.formData();
+      } catch {
+        return jsonResponse({ error: 'request body must be multipart form data' }, 400);
+      }
       const campaignName = String(form.get('campaign_name') || '').trim();
       const contactEmail = String(form.get('contact_email') || '').trim().toLowerCase();
       const invoiceRequired = form.get('invoice_required') === '1';
@@ -657,7 +678,8 @@ export default {
     }
 
     // --- Orders: admin view with booking, payment, invoice, and device details ---
-    if (url.pathname === '/api/orders' && request.method === 'GET') {
+    if (url.pathname === '/api/admin/orders' && request.method === 'GET') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
       const { results } = await env.DB.prepare(
         `SELECT o.id, o.checkout_code, o.campaign_name, o.contact_email,
                 o.start_date, o.end_date, o.daily_rate_usd, o.total_usd,
@@ -680,6 +702,7 @@ export default {
 
     // --- Schedules: admin visibility and test controls ---
     if (url.pathname === '/api/schedules' && request.method === 'GET') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
       const { results } = await env.DB.prepare(
         `SELECT oi.id, oi.order_id, oi.device_id, oi.start_date, oi.end_date, oi.status,
                 o.checkout_code, o.campaign_name, o.status AS order_status,
@@ -695,6 +718,7 @@ export default {
 
     const scheduleActionMatch = url.pathname.match(/^\/api\/schedules\/(\d+)\/(clear|activate)$/);
     if (scheduleActionMatch && request.method === 'POST') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
       const itemId = Number(scheduleActionMatch[1]);
       const action = scheduleActionMatch[2];
       if (action === 'clear') {
@@ -714,6 +738,7 @@ export default {
 
     const orderAdvertisementMatch = url.pathname.match(/^\/api\/orders\/([^/]+)\/advertisement\/raw$/);
     if (orderAdvertisementMatch && request.method === 'GET') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
       const orderId = decodeURIComponent(orderAdvertisementMatch[1]);
       const advertisement = await env.DB.prepare(
         `SELECT r2_key FROM advertisements WHERE order_id = ? ORDER BY id DESC LIMIT 1`
@@ -753,6 +778,7 @@ export default {
     // --- Devices: fleet overview — most recent check-in per device,
     //     joined from `devices` (identity) and `checkins` (telemetry) ---
     if (url.pathname === '/api/devices' && request.method === 'GET') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
       const { results } = await env.DB.prepare(
         `SELECT
            d.device_id,
@@ -789,6 +815,7 @@ export default {
     // --- Devices: update the site metadata shown in the admin fleet table ---
     const deviceUpdateMatch = url.pathname.match(/^\/api\/devices\/([^/]+)$/);
     if (deviceUpdateMatch && request.method === 'PATCH') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
       const deviceId = decodeURIComponent(deviceUpdateMatch[1]);
       let body;
       try {
@@ -899,6 +926,7 @@ export default {
     //     click-through from the fleet overview row) ---
     const deviceHistoryMatch = url.pathname.match(/^\/api\/devices\/([^/]+)\/checkins$/);
     if (deviceHistoryMatch && request.method === 'GET') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
       const deviceId = decodeURIComponent(deviceHistoryMatch[1]);
       const limitParam = url.searchParams.get('limit');
       const limit = limitParam ? Math.min(parseInt(limitParam, 10) || 50, 200) : 50;
@@ -913,7 +941,14 @@ export default {
       });
     }
 
-    // Everything else: serve the static site exactly as before.
-    return env.ASSETS.fetch(request);
+    // Everything else: serve the static site with baseline browser protections.
+    const assetResponse = await env.ASSETS.fetch(request);
+    const headers = new Headers(assetResponse.headers);
+    headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    headers.set('X-Content-Type-Options', 'nosniff');
+    headers.set('X-Frame-Options', 'DENY');
+    headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    return new Response(assetResponse.body, { status: assetResponse.status, statusText: assetResponse.statusText, headers });
   },
 };
