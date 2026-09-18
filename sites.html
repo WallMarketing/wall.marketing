@@ -918,7 +918,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     var ids = Array.from(state.plan), sites = SITES.filter(function(site){
       return site.deviceIds.some(function(deviceId){ return state.plan.has(deviceId); });
     });
-    var screens = sites.reduce(function(a,s){return a+s.screens;},0);
+    var screens = ids.length;
     var views = sites.reduce(function(a,s){return a+s.views;},0);
     var has = ids.length > 0;
     $("planEmpty").hidden = has;
