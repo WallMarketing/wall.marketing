@@ -585,13 +585,14 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
         area: area,
         type: "device",
         lat: Number(row.site_latitude), lng: Number(row.site_longitude),
-        screens: 0, deviceIds: [], deviceNames: {}, deviceViews: {}, bookings: [], views: 0, booked: 0,
+        screens: 0, deviceIds: [], deviceNames: {}, deviceViews: {}, deviceRates: {}, bookings: [], views: 0, booked: 0,
         hours: "Last seen " + (row.last_seen_at || "unknown")
       };
     }
     venue.deviceIds.push(row.device_id);
     venue.deviceNames[row.device_id] = row.site_name || row.device_id;
     venue.deviceViews[row.device_id] = Number(row.views_per_day || 0);
+    venue.deviceRates[row.device_id] = Number(row.daily_cost_usd || 0);
     venue.views += venue.deviceViews[row.device_id];
     venue.bookings = venue.bookings.concat(bookingsByDevice[row.device_id] || []);
     venue.screens += 1;
@@ -919,12 +920,17 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
         return siteTotal + (state.plan.has(deviceId) ? site.deviceViews[deviceId] : 0);
       }, 0);
     }, 0);
+    var dailyRate = sites.reduce(function(total, site){
+      return total + site.deviceIds.reduce(function(siteTotal, deviceId){
+        return siteTotal + (state.plan.has(deviceId) ? site.deviceRates[deviceId] : 0);
+      }, 0);
+    }, 0);
     var has = ids.length > 0;
     $("planEmpty").hidden = has;
     $("plan").classList.toggle("has", has);
     $("planActions").hidden = !has;
     $("planSum").innerHTML = has
-      ? '<b>' + sites.length + '</b> ' + (sites.length===1?'site':'sites') + ', <b>' + screens + '</b> screens, <b>' + fmt(views) + '</b> views a day'
+      ? '<b>' + sites.length + '</b> ' + (sites.length===1?'site':'sites') + ', <b>' + screens + '</b> screens, <b>' + fmt(views) + '</b> views a day, <b>$' + dailyRate.toFixed(2) + '</b>/day'
       : '';
 
     $("planReview").href = "checkout.html#plan=" + encodeURIComponent(ids.join(","));
