@@ -1,57 +1,87 @@
-# wall.marketing
-Main Website
+# WALL Marketing
 
-## Orders and Stripe
+WALL is an indoor digital out-of-home advertising network built for the few
+seconds when people are already standing still.
 
-Apply the order migration to the production D1 database before deploying the
-checkout changes:
+Small electronic-paper displays sit at eye level on the inside of doors in
+bars, restaurants, cafés, gyms, coworking spaces, student venues and other
+places where attention is naturally focused. Between local news, weather and
+venue notices, WALL screens run paid advertising that is read at arm's length.
 
-```sh
-npx wrangler d1 migrations apply bots --remote
-```
+## Digital advertising where people pause
 
-Configure these Worker secrets:
+Traditional outdoor advertising competes with traffic, phones, noise and the
+next thing demanding attention. WALL is deliberately different. There is
+nothing to scroll, skip or mute, and no second screen competing for the same
+pair of eyes.
 
-```sh
-npx wrangler secret put STRIPE_SECRET_KEY
-npx wrangler secret put STRIPE_WEBHOOK_SECRET
-npx wrangler secret put EMAIL_FROM
-```
+Brands can use WALL for:
 
-The Worker uses the `EMAIL` Cloudflare Email Sending binding. Set `EMAIL_FROM`
-to a verified sender address on the domain.
+- Indoor digital advertising
+- Digital out-of-home advertising and DOOH campaigns
+- Bathroom advertising on venue doors
+- Local venue advertising and neighbourhood campaigns
+- Outdoor digital advertising alternatives where close attention matters
+- Events, launches, offers, recruitment and location-based promotions
 
-Create a Stripe webhook for `https://wall.marketing/api/stripe/webhook` and
-subscribe it to `checkout.session.completed` and
-`checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`,
-`checkout.session.expired`, and `payment_intent.payment_failed`. The endpoint verifies the Stripe signature,
-sends the success invoice or payment-failure message, stores the customer email,
-and changes a matching order from `pending_payment` to `paid`.
+Advertisers choose the venues, upload one landscape still image, and select
+the screens and dates that fit the campaign. Each screen reports where and
+when the advert played, giving campaigns a venue-by-venue record instead of a
+modelled audience estimate.
 
-The checkout and public site map require Cloudflare Access Public Bypass rules
-for `/api/sites*` and `/api/orders` on both `wall.marketing` and
-`www.wall.marketing`. The Stripe webhook also needs a Public Bypass rule for
-`/api/stripe/webhook`; keep `/api/devices` protected by the owner-only policy.
-The admin order list uses `/api/admin/orders` and must remain protected by the
-owner-only policy.
-Paid orders whose confirmation email failed can be retried with the protected
-`POST /api/admin/orders/{order_id}/email` endpoint after fixing Email Sending.
-Device firmware downloads require a Public Bypass rule for
-`/api/device-content/*`; the Worker still requires the device's own token.
+## Designed to be read
 
-## Device content delivery
+WALL artwork is made for a small, close-range display rather than a giant
+billboard. The best creative uses one idea, a short headline, strong type and
+simple colour. The screen behaves more like a useful printed page than a
+flashing poster.
 
-The identical firmware image can be flashed to every device. On its first
-authenticated check-in, the Worker registers the MAC-derived device ID and
-returns a device token. Updated firmware stores that token in Preferences and
-sends it on later check-ins and content requests.
+Paid messages appear inside a useful daily rotation that can include:
 
-Devices fetch only their active scheduled advertisement from:
+- Local and national headlines
+- Weather for the venue's area
+- Events, menus and opening hours from the venue
+- Approved brand messages between the editorial content
 
-```text
-GET /api/device-content/{device_id}/raw
-```
+That context gives the advert a reason to be looked at instead of making it
+feel like visual interruption.
 
-The admin page's Device schedules section can activate a paid schedule
-immediately for testing or clear it from a device. The device-specific content
-endpoint uses ETags and never serves another device's schedule.
+## For advertisers
+
+WALL campaigns are built around the places customers already visit. Browse the
+live screen network, compare venues and availability, select individual screens
+or a complete site, then submit artwork and booking dates.
+
+The network suits brands looking for focused indoor reach, local awareness or
+an alternative to broad outdoor digital advertising. A campaign can run across
+bars and pubs, restaurants and cafés, fitness studios, student venues,
+coworking spaces, offices and event locations.
+
+Explore the network and plan a campaign at [wall.marketing](https://www.wall.marketing/).
+
+## For venues
+
+Venue owners can host WALL units at no installation or maintenance cost. WALL
+supplies, fits, operates, services and removes the hardware, while the venue
+receives a monthly share of the advertising revenue generated by its screens.
+
+The units are designed for the inside face of bathroom and venue doors:
+
+- No wired power connection
+- No drilling or electrical work
+- No camera, microphone or people-tracking sensor
+- Electronic paper with no glow, sound or flicker
+- Free screen time for venue events, offers, menus and notices
+- Full approval over advertisers and content categories
+- Hardware replacement and removal handled by WALL
+
+The venue remains in control of what appears on its own doors. Any advertiser
+or category can be approved, blocked or removed at any time.
+
+Learn about hosting a display in the [venue proposal](https://www.wall.marketing/venues.html).
+
+## The idea
+
+WALL turns overlooked moments into useful, measurable attention. It gives
+advertisers a closer form of digital out-of-home advertising and gives venues
+a quiet, low-maintenance way to earn from the doors they already have.
