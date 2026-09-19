@@ -876,6 +876,18 @@ export default {
       });
     }
 
+    const venueApplicationDeleteMatch = url.pathname.match(/^\/api\/admin\/venue-applications\/(\d+)$/);
+    if (venueApplicationDeleteMatch && request.method === 'DELETE') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
+      const applicationId = Number(venueApplicationDeleteMatch[1]);
+      const result = await env.DB.prepare(
+        `DELETE FROM venue_applications WHERE id = ? AND status = 'pending'`
+      ).bind(applicationId).run();
+      return result.meta.changes
+        ? jsonResponse({ ok: true })
+        : jsonResponse({ error: 'pending venue entry not found' }, 404);
+    }
+
     // --- Finance: device revenue and venue share ledger ---
     if (url.pathname === '/api/admin/finance' && request.method === 'GET') {
       if (!isAdminRequest(request)) return unauthorizedResponse();

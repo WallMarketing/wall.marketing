@@ -163,6 +163,13 @@
   .venue-status { font-variation-settings: "wdth" 108, "wght" 700; }
   .venue-status.active { color: #176B3A; }
   .venue-status.pending { color: #B56A00; }
+  .venue-status-btn { padding: 0; border: 0; background: transparent; font: inherit; font-variation-settings: inherit; cursor: pointer; }
+  .venue-status-btn:hover { background: transparent; color: var(--ink); }
+  .venue-actions { position: relative; }
+  .venue-menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 5; min-width: 130px; padding: 4px; background: var(--panel-2); border: 1px solid var(--hair); box-shadow: 0 8px 18px -12px rgba(27,29,31,.8); }
+  .venue-menu[hidden] { display: none; }
+  .venue-delete { width: 100%; padding: 7px 9px; border: 0; background: transparent; color: #C8202C; font-size: .8rem; text-align: left; cursor: pointer; }
+  .venue-delete:hover { background: #FCE8E6; }
   .card:has(#financeBody) { overflow-x: auto; }
   .card:has(#financeBody) table { min-width: 980px; }
   .card:has(#financeBody) tfoot th, .card:has(#financeBody) tfoot td { border-top: 2px solid var(--hair); color: var(--ink); font-weight: 800; font-variation-settings: "wdth" 108, "wght" 800; }
@@ -1079,15 +1086,32 @@
         const timestamp = row.last_seen_at || row.created_at;
         const contact = row.contact_name || '—';
         const email = row.contact_email || '—';
+        const statusCell = row.status === 'Pending'
+          ? '<td class="venue-actions"><button type="button" class="venue-status venue-status-btn pending">Pending</button><div class="venue-menu" hidden><button type="button" class="venue-delete">Delete entry</button></div></td>'
+          : '<td class="venue-status active">Active</td>';
         tr.innerHTML = `
           <td>${escapeHtml(row.company_name || 'Company name not set')}</td>
           <td>${escapeHtml(row.address || '—')}</td>
           <td>${escapeHtml(contact)}</td>
           <td>${escapeHtml(email)}</td>
           <td>${row.bot_count || 0}</td>
-          <td class="venue-status ${row.status.toLowerCase()}">${escapeHtml(row.status)}</td>
+          ${statusCell}
           <td>${escapeHtml(timestamp || '—')}</td>
         `;
+        if (row.status === 'Pending') {
+          const statusButton = tr.querySelector('.venue-status-btn');
+          const menu = tr.querySelector('.venue-menu');
+          statusButton.addEventListener('click', () => { menu.hidden = !menu.hidden; });
+          tr.querySelector('.venue-delete').addEventListener('click', async () => {
+            if (!window.confirm('Delete this pending venue entry?')) return;
+            const response = await fetch(`/api/admin/venue-applications/${encodeURIComponent(row.id)}`, { method: 'DELETE' });
+            if (!response.ok) {
+              venuesStatus.textContent = 'Could not delete venue entry.';
+              return;
+            }
+            loadVenues();
+          });
+        }
         venuesBody.appendChild(tr);
       });
       venuesStatus.textContent = rows.length ? '' : 'No active or pending venues yet.';
