@@ -1062,6 +1062,17 @@ export default {
       });
     }
 
+    // --- Devices: clear the stored error counts for one device ---
+    const deviceErrorsClearMatch = url.pathname.match(/^\/api\/devices\/([^/]+)\/errors\/clear$/);
+    if (deviceErrorsClearMatch && request.method === 'POST') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
+      const deviceId = decodeURIComponent(deviceErrorsClearMatch[1]);
+      await env.DB.prepare(
+        `UPDATE checkins SET error_count = 0 WHERE device_id = ?`
+      ).bind(deviceId).run();
+      return jsonResponse({ ok: true });
+    }
+
     // --- Devices: full check-in history for one device (admin page's
     //     click-through from the fleet overview row) ---
     const deviceHistoryMatch = url.pathname.match(/^\/api\/devices\/([^/]+)\/checkins$/);

@@ -492,7 +492,10 @@
         <li>Image download stalled for 15 seconds</li>
         <li>Image download or display exceeding 120 seconds</li>
       </ul>
-      <p class="error-note">The device reports only a cumulative count. Individual error events are not currently stored.</p>
+      <p class="error-note" id="deviceErrorsNote"></p>
+      <div class="booking-date-actions">
+        <button id="clearDeviceErrors" type="button">Clear all</button>
+      </div>
     </div>
   </div>
 
@@ -957,7 +960,7 @@
           row.device_id, siteNameInput, siteLocationInput, dailyCostInput, viewsPerDayInput, saveButton, saveStatus
         ));
         lastSeenButton.addEventListener('click', () => openDeviceHistory(row.device_id));
-        errorCountButton.addEventListener('click', () => openDeviceErrors(row.device_id, row.error_count));
+        errorCountButton.addEventListener('click', () => openDeviceErrors(row.device_id, row.error_count, row.last_seen_at));
         devicesBody.appendChild(tr);
       }
       devicesStatus.textContent = rows.length ? '' : 'No devices have checked in yet.';
@@ -1162,16 +1165,42 @@
   const deviceErrorsModal = document.getElementById('deviceErrorsModal');
   const deviceErrorsTitle = document.getElementById('deviceErrorsTitle');
   const deviceErrorsSummary = document.getElementById('deviceErrorsSummary');
+  const deviceErrorsNote = document.getElementById('deviceErrorsNote');
+  const clearDeviceErrorsButton = document.getElementById('clearDeviceErrors');
+  let deviceErrorsDeviceId = null;
   const deviceHistoryPageSize = 10;
   let deviceHistoryRows = [];
   let deviceHistoryVisibleCount = deviceHistoryPageSize;
 
-  function openDeviceErrors(deviceId, errorCount) {
+  function openDeviceErrors(deviceId, errorCount, reportedAt) {
+    deviceErrorsDeviceId = deviceId;
     deviceErrorsTitle.textContent = `${deviceId} errors`;
     deviceErrorsSummary.textContent = errorCount == null
       ? 'No error count was reported by this device.'
       : `This device has reported ${errorCount} error${errorCount === 1 ? '' : 's'} since its last reboot.`;
+    deviceErrorsNote.textContent = reportedAt
+      ? `Last reported ${formatRelativeTime(reportedAt)}. Individual error events are not currently stored.`
+      : 'Individual error events are not currently stored.';
     deviceErrorsModal.hidden = false;
+  }
+
+  async function clearDeviceErrors() {
+    if (!deviceErrorsDeviceId) return;
+    clearDeviceErrorsButton.disabled = true;
+    clearDeviceErrorsButton.textContent = 'Clearing...';
+    try {
+      const resp = await fetch(`/api/devices/${encodeURIComponent(deviceErrorsDeviceId)}/errors/clear`, { method: 'POST' });
+      const result = await resp.json();
+      if (!resp.ok) throw new Error(result.error || 'Could not clear device errors');
+      deviceErrorsModal.hidden = true;
+      await loadDevices();
+      if (!deviceHistoryModal.hidden) openDeviceHistory(deviceErrorsDeviceId);
+    } catch (err) {
+      deviceErrorsNote.textContent = `Could not clear errors: ${err.message}`;
+    } finally {
+      clearDeviceErrorsButton.disabled = false;
+      clearDeviceErrorsButton.textContent = 'Clear all';
+    }
   }
 
   function renderDeviceHistory() {
@@ -1203,7 +1232,7 @@
         imageCell.textContent = row.image_hash ?? '—';
       }
       deviceHistoryBody.appendChild(tr);
-      tr.querySelector('.error-count-btn').addEventListener('click', () => openDeviceErrors(deviceHistoryTitle.textContent.replace(/ history$/, ''), row.error_count));
+      tr.querySelector('.error-count-btn').addEventListener('click', () => openDeviceErrors(deviceHistoryTitle.textContent.replace(/ history$/, ''), row.error_count, row.checked_in_at));
     }
     if (!deviceHistoryRows.length) {
       deviceHistoryBody.innerHTML = '<tr><td colspan="7">No check-ins recorded.</td></tr>';
@@ -1241,6 +1270,7 @@
   document.getElementById('closeDeviceErrors').addEventListener('click', () => {
     deviceErrorsModal.hidden = true;
   });
+  clearDeviceErrorsButton.addEventListener('click', clearDeviceErrors);
 
   // Access identity check, same as before — just a quiet status line now.
   fetch('/api/whoami')
