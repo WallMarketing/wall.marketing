@@ -431,7 +431,7 @@
       <table>
         <thead>
           <tr>
-            <th>Device</th><th>Setup</th><th>Site name</th><th>Site location</th><th>Daily cost (USD)</th><th>Revenue share %</th><th>Views per day</th><th>Last seen</th><th>RSSI</th>
+            <th>Device ID</th><th>Setup</th><th>Device Name</th><th>Site location</th><th>Daily cost (USD)</th><th>Revenue share %</th><th>Views per day</th><th>Last seen</th><th>RSSI</th>
             <th>Free RAM</th><th>FW</th><th>Errors</th><th>Image</th><th>Actions</th>
           </tr>
         </thead>
@@ -455,7 +455,7 @@
       <h2>Device schedules</h2>
       <table>
         <thead>
-          <tr><th>Device</th><th>Site name</th><th>Site location</th><th>Campaign</th><th>Dates</th><th>Status</th><th>Order</th><th>Advertisement</th><th>Actions</th></tr>
+          <tr><th>Device ID</th><th>Device Name</th><th>Site location</th><th>Campaign</th><th>Dates</th><th>Status</th><th>Order</th><th>Advertisement</th><th>Actions</th></tr>
         </thead>
         <tbody id="schedulesBody"></tbody>
       </table>
@@ -466,7 +466,7 @@
       <h2>Finance</h2>
       <table>
         <thead>
-          <tr><th>Device</th><th>Site location</th><th>Total revenue</th><th>Current month revenue</th><th>Share %</th><th>Venue payments total</th><th>Venue payments paid</th><th>Venue payments unpaid</th><th>Actions</th></tr>
+          <tr><th>Device ID</th><th>Company profile</th><th>Total revenue</th><th>Current month revenue</th><th>Share %</th><th>Venue payments total</th><th>Venue payments paid</th><th>Venue payments unpaid</th><th>Actions</th></tr>
         </thead>
         <tbody id="financeBody"></tbody>
         <tfoot>
@@ -527,12 +527,12 @@
 
   <div id="siteProfileModal" class="modal-overlay" hidden>
     <div class="box wide">
-      <button id="closeSiteProfile" class="modal-close" type="button" aria-label="Close site profile" title="Close">&times;</button>
-      <h2 id="siteProfileTitle">Site profile</h2>
+      <button id="closeSiteProfile" class="modal-close" type="button" aria-label="Close company profile" title="Close">&times;</button>
+      <h2 id="siteProfileTitle">Company profile</h2>
       <p id="siteProfileBots"></p>
       <form id="siteProfileForm" class="site-profile-form">
         <div class="site-profile-grid">
-          <label>Site name<input name="site_name" maxlength="200"></label>
+          <label>Device Name<input name="site_name" maxlength="200"></label>
           <label>Revenue share %<input name="revenue_share_percent" type="number" min="0" max="100" step="0.01" required></label>
         </div>
         <label>Address<input name="address" maxlength="300"></label>
@@ -550,7 +550,7 @@
           <label>BSB<input name="bsb" maxlength="20"></label>
         </div>
         <div class="booking-date-actions">
-          <button type="submit" id="saveSiteProfile">Save site profile</button>
+          <button type="submit" id="saveSiteProfile">Save company profile</button>
         </div>
         <div class="status" id="siteProfileStatus"></div>
       </form>
@@ -972,7 +972,7 @@
         siteNameInput.className = 'site-input';
         siteNameInput.type = 'text';
         siteNameInput.maxLength = 200;
-        siteNameInput.placeholder = 'Site name';
+        siteNameInput.placeholder = 'Device Name';
         siteNameInput.value = row.site_name || '';
         siteCells[0].appendChild(siteNameInput);
 
@@ -1261,7 +1261,7 @@
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td>${escapeHtml(row.device_id)}${row.site_name ? ` <small>(${escapeHtml(row.site_name)})</small>` : ''}</td>
-            <td><button type="button" class="site-location-link" data-site-key="${escapeHtml(row.site_key || row.device_id)}">${escapeHtml(row.site_location || '—')}</button></td>
+            <td><button type="button" class="site-location-link" data-site-key="${escapeHtml(row.site_key || row.device_id)}" aria-label="Open company profile for ${escapeHtml(row.site_location || row.device_id)}">${escapeHtml(row.site_location || '—')}</button></td>
             <td>$${Number(row.total_revenue_usd || 0).toFixed(2)}</td>
             <td>$${Number(row.monthly_revenue_usd || 0).toFixed(2)}</td>
             <td>${Number(row.revenue_share_percent || 0).toFixed(2)}%</td>
@@ -1304,7 +1304,7 @@
 
   async function openSiteProfile(siteKey) {
     activeSiteProfileKey = siteKey;
-    siteProfileTitle.textContent = 'Site profile';
+    siteProfileTitle.textContent = 'Company profile';
     siteProfileBots.textContent = 'Loading site details...';
     siteProfileStatus.textContent = '';
     siteProfileModal.hidden = false;
