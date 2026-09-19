@@ -1184,8 +1184,11 @@
         const statusCell = row.status === 'Pending'
           ? '<td class="venue-actions"><button type="button" class="venue-status venue-status-btn pending">Pending</button><div class="venue-menu" hidden><button type="button" class="venue-delete">Delete entry</button></div></td>'
           : '<td class="venue-status active">Active</td>';
+        const companyCell = row.status === 'Active'
+          ? `<td><button type="button" class="site-location-link venue-company-link" aria-label="Open company profile for ${escapeHtml(row.company_name || row.address || row.device_id)}">${escapeHtml(row.company_name || 'Company name not set')}</button></td>`
+          : `<td>${escapeHtml(row.company_name || 'Company name not set')}</td>`;
         tr.innerHTML = `
-          <td>${escapeHtml(row.company_name || 'Company name not set')}</td>
+          ${companyCell}
           <td>${escapeHtml(row.address || '—')}</td>
           <td>${escapeHtml(contact)}</td>
           <td>${escapeHtml(email)}</td>
@@ -1194,6 +1197,9 @@
           ${statusCell}
           <td>${escapeHtml(timestamp || '—')}</td>
         `;
+        if (row.status === 'Active') {
+          tr.querySelector('.venue-company-link').addEventListener('click', () => openSiteProfile(row.site_key));
+        }
         if (row.status === 'Pending') {
           const statusButton = tr.querySelector('.venue-status-btn');
           const menu = tr.querySelector('.venue-menu');

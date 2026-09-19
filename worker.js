@@ -999,6 +999,7 @@ export default {
       if (!isAdminRequest(request)) return unauthorizedResponse();
       const { results: active } = await env.DB.prepare(
         `SELECT COALESCE(sp.company_name, MAX(d.site_name), 'Company name not set') AS company_name,
+          COALESCE(d.site_location, d.device_id) AS site_key,
                 COALESCE(d.site_location, d.device_id) AS address,
                 COUNT(d.device_id) AS bot_count,
                 MAX(d.last_seen_at) AS last_seen_at
