@@ -918,6 +918,7 @@ export default {
            d.site_name,
            d.site_location,
                 d.daily_cost_usd,
+                d.revenue_share_percent,
                 d.views_per_day,
            d.site_latitude,
            d.site_longitude,
@@ -984,6 +985,14 @@ export default {
         });
       }
 
+      const revenueSharePercent = Number(body.revenue_share_percent);
+      if (!Number.isFinite(revenueSharePercent) || revenueSharePercent < 0 || revenueSharePercent > 100 || Math.round(revenueSharePercent * 100) !== revenueSharePercent * 100) {
+        return new Response(JSON.stringify({ error: 'revenue_share_percent must be between 0 and 100 with at most two decimal places' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
       const viewsPerDay = Number(body.views_per_day);
       if (!Number.isInteger(viewsPerDay) || viewsPerDay < 0 || viewsPerDay > 100000000) {
         return new Response(JSON.stringify({ error: 'views_per_day must be a non-negative whole number' }), {
@@ -1037,10 +1046,10 @@ export default {
       }
       const result = await env.DB.prepare(
         `UPDATE devices
-          SET site_name = ?, site_location = ?, daily_cost_usd = ?, views_per_day = ?, site_latitude = ?, site_longitude = ?,
+          SET site_name = ?, site_location = ?, daily_cost_usd = ?, revenue_share_percent = ?, views_per_day = ?, site_latitude = ?, site_longitude = ?,
             setup_status = CASE WHEN setup_status = 'new' THEN 'active' ELSE setup_status END
           WHERE device_id = ?`
-      ).bind(siteName, siteLocation, dailyCostUsd, viewsPerDay, latitude, longitude, deviceId).run();
+      ).bind(siteName, siteLocation, dailyCostUsd, revenueSharePercent, viewsPerDay, latitude, longitude, deviceId).run();
 
       if (!result.meta.changes) {
         return new Response(JSON.stringify({ error: 'device not found' }), {
@@ -1054,6 +1063,7 @@ export default {
         site_name: siteName,
         site_location: siteLocation,
         daily_cost_usd: dailyCostUsd,
+        revenue_share_percent: revenueSharePercent,
         views_per_day: viewsPerDay,
         site_latitude: latitude,
         site_longitude: longitude,

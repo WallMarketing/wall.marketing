@@ -145,10 +145,10 @@
   .card:has(#devicesBody) th:nth-child(2) { width: 5%; }
   .card:has(#devicesBody) th:nth-child(3) { width: 10%; }
   .card:has(#devicesBody) th:nth-child(4) { width: 12%; }
-  .card:has(#devicesBody) th:nth-child(5) { width: 5%; }
-  .card:has(#devicesBody) th:nth-child(6) { width: 6%; }
-  .card:has(#devicesBody) th:nth-child(7) { width: 7%; }
-  .card:has(#devicesBody) th:nth-child(8) { width: 5%; }
+  .card:has(#devicesBody) th:nth-child(5) { width: 6%; }
+  .card:has(#devicesBody) th:nth-child(6) { width: 7%; }
+  .card:has(#devicesBody) th:nth-child(7) { width: 6%; }
+  .card:has(#devicesBody) th:nth-child(8) { width: 7%; }
   .card:has(#devicesBody) th:nth-child(9) { width: 5%; }
   .card:has(#devicesBody) th:nth-child(10) { width: 5%; }
   .card:has(#devicesBody) th:nth-child(11) { width: 5%; }
@@ -215,6 +215,7 @@
   .site-input:focus { border-color: var(--volt); outline: none; }
   .site-edit-cell:has(.daily-cost-input) { min-width: 0; }
   .daily-cost-input { width: 58px; min-width: 0; }
+  .revenue-share-input { width: 64px; min-width: 0; }
   .views-per-day-input { width: 72px; min-width: 0; }
   .location-editor { position: relative; }
   .location-suggestions {
@@ -419,7 +420,7 @@
       <table>
         <thead>
           <tr>
-            <th>Device</th><th>Setup</th><th>Site name</th><th>Site location</th><th>Daily cost (USD)</th><th>Views per day</th><th>Last seen</th><th>Uptime</th><th>RSSI</th>
+            <th>Device</th><th>Setup</th><th>Site name</th><th>Site location</th><th>Daily cost (USD)</th><th>Revenue share %</th><th>Views per day</th><th>Last seen</th><th>RSSI</th>
             <th>Free RAM</th><th>FW</th><th>Errors</th><th>Image</th><th>Actions</th>
           </tr>
         </thead>
@@ -795,7 +796,7 @@
     input.addEventListener('blur', () => setTimeout(closeSuggestions, 150));
   }
 
-  async function saveDeviceSite(deviceId, siteNameInput, siteLocationInput, dailyCostInput, viewsPerDayInput, saveButton, saveStatus) {
+  async function saveDeviceSite(deviceId, siteNameInput, siteLocationInput, dailyCostInput, revenueShareInput, viewsPerDayInput, saveButton, saveStatus) {
     saveButton.disabled = true;
     saveStatus.textContent = 'Saving...';
     try {
@@ -806,6 +807,7 @@
           site_name: siteNameInput.value,
           site_location: siteLocationInput.value,
           daily_cost_usd: Number(dailyCostInput.value),
+          revenue_share_percent: Number(revenueShareInput.value),
           views_per_day: Number(viewsPerDayInput.value),
         }),
       });
@@ -860,8 +862,8 @@
           <td class="site-edit-cell"></td>
           <td class="site-edit-cell"></td>
           <td class="site-edit-cell"></td>
+          <td class="site-edit-cell"></td>
           <td><button type="button" class="last-seen-btn" title="View check-in history"><span class="status-dot ${dotClass}"></span>${formatRelativeTime(row.last_seen_at)}</button></td>
-          <td>${row.uptime_seconds ?? '—'}s</td>
           <td>${row.rssi ?? '—'}</td>
           <td>${formatFreeHeap(row.free_heap)}</td>
           <td>${row.firmware_version ?? '—'}</td>
@@ -939,6 +941,17 @@
         dailyCostInput.setAttribute('aria-label', `Daily cost in USD for ${row.device_id}`);
         siteCells[2].appendChild(dailyCostInput);
 
+        const revenueShareInput = document.createElement('input');
+        revenueShareInput.className = 'site-input revenue-share-input';
+        revenueShareInput.type = 'number';
+        revenueShareInput.min = '0';
+        revenueShareInput.max = '100';
+        revenueShareInput.step = '0.01';
+        revenueShareInput.inputMode = 'decimal';
+        revenueShareInput.value = row.revenue_share_percent ?? 0;
+        revenueShareInput.setAttribute('aria-label', `Revenue share percentage for ${row.device_id}`);
+        siteCells[3].appendChild(revenueShareInput);
+
         const viewsPerDayInput = document.createElement('input');
         viewsPerDayInput.className = 'site-input views-per-day-input';
         viewsPerDayInput.type = 'number';
@@ -947,7 +960,7 @@
         viewsPerDayInput.inputMode = 'numeric';
         viewsPerDayInput.value = row.views_per_day ?? 0;
         viewsPerDayInput.setAttribute('aria-label', `Views per day for ${row.device_id}`);
-        siteCells[3].appendChild(viewsPerDayInput);
+        siteCells[4].appendChild(viewsPerDayInput);
 
         tr.querySelectorAll('.site-edit-cell, .site-edit-actions').forEach((cell) => {
           cell.addEventListener('click', (event) => event.stopPropagation());
@@ -957,7 +970,7 @@
         const errorCountButton = tr.querySelector('.error-count-btn');
         const saveStatus = tr.querySelector('.site-save-status');
         saveButton.addEventListener('click', () => saveDeviceSite(
-          row.device_id, siteNameInput, siteLocationInput, dailyCostInput, viewsPerDayInput, saveButton, saveStatus
+          row.device_id, siteNameInput, siteLocationInput, dailyCostInput, revenueShareInput, viewsPerDayInput, saveButton, saveStatus
         ));
         lastSeenButton.addEventListener('click', () => openDeviceHistory(row.device_id));
         errorCountButton.addEventListener('click', () => openDeviceErrors(row.device_id, row.error_count, row.last_seen_at));
