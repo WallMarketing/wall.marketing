@@ -209,9 +209,6 @@
   .site-profile-owed { color: var(--volt); font-weight: 700; }
   .site-profile-form label { display: block; color: var(--steel); font-size: .82rem; }
   .site-profile-form label input { display: block; margin-top: 5px; }
-  .site-profile-form .info-icon { position: relative; display: inline-grid; place-items: center; width: 15px; height: 15px; margin-left: 4px; border: 1px solid currentColor; border-radius: 50%; font-size: .68rem; font-weight: 700; line-height: 1; cursor: help; }
-  .site-profile-form .info-icon::after { content: attr(data-tooltip); position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 10; width: 230px; padding: 8px 10px; border-radius: 3px; background: var(--graphite); color: var(--chalk); font-size: .75rem; font-weight: 400; line-height: 1.35; opacity: 0; pointer-events: none; transform: translateY(3px); transition: opacity .15s ease, transform .15s ease; }
-  .site-profile-form .info-icon:hover::after, .site-profile-form .info-icon:focus-visible::after { opacity: 1; transform: translateY(0); }
   .site-profile-form input { width: 100%; padding: 8px 9px; border: 1px solid var(--hair); border-radius: 3px; background: #fff; color: var(--ink); font: inherit; font-size: .9rem; }
   .site-profile-form input:focus { border-color: var(--volt); outline: none; }
   .site-profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -553,9 +550,9 @@
           <label>Site contact phone country code<input name="contact_phone_country_code" maxlength="8" placeholder="+61"></label>
           <label>Site contact phone number<input name="contact_phone_number" maxlength="32"></label>
           <label>Government business number<input name="business_number" maxlength="100"></label>
-          <label>Bank account name <span class="info-icon" tabindex="0" data-tooltip="Bank information is optional but will be required before revenue share payments can be made." aria-label="Bank information is optional but will be required before revenue share payments can be made.">i</span><input name="bank_account_name" maxlength="200" placeholder="Name on the account"></label>
-          <label>Bank account number <span class="info-icon" tabindex="0" data-tooltip="Bank information is optional but will be required before revenue share payments can be made." aria-label="Bank information is optional but will be required before revenue share payments can be made.">i</span><input name="bank_account_number" maxlength="40" placeholder="Optional"></label>
-          <label>BSB <span class="info-icon" tabindex="0" data-tooltip="Bank information is optional but will be required before revenue share payments can be made." aria-label="Bank information is optional but will be required before revenue share payments can be made.">i</span><input name="bsb" maxlength="20" placeholder="e.g. 062-000"></label>
+          <label>Bank account name<input name="bank_account_name" maxlength="200" placeholder="Name on the account"></label>
+          <label>Bank account number<input name="bank_account_number" maxlength="40" placeholder="Optional"></label>
+          <label>BSB<input name="bsb" maxlength="20" placeholder="e.g. 062-000"></label>
           <label>Revenue share %<input name="revenue_share_percent" type="number" min="0" max="100" step="0.01" required></label>
         </div>
         <p id="siteProfileOwed" class="site-profile-owed"></p>
