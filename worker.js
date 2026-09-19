@@ -588,12 +588,18 @@ export default {
       const checkin = await env.DB.prepare(
         `SELECT image_hash FROM checkins WHERE device_id = ? ORDER BY id DESC LIMIT 1`
       ).bind(deviceId).first();
-      const imageIdMatch = checkin?.image_hash?.match(/^img-(\d+)$/);
-      if (!imageIdMatch) return new Response('No current image reported', { status: 404 });
-
-      const image = await env.DB.prepare(
-        `SELECT r2_key FROM images WHERE id = ?`
-      ).bind(parseInt(imageIdMatch[1], 10)).first();
+      const imageHash = checkin?.image_hash || '';
+      const imageIdMatch = imageHash.match(/^img-(\d+)$/);
+      const orderImageMatch = imageHash.match(/^order-([0-9a-f-]+)-(\d+)$/i);
+      let image;
+      if (imageIdMatch) {
+        image = await env.DB.prepare(`SELECT r2_key FROM images WHERE id = ?`).bind(parseInt(imageIdMatch[1], 10)).first();
+      } else if (orderImageMatch) {
+        image = await env.DB.prepare(
+          `SELECT r2_key FROM advertisements WHERE order_id = ? AND id = ?`
+        ).bind(orderImageMatch[1], parseInt(orderImageMatch[2], 10)).first();
+      }
+      if (!imageHash) return new Response('No current image reported', { status: 404 });
       if (!image) return new Response('Image not found', { status: 404 });
 
       const object = await env.IMAGES.get(image.r2_key);
