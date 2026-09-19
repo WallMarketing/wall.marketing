@@ -248,11 +248,11 @@ header{
 }
 .plan.wiggle{animation:plan-wiggle .45s ease-in-out;}
 @keyframes review-flash{
-  0%,100%{background-color:var(--volt-2);}
-  50%{background-color:#fff;}
+  0%,30%,100%{background-color:var(--volt-2);}
+  45%,75%{background-color:#fff;}
 }
 @media (min-width:981px){
-  #planReview.flash{animation:review-flash .7s ease-in-out;}
+  #planReview.flash{animation:review-flash 1.2s ease-in-out;}
 }
 
 /* ============ map ============ */
@@ -390,6 +390,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{transition:none!important;animation:none!important;}
   .plan.wiggle{outline:2px solid var(--volt-2);outline-offset:-2px;}
+  #planReview.flash{background:#fff;color:#14161A;}
 }
 
 /* ============ responsive ============ */
@@ -923,6 +924,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     renderPlan();
     render(false);
   });
+  var reviewFlashTimer;
   $("cardAdd").addEventListener("click", function(){
     var selected = $("cardScreenChoices").querySelectorAll("input[data-device-id]:checked");
     selected.forEach(function(input){ state.plan.add(input.dataset.deviceId); });
@@ -932,9 +934,11 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     render(false);
     if (window.matchMedia("(min-width:981px)").matches) {
       var review = $("planReview");
+      clearTimeout(reviewFlashTimer);
       review.classList.remove("flash");
       void review.offsetWidth;
       review.classList.add("flash");
+      reviewFlashTimer = setTimeout(function(){ review.classList.remove("flash"); }, 1200);
     } else {
       var plan = $("plan");
       plan.classList.remove("wiggle");
