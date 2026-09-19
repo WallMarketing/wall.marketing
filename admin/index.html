@@ -498,7 +498,7 @@
       <h2>Venues</h2>
       <table>
         <thead>
-          <tr><th>Company</th><th>Address</th><th>Contact</th><th>Email</th><th>Devices</th><th>Status</th><th>Submitted / last seen</th></tr>
+          <tr><th>Company</th><th>Address</th><th>Contact</th><th>Email</th><th>Bots required</th><th>Devices</th><th>Status</th><th>Submitted / last seen</th></tr>
         </thead>
         <tbody id="venuesBody"></tbody>
       </table>
@@ -1094,6 +1094,7 @@
           <td>${escapeHtml(row.address || '—')}</td>
           <td>${escapeHtml(contact)}</td>
           <td>${escapeHtml(email)}</td>
+          <td>${row.requested_bot_count || '—'}</td>
           <td>${row.bot_count || 0}</td>
           ${statusCell}
           <td>${escapeHtml(timestamp || '—')}</td>

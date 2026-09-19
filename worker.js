@@ -240,14 +240,18 @@ export default {
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(body.contact_email.trim())) {
         return jsonResponse({ error: 'contact_email must be a valid email address' }, 400);
       }
+      const requestedBotCount = Number(body.requested_bot_count);
+      if (!Number.isInteger(requestedBotCount) || requestedBotCount < 1 || requestedBotCount > 10000) {
+        return jsonResponse({ error: 'requested_bot_count must be a whole number between 1 and 10000' }, 400);
+      }
       const fields = ['company_name', 'address', 'suburb', 'country', 'contact_name', 'contact_email', 'contact_phone', 'business_number', 'bank_account_name', 'bank_account_number', 'bsb'];
       if (fields.some((field) => typeof body[field] !== 'string' || body[field].length > 300)) {
         return jsonResponse({ error: 'venue details are too long' }, 400);
       }
       await env.DB.prepare(
-        `INSERT INTO venue_applications (company_name, address, suburb, country, contact_name, contact_email, contact_phone, business_number, bank_account_name, bank_account_number, bsb)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(...fields.map((field) => body[field].trim())).run();
+          `INSERT INTO venue_applications (company_name, address, suburb, country, contact_name, contact_email, contact_phone, business_number, bank_account_name, bank_account_number, bsb, requested_bot_count)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(...fields.map((field) => body[field].trim()), requestedBotCount).run();
       return jsonResponse({ ok: true }, 201);
     }
 
@@ -877,7 +881,7 @@ export default {
           ORDER BY company_name`
       ).all();
       const { results: pending } = await env.DB.prepare(
-        `SELECT id, company_name, address, suburb, country, contact_name, contact_email, contact_phone, created_at
+        `SELECT id, company_name, address, suburb, country, contact_name, contact_email, contact_phone, requested_bot_count, created_at
            FROM venue_applications
           WHERE status = 'pending'
           ORDER BY created_at DESC`

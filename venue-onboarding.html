@@ -96,6 +96,7 @@ footer{padding-block:30px;border-top:1px solid var(--hair);color:var(--steel);fo
         <div class="field"><label for="bankAccountName">Bank account name <span class="info-icon" tabindex="0" data-tooltip="Bank information is optional but will be required before revenue share payments can be made." aria-label="Bank information is optional but will be required before revenue share payments can be made.">i</span></label><input id="bankAccountName" name="Bank account name" placeholder="Name on the account"></div>
         <div class="field"><label for="bankAccountNumber">Bank account number <span class="info-icon" tabindex="0" data-tooltip="Bank information is optional but will be required before revenue share payments can be made." aria-label="Bank information is optional but will be required before revenue share payments can be made.">i</span></label><input id="bankAccountNumber" name="Bank account number" placeholder="Optional"></div>
         <div class="field"><label for="bsb">BSB <span class="info-icon" tabindex="0" data-tooltip="Bank information is optional but will be required before revenue share payments can be made." aria-label="Bank information is optional but will be required before revenue share payments can be made.">i</span></label><input id="bsb" name="BSB" placeholder="e.g. 062-000"></div>
+        <div class="field"><label for="requestedBots">Number of WALL bots required</label><input id="requestedBots" name="Number of WALL bots required" type="number" min="1" step="1" value="1" required></div>
         <div class="field"><label for="revenueShare">Agreed revenue share %</label><input id="revenueShare" name="Revenue share %" type="number" value="25" readonly aria-readonly="true"></div>
       </div>
       <div class="captcha-box" id="captchaBox" aria-label="Security check"></div>
@@ -202,6 +203,7 @@ footer{padding-block:30px;border-top:1px solid var(--hair);color:var(--steel);fo
       bank_account_name: values['Bank account name'],
       bank_account_number: values['Bank account number'],
       bsb: values.BSB,
+      requested_bot_count: values['Number of WALL bots required'],
       captcha_token: captchaToken,
     };
     status.textContent = 'Sending registration...';
