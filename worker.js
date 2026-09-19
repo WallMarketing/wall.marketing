@@ -217,10 +217,22 @@ export default {
       );
     }
 
+    if (url.pathname === '/api/turnstile-config' && request.method === 'GET') {
+      return jsonResponse({ site_key: env.TURNSTILE_SITE_KEY || null });
+    }
+
     // --- Public venue onboarding: keep new venue submissions in the pending queue ---
     if (url.pathname === '/api/venue-applications' && request.method === 'POST') {
       let body;
       try { body = await request.json(); } catch { return jsonResponse({ error: 'request body must be valid JSON' }, 400); }
+      if (!env.TURNSTILE_SECRET_KEY) return jsonResponse({ error: 'security check is not configured' }, 503);
+      const captchaResponse = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secret: env.TURNSTILE_SECRET_KEY, response: body.captcha_token, remoteip: request.headers.get('CF-Connecting-IP') || undefined }),
+      });
+      const captchaResult = captchaResponse.ok ? await captchaResponse.json() : null;
+      if (!captchaResult?.success) return jsonResponse({ error: 'security check failed' }, 403);
       const requiredFields = ['company_name', 'address', 'suburb', 'country', 'contact_name', 'contact_email', 'contact_phone'];
       if (requiredFields.some((field) => typeof body[field] !== 'string' || !body[field].trim())) {
         return jsonResponse({ error: 'company, address, location, and contact details are required' }, 400);

@@ -54,6 +54,7 @@ h1{font-size:clamp(2.7rem,6.4vw,4.7rem);letter-spacing:-.03em;}
 .phone-grid{display:grid;grid-template-columns:82px 1fr;gap:10px;}
 .btn{display:inline-flex;align-items:center;justify-content:center;width:100%;margin-top:24px;padding:13px 20px;border:1px solid transparent;border-radius:3px;background:var(--ink);color:var(--panel-2);font-variation-settings:"wdth" 108,"wght" 600;cursor:pointer;}
 .btn:hover{background:var(--volt);}
+.captcha-box{margin-top:20px;min-height:65px;}
 .status{min-height:1.4em;margin-top:14px;color:var(--steel);font-size:.85rem;}
 .success-message{padding:clamp(24px,4vw,42px) 0;}
 .success-message h2{font-size:clamp(2.4rem,5vw,4rem);color:var(--volt);}
@@ -97,6 +98,7 @@ footer{padding-block:30px;border-top:1px solid var(--hair);color:var(--steel);fo
         <div class="field"><label for="bsb">BSB <span class="info-icon" tabindex="0" data-tooltip="Bank information is optional but will be required before revenue share payments can be made." aria-label="Bank information is optional but will be required before revenue share payments can be made.">i</span></label><input id="bsb" name="BSB" placeholder="e.g. 062-000"></div>
         <div class="field"><label for="revenueShare">Agreed revenue share %</label><input id="revenueShare" name="Revenue share %" type="number" value="25" readonly aria-readonly="true"></div>
       </div>
+      <div class="captcha-box" id="captchaBox" aria-label="Security check"></div>
       <button class="btn" type="submit">Send registration</button>
       <div class="status" id="formStatus" aria-live="polite"></div>
     </form>
@@ -120,6 +122,20 @@ footer{padding-block:30px;border-top:1px solid var(--hair);color:var(--steel);fo
   var form = document.getElementById('venueForm');
   var status = document.getElementById('formStatus');
   var successMessage = document.getElementById('successMessage');
+  var captchaWidgetId = null;
+  var captchaReady = fetch('/api/turnstile-config').then(function(response){ return response.ok ? response.json() : null; }).then(function(config){
+    if (!config || !config.site_key) throw new Error('Security check is not configured.');
+    return new Promise(function(resolve, reject){
+      var script = document.createElement('script');
+      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+      script.async = true;
+      script.onload = function(){
+        captchaWidgetId = window.turnstile.render(document.getElementById('captchaBox'), { sitekey: config.site_key, callback: resolve, 'error-callback': reject, 'expired-callback': function(){ captchaWidgetId = null; } });
+      };
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }).catch(function(error){ status.textContent = error.message; throw error; });
   var address = document.getElementById('address');
   var suggestions = document.getElementById('addressSuggestions');
   var searchTimer = null;
@@ -164,6 +180,15 @@ footer{padding-block:30px;border-top:1px solid var(--hair);color:var(--steel);fo
   address.addEventListener('blur', function(){ setTimeout(closeSuggestions, 150); });
   form.addEventListener('submit', async function(event){
     event.preventDefault();
+    var captchaToken;
+    try {
+      await captchaReady;
+      captchaToken = window.turnstile.getResponse(captchaWidgetId);
+      if (!captchaToken) throw new Error('Please complete the security check.');
+    } catch (error) {
+      status.textContent = error.message;
+      return;
+    }
     var values = Object.fromEntries(new FormData(form));
     var payload = {
       company_name: values['Company name'],
@@ -177,6 +202,7 @@ footer{padding-block:30px;border-top:1px solid var(--hair);color:var(--steel);fo
       bank_account_name: values['Bank account name'],
       bank_account_number: values['Bank account number'],
       bsb: values.BSB,
+      captcha_token: captchaToken,
     };
     status.textContent = 'Sending registration...';
     try {
