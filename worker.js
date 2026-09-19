@@ -101,31 +101,74 @@ function pdfEscape(value) {
 }
 
 function buildInvoicePdf(order) {
-  const lines = [
-    'WALL advertising invoice',
-    `Order: ${order.checkout_code}`,
-    `Campaign: ${order.campaign_name}`,
-    `Contact: ${order.contact_email}`,
-    `Booking: ${order.start_date} to ${order.end_date}`,
-    `Total: USD ${Number(order.total_usd || 0).toFixed(2)}`,
-  ];
-  if (order.invoice_required) {
-    lines.push(
-      `Business: ${order.business_name}`,
-      `Registration: ${order.business_registration_number}`,
-      `Tax number: ${order.tax_number}`,
-      `Invoice contact: ${order.invoice_contact_name}`,
-      `Phone: ${order.invoice_phone}`,
-      `Address: ${order.invoice_address}, ${order.invoice_city}, ${order.invoice_postcode}, ${order.invoice_country}`
-    );
-  }
-  const text = lines.map((line, index) => `BT /F1 ${index === 0 ? 18 : 11} Tf 54 ${750 - index * 28} Td (${pdfEscape(line)}) Tj ET`).join('\n');
+  const graphite = '0.106 0.114 0.122';
+  const violet = '0.22 0.15 0.94';
+  const steel = '0.36 0.38 0.37';
+  const hair = '0.80 0.82 0.80';
+  const paper = '0.98 0.99 0.98';
+  const days = Math.max(1, Math.round((Date.parse(`${order.end_date}T00:00:00Z`) - Date.parse(`${order.start_date}T00:00:00Z`)) / 86400000));
+  const dailyRate = Number(order.daily_rate_usd || 0);
+  const total = Number(order.total_usd || 0);
+  const issueDate = String(order.created_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+  const customerName = order.business_name || order.invoice_contact_name || order.contact_email;
+  const customerAddress = order.invoice_required
+    ? [order.invoice_address, order.invoice_city, order.invoice_postcode, order.invoice_country].filter(Boolean).join(', ')
+    : 'Online customer';
+  const commands = [];
+  const text = (font, size, color, x, y, value) => {
+    commands.push(`${color} rg BT /${font} ${size} Tf ${x} ${y} Td (${pdfEscape(value)}) Tj ET`);
+  };
+  const rect = (color, x, y, width, height) => commands.push(`${color} rg ${x} ${y} ${width} ${height} re f`);
+  const line = (color, x1, y1, x2, y2) => commands.push(`${color} RG 1 w ${x1} ${y1} m ${x2} ${y2} l S`);
+
+  rect(graphite, 0, 700, 612, 92);
+  text('F2', 25, paper, 48, 748, 'WALL');
+  text('F2', 25, violet, 112, 748, '.');
+  text('F1', 9, paper, 410, 760, 'Yogiki Pty Ltd');
+  text('F1', 8, '0.78 0.80 0.79', 410, 746, 'ABN 28 653 939 292');
+  text('F1', 8, '0.78 0.80 0.79', 410, 733, '7A/60 Coulson Street, Wacol QLD 4076');
+  text('F1', 8, '0.78 0.80 0.79', 410, 720, 'hello@wall.marketing');
+
+  text('F2', 28, graphite, 48, 650, 'INVOICE');
+  rect(violet, 465, 638, 99, 24);
+  text('F2', 9, paper, 481, 646, 'PAID ONLINE');
+  text('F1', 9, steel, 48, 620, `Invoice ${order.checkout_code}`);
+  text('F1', 9, steel, 48, 604, `Issued ${issueDate}`);
+  text('F1', 9, steel, 350, 620, `Booking ${order.start_date} to ${order.end_date}`);
+  text('F1', 9, steel, 350, 604, `Campaign ${order.campaign_name}`);
+
+  rect('0.94 0.95 0.94', 48, 510, 516, 66);
+  text('F2', 9, graphite, 64, 554, 'BILLED TO');
+  text('F1', 10, graphite, 64, 536, customerName);
+  text('F1', 9, steel, 64, 520, customerAddress);
+  text('F1', 9, steel, 350, 536, order.contact_email);
+  if (order.invoice_required && order.business_registration_number) text('F1', 8, steel, 350, 520, `Business no. ${order.business_registration_number}`);
+
+  text('F2', 9, steel, 48, 475, 'DESCRIPTION');
+  text('F2', 9, steel, 350, 475, 'QTY');
+  text('F2', 9, steel, 405, 475, 'RATE');
+  text('F2', 9, steel, 505, 475, 'AMOUNT');
+  line(hair, 48, 464, 564, 464);
+  text('F2', 11, graphite, 48, 438, 'WALL advertising campaign');
+  text('F1', 9, steel, 48, 422, `${order.campaign_name} · ${order.start_date} to ${order.end_date}`);
+  text('F1', 10, graphite, 350, 430, String(days));
+  text('F1', 10, graphite, 405, 430, `USD ${dailyRate.toFixed(2)}`);
+  text('F1', 10, graphite, 505, 430, `USD ${total.toFixed(2)}`);
+  line(hair, 48, 400, 564, 400);
+  text('F1', 10, steel, 405, 370, 'TOTAL');
+  text('F2', 18, violet, 474, 366, `USD ${total.toFixed(2)}`);
+  text('F1', 9, steel, 48, 300, 'Thank you for choosing WALL.');
+  text('F1', 9, steel, 48, 284, 'Payment received online. No tax line applied.');
+  line(hair, 48, 72, 564, 72);
+  text('F1', 8, steel, 48, 52, 'Yogiki Pty Ltd · hello@wall.marketing · wall.marketing');
+  const content = commands.join('\n');
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
-    `<< /Length ${text.length} >>\nstream\n${text}\nendstream`,
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>',
+    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>',
   ];
   let pdf = '%PDF-1.4\n';
   const offsets = [0];
