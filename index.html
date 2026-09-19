@@ -135,6 +135,9 @@ header{
 .hero p.lede{margin-top:22px;}
 .hero-actions{display:flex;gap:14px;flex-wrap:wrap;margin-top:34px;}
 .actions{display:flex;gap:14px;flex-wrap:wrap;align-items:center;}
+.host-actions{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.host-actions .btn{width:100%;}
+.host-actions .btn--wide{grid-column:1/-1;}
 .hero-note{margin-top:26px;font-size:0.86rem;color:var(--steel);max-width:44ch;}
 
 /* ============ the units ============ */
@@ -314,6 +317,8 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
   .menu-btn{display:block;}
   .facts{grid-template-columns:1fr;}
   .units{gap:12px;}
+  .host-actions{grid-template-columns:1fr;}
+  .host-actions .btn--wide{grid-column:auto;}
 }
 </style>
 </head>
@@ -544,9 +549,10 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
         <li>We approve every advert; nothing runs that you would not want on your door.</li>
       </ul>
     </div>
-    <div class="actions">
+    <div class="host-actions">
       <a href="mailto:hello@wall.marketing?subject=Hosting%20a%20WALL%20unit" class="btn btn--solid">Ask about hosting</a>
       <a href="venues.html" class="btn btn--line" target="_blank" rel="noopener">Venue pack (PDF)</a>
+      <a href="venue-onboarding.html" class="btn btn--solid btn--wide">Register now</a>
     </div>
   </div>
 </section>
