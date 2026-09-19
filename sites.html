@@ -240,6 +240,13 @@ header{
 .plan-actions{display:flex;gap:10px;flex-wrap:wrap;}
 .plan-actions .btn{padding:11px 18px;font-size:0.9rem;flex:1;}
 .plan-empty{font-size:0.88rem;color:#9AA19C;max-width:36ch;}
+@keyframes plan-wiggle{
+  0%,100%{transform:translateX(0);}
+  25%{transform:translateX(-5px);}
+  50%{transform:translateX(5px);}
+  75%{transform:translateX(-3px);}
+}
+.plan.wiggle{animation:plan-wiggle .45s ease-in-out;}
 
 /* ============ map ============ */
 .mapwrap{position:relative;min-height:0;}
@@ -374,7 +381,7 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
 .foot a:hover{color:var(--volt);}
 
 @media (prefers-reduced-motion: reduce){
-  *,*::before,*::after{transition:none!important;}
+  *,*::before,*::after{transition:none!important;animation:none!important;}
 }
 
 /* ============ responsive ============ */
@@ -909,7 +916,10 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     render(false);
   });
   $("cardAdd").addEventListener("click", function(){
-    return;
+    var plan = $("plan");
+    plan.classList.remove("wiggle");
+    void plan.offsetWidth;
+    plan.classList.add("wiggle");
   });
 
   /* ---------- plan ---------- */
