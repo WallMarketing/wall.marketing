@@ -832,7 +832,7 @@ export default {
     if (url.pathname === '/api/admin/finance' && request.method === 'GET') {
       if (!isAdminRequest(request)) return unauthorizedResponse();
       const { results } = await env.DB.prepare(
-        `SELECT d.device_id, d.site_name, d.revenue_share_percent,
+        `SELECT d.device_id, d.site_name, d.site_location, d.revenue_share_percent,
                 COALESCE(SUM((julianday(oi.end_date) - julianday(oi.start_date)) * oi.daily_rate_usd), 0) AS total_revenue_usd,
                 COALESCE(SUM(CASE
                   WHEN oi.end_date <= date('now', 'start of month')
@@ -844,7 +844,7 @@ export default {
            FROM devices d
            LEFT JOIN order_items oi ON oi.device_id = d.device_id
            LEFT JOIN orders o ON o.id = oi.order_id AND o.status IN ('paid', 'scheduled')
-          GROUP BY d.device_id, d.site_name, d.revenue_share_percent
+          GROUP BY d.device_id, d.site_name, d.site_location, d.revenue_share_percent
           ORDER BY d.device_id`
       ).all();
       return jsonResponse(results.map((row) => {

@@ -458,11 +458,11 @@
       <h2>Finance</h2>
       <table>
         <thead>
-          <tr><th>Device</th><th>Total revenue</th><th>Current month revenue</th><th>Share %</th><th>Venue payments total</th><th>Venue payments paid</th><th>Venue payments unpaid</th><th>Actions</th></tr>
+          <tr><th>Device</th><th>Site location</th><th>Total revenue</th><th>Current month revenue</th><th>Share %</th><th>Venue payments total</th><th>Venue payments paid</th><th>Venue payments unpaid</th><th>Actions</th></tr>
         </thead>
         <tbody id="financeBody"></tbody>
         <tfoot>
-          <tr><th>Totals</th><td id="financeTotalRevenue">$0.00</td><td id="financeMonthlyRevenue">$0.00</td><td>—</td><td id="financeVenueDue">$0.00</td><td id="financeVenuePaid">$0.00</td><td id="financeVenueUnpaid">$0.00</td><td>—</td></tr>
+          <tr><th>Totals</th><td>—</td><td id="financeTotalRevenue">$0.00</td><td id="financeMonthlyRevenue">$0.00</td><td>—</td><td id="financeVenueDue">$0.00</td><td id="financeVenuePaid">$0.00</td><td id="financeVenueUnpaid">$0.00</td><td>—</td></tr>
         </tfoot>
       </table>
       <div class="status" id="financeStatus"></div>
@@ -1221,6 +1221,7 @@
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td>${escapeHtml(row.device_id)}${row.site_name ? ` <small>(${escapeHtml(row.site_name)})</small>` : ''}</td>
+            <td>${escapeHtml(row.site_location || '—')}</td>
             <td>$${Number(row.total_revenue_usd || 0).toFixed(2)}</td>
             <td>$${Number(row.monthly_revenue_usd || 0).toFixed(2)}</td>
             <td>${Number(row.revenue_share_percent || 0).toFixed(2)}%</td>
