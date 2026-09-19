@@ -154,13 +154,33 @@ footer{padding-block:30px;border-top:1px solid var(--hair);color:var(--steel);fo
     }, 300);
   });
   address.addEventListener('blur', function(){ setTimeout(closeSuggestions, 150); });
-  form.addEventListener('submit', function(event){
+  form.addEventListener('submit', async function(event){
     event.preventDefault();
-    var values = Array.from(new FormData(form).entries());
-    var body = values.map(function(entry){ return entry[0] + ': ' + entry[1]; }).join('\n');
-    var subject = encodeURIComponent('New venue registration: ' + form.elements['Company name'].value);
-    window.location.href = 'mailto:hello@wall.marketing?subject=' + subject + '&body=' + encodeURIComponent(body);
-    status.textContent = 'Opening your email app...';
+    var values = Object.fromEntries(new FormData(form));
+    var payload = {
+      company_name: values['Company name'],
+      address: values.Address,
+      suburb: values.Suburb,
+      country: values.Country,
+      contact_name: values['Site contact name'],
+      contact_email: values['Site contact email'],
+      contact_phone: [values['Phone country code'], values['Phone number']].filter(Boolean).join(' '),
+      business_number: values['Government business number'],
+      bank_account_name: values['Bank account name'],
+      bank_account_number: values['Bank account number'],
+      bsb: values.BSB,
+    };
+    status.textContent = 'Sending registration...';
+    try {
+      var response = await fetch('/api/venue-applications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      var result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not send registration');
+      form.reset();
+      document.getElementById('revenueShare').value = '25';
+      status.textContent = 'Registration received. We will be in touch.';
+    } catch (error) {
+      status.textContent = error.message;
+    }
   });
 })();
 </script>

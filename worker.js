@@ -217,6 +217,28 @@ export default {
       );
     }
 
+    // --- Public venue onboarding: keep new venue submissions in the pending queue ---
+    if (url.pathname === '/api/venue-applications' && request.method === 'POST') {
+      let body;
+      try { body = await request.json(); } catch { return jsonResponse({ error: 'request body must be valid JSON' }, 400); }
+      const requiredFields = ['company_name', 'address', 'suburb', 'country', 'contact_name', 'contact_email', 'contact_phone'];
+      if (requiredFields.some((field) => typeof body[field] !== 'string' || !body[field].trim())) {
+        return jsonResponse({ error: 'company, address, location, and contact details are required' }, 400);
+      }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(body.contact_email.trim())) {
+        return jsonResponse({ error: 'contact_email must be a valid email address' }, 400);
+      }
+      const fields = ['company_name', 'address', 'suburb', 'country', 'contact_name', 'contact_email', 'contact_phone', 'business_number', 'bank_account_name', 'bank_account_number', 'bsb'];
+      if (fields.some((field) => typeof body[field] !== 'string' || body[field].length > 300)) {
+        return jsonResponse({ error: 'venue details are too long' }, 400);
+      }
+      await env.DB.prepare(
+        `INSERT INTO venue_applications (company_name, address, suburb, country, contact_name, contact_email, contact_phone, business_number, bank_account_name, bank_account_number, bsb)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(...fields.map((field) => body[field].trim())).run();
+      return jsonResponse({ ok: true }, 201);
+    }
+
     // --- ESP32 check-in: telemetry history ---
     if (url.pathname === '/api/checkin') {
       if (!isAuthorizedDevice(request, env)) return unauthorizedResponse();
@@ -826,6 +848,32 @@ export default {
           ORDER BY o.created_at DESC`
       ).all();
       return jsonResponse(results);
+    }
+
+    // --- Venues: active bot-backed companies and pending onboarding submissions ---
+    if (url.pathname === '/api/admin/venues' && request.method === 'GET') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
+      const { results: active } = await env.DB.prepare(
+        `SELECT COALESCE(sp.company_name, MAX(d.site_name), 'Company name not set') AS company_name,
+                COALESCE(d.site_location, d.device_id) AS address,
+                COUNT(d.device_id) AS bot_count,
+                MAX(d.last_seen_at) AS last_seen_at
+           FROM devices d
+           LEFT JOIN site_profiles sp ON sp.site_key = COALESCE(d.site_location, d.device_id)
+          WHERE d.setup_status = 'active'
+          GROUP BY COALESCE(d.site_location, d.device_id), sp.company_name
+          ORDER BY company_name`
+      ).all();
+      const { results: pending } = await env.DB.prepare(
+        `SELECT id, company_name, address, suburb, country, contact_name, contact_email, contact_phone, created_at
+           FROM venue_applications
+          WHERE status = 'pending'
+          ORDER BY created_at DESC`
+      ).all();
+      return jsonResponse({
+        active: active.map((row) => ({ ...row, status: 'Active' })),
+        pending: pending.map((row) => ({ ...row, status: 'Pending', bot_count: 0 })),
+      });
     }
 
     // --- Finance: device revenue and venue share ledger ---

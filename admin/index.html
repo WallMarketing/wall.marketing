@@ -159,6 +159,10 @@
   .card:has(#ordersBody) table { min-width: 1120px; }
   .card:has(#schedulesBody) { overflow-x: auto; }
   .card:has(#schedulesBody) table { min-width: 980px; }
+  .card:has(#venuesBody) { overflow-x: auto; }
+  .venue-status { font-variation-settings: "wdth" 108, "wght" 700; }
+  .venue-status.active { color: #176B3A; }
+  .venue-status.pending { color: #B56A00; }
   .card:has(#financeBody) { overflow-x: auto; }
   .card:has(#financeBody) table { min-width: 980px; }
   .card:has(#financeBody) tfoot th, .card:has(#financeBody) tfoot td { border-top: 2px solid var(--hair); color: var(--ink); font-weight: 800; font-variation-settings: "wdth" 108, "wght" 800; }
@@ -445,6 +449,17 @@
         <tbody id="devicesBody"></tbody>
       </table>
       <div class="status" id="devicesStatus"></div>
+    </div>
+
+    <div class="card">
+      <h2>Venues</h2>
+      <table>
+        <thead>
+          <tr><th>Company</th><th>Address</th><th>Contact</th><th>Email</th><th>Devices</th><th>Status</th><th>Submitted / last seen</th></tr>
+        </thead>
+        <tbody id="venuesBody"></tbody>
+      </table>
+      <div class="status" id="venuesStatus"></div>
     </div>
 
     <div class="card">
@@ -1050,6 +1065,37 @@
     }
   }
 
+  async function loadVenues() {
+    const venuesBody = document.getElementById('venuesBody');
+    const venuesStatus = document.getElementById('venuesStatus');
+    try {
+      const resp = await fetch('/api/admin/venues');
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Could not load venues');
+      const rows = [...data.active, ...data.pending];
+      venuesBody.innerHTML = '';
+      rows.forEach((row) => {
+        const tr = document.createElement('tr');
+        const timestamp = row.last_seen_at || row.created_at;
+        const contact = row.contact_name || '—';
+        const email = row.contact_email || '—';
+        tr.innerHTML = `
+          <td>${escapeHtml(row.company_name || 'Company name not set')}</td>
+          <td>${escapeHtml(row.address || '—')}</td>
+          <td>${escapeHtml(contact)}</td>
+          <td>${escapeHtml(email)}</td>
+          <td>${row.bot_count || 0}</td>
+          <td class="venue-status ${row.status.toLowerCase()}">${escapeHtml(row.status)}</td>
+          <td>${escapeHtml(timestamp || '—')}</td>
+        `;
+        venuesBody.appendChild(tr);
+      });
+      venuesStatus.textContent = rows.length ? '' : 'No active or pending venues yet.';
+    } catch (err) {
+      venuesStatus.textContent = 'Failed to load venues: ' + err.message;
+    }
+  }
+
   async function loadOrders() {
     const ordersBody = document.getElementById('ordersBody');
     const ordersStatus = document.getElementById('ordersStatus');
@@ -1575,6 +1621,7 @@
     });
 
   loadDevices();
+  loadVenues();
   loadOrders();
   loadSchedules();
   loadFinance();
