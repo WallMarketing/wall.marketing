@@ -916,6 +916,12 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     render(false);
   });
   $("cardAdd").addEventListener("click", function(){
+    var selected = $("cardScreenChoices").querySelectorAll("input[data-device-id]:checked");
+    selected.forEach(function(input){ state.plan.add(input.dataset.deviceId); });
+    syncAddBtn();
+    refreshPin(state.active);
+    renderPlan();
+    render(false);
     var plan = $("plan");
     plan.classList.remove("wiggle");
     void plan.offsetWidth;
