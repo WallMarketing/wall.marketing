@@ -82,11 +82,12 @@ footer{padding-block:30px;border-top:1px solid var(--hair);color:var(--steel);fo
         <div class="field"><label for="suburb">Suburb</label><input id="suburb" name="Suburb" required></div>
         <div class="field"><label for="country">Country</label><input id="country" name="Country" required></div>
         <div class="field"><label for="contactName">Site contact name</label><input id="contactName" name="Site contact name" required></div>
-        <div class="field"><label for="contactEmail">Site contact email</label><input id="contactEmail" name="Site contact email" type="email" required></div>
+        <div class="field"><label for="contactEmail">Site contact email</label><input id="contactEmail" name="Site contact email" type="email" pattern="[^@\s]+@[^@\s]+\.[^@\s]+" required></div>
         <div class="field field--full"><label>Site contact phone</label><div class="phone-grid"><input id="phoneCode" name="Phone country code" placeholder="+61" aria-label="Phone country code" required><input id="phoneNumber" name="Phone number" aria-label="Phone number" required></div></div>
-        <div class="field"><label for="businessNumber">Business number</label><input id="businessNumber" name="Business number"></div>
-        <div class="field"><label for="bankAccountName">Bank account name</label><input id="bankAccountName" name="Bank account name"></div>
-        <div class="field"><label for="bsb">BSB</label><input id="bsb" name="BSB"></div>
+        <div class="field"><label for="businessNumber">Government business number</label><input id="businessNumber" name="Government business number"></div>
+        <div class="field"><label for="bankAccountName">Bank account name</label><input id="bankAccountName" name="Bank account name" placeholder="Name on the account"></div>
+        <div class="field"><label for="bankAccountNumber">Bank account number</label><input id="bankAccountNumber" name="Bank account number" placeholder="Optional"></div>
+        <div class="field"><label for="bsb">BSB</label><input id="bsb" name="BSB" placeholder="e.g. 062-000"></div>
         <div class="field"><label for="revenueShare">Agreed revenue share %</label><input id="revenueShare" name="Revenue share %" type="number" min="0" max="100" step="0.01"></div>
       </div>
       <button class="btn" type="submit">Send registration</button>

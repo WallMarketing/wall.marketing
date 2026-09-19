@@ -545,12 +545,13 @@
         </div>
         <div class="site-profile-grid">
           <label>Site contact name<input name="contact_name" maxlength="200"></label>
-          <label>Site contact email<input name="contact_email" type="email" maxlength="200"></label>
+          <label>Site contact email<input name="contact_email" type="email" pattern="[^@\s]+@[^@\s]+\.[^@\s]+" maxlength="200"></label>
           <label>Site contact phone country code<input name="contact_phone_country_code" maxlength="8" placeholder="+61"></label>
           <label>Site contact phone number<input name="contact_phone_number" maxlength="32"></label>
-          <label>Business number<input name="business_number" maxlength="100"></label>
-          <label>Bank account name<input name="bank_account_name" maxlength="200"></label>
-          <label>BSB<input name="bsb" maxlength="20"></label>
+          <label>Government business number<input name="business_number" maxlength="100"></label>
+          <label>Bank account name<input name="bank_account_name" maxlength="200" placeholder="Name on the account"></label>
+          <label>Bank account number<input name="bank_account_number" maxlength="40" placeholder="Optional"></label>
+          <label>BSB<input name="bsb" maxlength="20" placeholder="e.g. 062-000"></label>
           <label>Revenue share %<input name="revenue_share_percent" type="number" min="0" max="100" step="0.01" required></label>
         </div>
         <p id="siteProfileOwed" class="site-profile-owed"></p>

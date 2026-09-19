@@ -882,6 +882,7 @@ export default {
                 COALESCE(sp.company_name, '') AS company_name,
                 COALESCE(sp.business_number, '') AS business_number,
                 COALESCE(sp.bank_account_name, '') AS bank_account_name,
+                COALESCE(sp.bank_account_number, '') AS bank_account_number,
                 COALESCE(sp.bsb, '') AS bsb,
                 COUNT(d.device_id) AS bot_count
            FROM devices d
@@ -890,7 +891,7 @@ export default {
           GROUP BY sp.site_key, sp.site_name, sp.address, sp.suburb, sp.country,
                    sp.revenue_share_percent, sp.contact_name, sp.contact_email,
                    sp.contact_phone, sp.company_name, sp.business_number,
-                   sp.bank_account_name, sp.bsb`
+                   sp.bank_account_name, sp.bank_account_number, sp.bsb`
       ).bind(siteKey, siteKey, siteKey).first();
       if (!row || !row.bot_count) return jsonResponse({ error: 'site not found' }, 404);
       const { results: devices } = await env.DB.prepare(
@@ -923,7 +924,7 @@ export default {
       let body;
       try { body = await request.json(); } catch { return jsonResponse({ error: 'request body must be valid JSON' }, 400); }
       const existingProfile = await env.DB.prepare(`SELECT site_name FROM site_profiles WHERE site_key = ?`).bind(siteKey).first();
-      const textFields = ['address', 'suburb', 'country', 'contact_name', 'contact_email', 'contact_phone', 'company_name', 'business_number', 'bank_account_name', 'bsb'];
+      const textFields = ['address', 'suburb', 'country', 'contact_name', 'contact_email', 'contact_phone', 'company_name', 'business_number', 'bank_account_name', 'bank_account_number', 'bsb'];
       for (const field of textFields) {
         if (typeof body[field] !== 'string' || body[field].length > 300) return jsonResponse({ error: `${field} must be a string of 300 characters or fewer` }, 400);
       }
@@ -934,13 +935,13 @@ export default {
       const values = textFields.map((field) => body[field].trim());
       const siteName = existingProfile?.site_name || null;
       await env.DB.prepare(
-        `INSERT INTO site_profiles (site_key, site_name, address, suburb, country, revenue_share_percent, contact_name, contact_email, contact_phone, company_name, business_number, bank_account_name, bsb, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        `INSERT INTO site_profiles (site_key, site_name, address, suburb, country, revenue_share_percent, contact_name, contact_email, contact_phone, company_name, business_number, bank_account_name, bank_account_number, bsb, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
          ON CONFLICT(site_key) DO UPDATE SET
            site_name = excluded.site_name, address = excluded.address, suburb = excluded.suburb, country = excluded.country,
            revenue_share_percent = excluded.revenue_share_percent, contact_name = excluded.contact_name, contact_email = excluded.contact_email,
            contact_phone = excluded.contact_phone, company_name = excluded.company_name, business_number = excluded.business_number,
-           bank_account_name = excluded.bank_account_name, bsb = excluded.bsb, updated_at = datetime('now')`
+           bank_account_name = excluded.bank_account_name, bank_account_number = excluded.bank_account_number, bsb = excluded.bsb, updated_at = datetime('now')`
       ).bind(siteKey, siteName, ...values.slice(0, 3), revenueSharePercent, ...values.slice(3)).run();
       await env.DB.prepare(
         `UPDATE devices SET revenue_share_percent = ? WHERE COALESCE(site_location, device_id) = ?`
