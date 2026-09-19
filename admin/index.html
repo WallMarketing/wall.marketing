@@ -1017,7 +1017,9 @@
           firmwareMenu.dataset.loaded = 'true';
           try {
             const releaseResponse = await fetch('/api/admin/firmware/releases/latest');
-            const release = await releaseResponse.json();
+            const releaseText = await releaseResponse.text();
+            let release;
+            try { release = releaseText ? JSON.parse(releaseText) : {}; } catch { throw new Error(`Update check returned HTTP ${releaseResponse.status}`); }
             if (!releaseResponse.ok) throw new Error(release.error || 'Could not load the latest firmware release');
             if (release.tag_name === row.firmware_version) {
               firmwareMenuStatus.textContent = `Up to date (${release.tag_name})`;
@@ -1032,7 +1034,9 @@
                 const pushResponse = await fetch(`/api/admin/devices/${encodeURIComponent(row.device_id)}/ota`, {
                   method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: release.tag_name }),
                 });
-                const result = await pushResponse.json();
+                const resultText = await pushResponse.text();
+                let result;
+                try { result = resultText ? JSON.parse(resultText) : {}; } catch { throw new Error(`Update request returned HTTP ${pushResponse.status}`); }
                 if (!pushResponse.ok) throw new Error(result.error || 'Could not queue firmware update');
                 firmwareButton.classList.add('queued');
                 firmwareButton.textContent = `${row.firmware_version || '—'} → ${release.tag_name}`;

@@ -49,20 +49,20 @@ function isAdminRequest(request) {
 }
 
 function jsonResponse(body, status = 200) {
-
-  async function githubReleaseRequest(env, path) {
-    if (!env.GITHUB_TOKEN) throw new Error('GitHub token is not configured');
-    return fetch(`https://api.github.com/repos/WallMarketing/WallBotFirmware${path}`, {
-      headers: {
-        Accept: 'application/vnd.github+json',
-        Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-        'User-Agent': 'wall-marketing-ota',
-      },
-    });
-  }
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+async function githubReleaseRequest(env, path) {
+  if (!env.GITHUB_TOKEN) throw new Error('GitHub token is not configured');
+  return fetch(`https://api.github.com/repos/WallMarketing/WallBotFirmware${path}`, {
+    headers: {
+      Accept: 'application/vnd.github+json',
+      Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      'User-Agent': 'wall-marketing-ota',
+    },
   });
 }
 
@@ -1033,39 +1033,39 @@ export default {
         };
       }));
 
-      if (url.pathname === '/api/admin/firmware/releases/latest' && request.method === 'GET') {
-        if (!isAdminRequest(request)) return unauthorizedResponse();
-        try {
-          const response = await githubReleaseRequest(env, '/releases/latest');
-          if (!response.ok) return jsonResponse({ error: 'could not load the latest GitHub release' }, 502);
-          const release = await response.json();
-          const asset = release.assets?.find((item) => item.name === 'firmware.bin');
-          if (!asset) return jsonResponse({ error: 'latest release does not contain firmware.bin' }, 404);
-          return jsonResponse({ tag_name: release.tag_name, name: release.name, published_at: release.published_at, asset_name: asset.name });
-        } catch (error) {
-          return jsonResponse({ error: error.message }, 503);
-        }
-      }
 
-      const otaPushMatch = url.pathname.match(/^\/api\/admin\/devices\/([^/]+)\/ota$/);
-      if (otaPushMatch && request.method === 'POST') {
-        if (!isAdminRequest(request)) return unauthorizedResponse();
-        const deviceId = decodeURIComponent(otaPushMatch[1]);
-        let body;
-        try { body = await request.json(); } catch { return jsonResponse({ error: 'request body must be valid JSON' }, 400); }
-        const version = typeof body?.version === 'string' ? body.version.trim() : '';
-        if (!/^v?\d+\.\d+\.\d+$/.test(version)) return jsonResponse({ error: 'version must be a release tag such as v0.3.0' }, 400);
-        const device = await env.DB.prepare(`SELECT device_id FROM devices WHERE device_id = ?`).bind(deviceId).first();
-        if (!device) return jsonResponse({ error: 'device not found' }, 404);
-        const releaseResponse = await githubReleaseRequest(env, `/releases/tags/${encodeURIComponent(version)}`);
-        if (!releaseResponse.ok) return jsonResponse({ error: 'firmware release not found' }, 404);
-        const release = await releaseResponse.json();
-        if (!release.assets?.some((item) => item.name === 'firmware.bin')) return jsonResponse({ error: 'firmware.bin is missing from the release' }, 422);
-        await env.DB.prepare(`UPDATE devices SET target_firmware_version = ? WHERE device_id = ?`).bind(version, deviceId).run();
-        return jsonResponse({ ok: true, device_id: deviceId, target_firmware_version: version });
+    if (url.pathname === '/api/admin/firmware/releases/latest' && request.method === 'GET') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
+      try {
+        const response = await githubReleaseRequest(env, '/releases/latest');
+        if (!response.ok) return jsonResponse({ error: 'could not load the latest GitHub release' }, 502);
+        const release = await response.json();
+        const asset = release.assets?.find((item) => item.name === 'firmware.bin');
+        if (!asset) return jsonResponse({ error: 'latest release does not contain firmware.bin' }, 404);
+        return jsonResponse({ tag_name: release.tag_name, name: release.name, published_at: release.published_at, asset_name: asset.name });
+      } catch (error) {
+        return jsonResponse({ error: error.message }, 503);
       }
     }
 
+    const otaPushMatch = url.pathname.match(/^\/api\/admin\/devices\/([^/]+)\/ota$/);
+    if (otaPushMatch && request.method === 'POST') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
+      const deviceId = decodeURIComponent(otaPushMatch[1]);
+      let body;
+      try { body = await request.json(); } catch { return jsonResponse({ error: 'request body must be valid JSON' }, 400); }
+      const version = typeof body?.version === 'string' ? body.version.trim() : '';
+      if (!/^v?\d+\.\d+\.\d+$/.test(version)) return jsonResponse({ error: 'version must be a release tag such as v0.3.0' }, 400);
+      const device = await env.DB.prepare(`SELECT device_id FROM devices WHERE device_id = ?`).bind(deviceId).first();
+      if (!device) return jsonResponse({ error: 'device not found' }, 404);
+      const releaseResponse = await githubReleaseRequest(env, `/releases/tags/${encodeURIComponent(version)}`);
+      if (!releaseResponse.ok) return jsonResponse({ error: 'firmware release not found' }, 404);
+      const release = await releaseResponse.json();
+      if (!release.assets?.some((item) => item.name === 'firmware.bin')) return jsonResponse({ error: 'firmware.bin is missing from the release' }, 422);
+      await env.DB.prepare(`UPDATE devices SET target_firmware_version = ? WHERE device_id = ?`).bind(version, deviceId).run();
+      return jsonResponse({ ok: true, device_id: deviceId, target_firmware_version: version });
+    }
+    }
     const siteProfileMatch = url.pathname.match(/^\/api\/admin\/sites\/([^/]+)$/);
     if (siteProfileMatch && request.method === 'GET') {
       if (!isAdminRequest(request)) return unauthorizedResponse();
