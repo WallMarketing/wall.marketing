@@ -1,7 +1,7 @@
 (() => {
   const style = document.createElement('style');
   style.textContent = `
-    .wall-chat-launcher{position:fixed;right:22px;bottom:22px;z-index:2000;width:52px;height:52px;border:0;border-radius:50%;background:#1B1D1F;color:#EDEFEC;box-shadow:0 8px 22px rgba(27,29,31,.24);font-size:1.35rem;cursor:pointer}
+    .wall-chat-launcher{display:grid;place-items:center;position:fixed;right:22px;bottom:22px;z-index:2000;width:52px;height:52px;border:0;border-radius:50%;background:#1B1D1F;color:#EDEFEC;box-shadow:0 8px 22px rgba(27,29,31,.24);font-size:1.35rem;cursor:pointer}
     .wall-chat-launcher:hover{background:#3826F0}
     .wall-chat-panel{position:fixed;right:22px;bottom:86px;z-index:2000;width:min(360px,calc(100vw - 32px));background:#F4F6F2;border:1px solid #CBD1CA;border-radius:4px;box-shadow:0 18px 46px rgba(27,29,31,.25);overflow:hidden}
     .wall-chat-panel[hidden]{display:none}
@@ -26,11 +26,11 @@
   launcher.className = 'wall-chat-launcher';
   launcher.type = 'button';
   launcher.setAttribute('aria-label', 'Open support chat');
-  launcher.innerHTML = '<svg viewBox="0 0 24 24" width="23" height="23" aria-hidden="true"><path d="M4 5.5h16v10H9l-5 3v-13Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 10h8M8 13h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+  launcher.innerHTML = '<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M4 5.5h16v10H9l-5 3v-13Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 10h8M8 13h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
   const panel = document.createElement('section');
   panel.className = 'wall-chat-panel';
   panel.hidden = true;
-  panel.innerHTML = '<div class="wall-chat-head"><strong>WALL support</strong><button class="wall-chat-close" type="button" aria-label="Close chat">&times;</button></div><div class="wall-chat-log" aria-live="polite"></div><form class="wall-chat-form"><input class="wall-chat-input" autocomplete="off" required><button class="wall-chat-send" type="submit">Send</button></form>';
+  panel.innerHTML = '<div class="wall-chat-head"><strong>Wall Marketing - Support</strong><button class="wall-chat-close" type="button" aria-label="Close chat">&times;</button></div><div class="wall-chat-log" aria-live="polite"></div><form class="wall-chat-form"><input class="wall-chat-input" autocomplete="off" required><button class="wall-chat-send" type="submit">Send</button></form>';
   document.body.append(launcher, panel);
   const log = panel.querySelector('.wall-chat-log');
   const input = panel.querySelector('.wall-chat-input');
@@ -68,7 +68,7 @@
   }
   function open(){
     panel.hidden = false;
-    if (!step) { step = 1; delayedAgent('Hello, how can I help you today?', 5000); }
+    if (!step) { step = 1; delayedAgent('Hello, how can I help you today?', 6000); }
     input.focus();
   }
   launcher.addEventListener('click', open);
@@ -94,6 +94,10 @@
       input.placeholder = '';
       input.type = 'text';
       await delayedAgent('Thank you, how can I help you today?');
+      return;
+    }
+    if (step === 3) {
+      step = 4;
       await delayedAgent('I will have someone contact you by email shortly');
       input.disabled = true;
       panel.querySelector('.wall-chat-send').disabled = true;
