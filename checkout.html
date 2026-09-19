@@ -591,6 +591,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       data.set("device_dates", JSON.stringify(deviceDates));
       data.set("advertisement_filename", window.wallAdvertisement.filename);
       data.set("advertisement", new File([window.wallAdvertisement.bytes], window.wallAdvertisement.filename, { type: "application/octet-stream" }));
+      data.set("advertisement_preview", window.wallAdvertisement.sourceFile);
       try {
         var response = await fetch("/api/orders", { method: "POST", body: data });
         var result = await response.json();
@@ -682,6 +683,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
   sourceCanvas.height = HEIGHT;
   var sourceContext = sourceCanvas.getContext('2d');
   var sourceImage = null, packedBytes = null;
+  var sourceFile = null;
 
   function setStatus(message, error){
     var status = document.getElementById('advertisementStatus');
@@ -777,6 +779,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
   fileInput.addEventListener('change', function(){
     var file = fileInput.files[0];
     if (!file) return;
+    sourceFile = file;
     var image = new Image();
     image.onload = function(){
       setGeneratedImage(image);
@@ -789,7 +792,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     advertisementFileLabel.hidden = false;
     advertisementFileSummary.hidden = false;
     advertisementFileSummary.textContent = advertisementFilename;
-    window.wallAdvertisement = { filename: advertisementFilename, bytes: packedBytes.slice() };
+    window.wallAdvertisement = { filename: advertisementFilename, bytes: packedBytes.slice(), sourceFile: sourceFile };
     if (window.updateCheckoutSubmitState) window.updateCheckoutSubmitState();
     setStatus(advertisementFilename + ' added to booking');
   });

@@ -813,6 +813,10 @@ export default {
       const checkoutCode = crypto.randomUUID().replaceAll('-', '').slice(0, 10).toUpperCase();
       const advertisement = form.get('advertisement');
       if (!(advertisement instanceof File)) return jsonResponse({ error: 'advertisement file is required' }, 400);
+      const advertisementPreview = form.get('advertisement_preview');
+      if (!(advertisementPreview instanceof File) || !advertisementPreview.type.startsWith('image/') || advertisementPreview.size === 0 || advertisementPreview.size > 10 * 1024 * 1024) {
+        return jsonResponse({ error: 'original advertisement image is required and must be 10 MB or smaller' }, 400);
+      }
       const expectedBytes = 800 * 480 / 2;
       if (advertisement.size !== expectedBytes) return jsonResponse({ error: `advertisement must be exactly ${expectedBytes} bytes` }, 400);
       const filename = String(form.get('advertisement_filename') || `${checkoutCode}.bin`).replace(/[^A-Za-z0-9._-]/g, '_');
@@ -837,6 +841,9 @@ export default {
         `INSERT INTO order_items (order_id, device_id, daily_rate_usd, start_date, end_date) VALUES (?, ?, ?, ?, ?)`
       ).bind(orderId, device.device_id, Number(device.daily_cost_usd || 0), deviceDateRanges[device.device_id].startDate, deviceDateRanges[device.device_id].endDate)));
       await env.IMAGES.put(r2Key, await advertisement.arrayBuffer());
+      await env.IMAGES.put(`orders/${orderId}/preview`, await advertisementPreview.arrayBuffer(), {
+        httpMetadata: { contentType: advertisementPreview.type },
+      });
       await env.DB.prepare(
         `INSERT INTO advertisements (order_id, filename, r2_key, byte_size) VALUES (?, ?, ?, ?)`
       ).bind(orderId, filename, r2Key, advertisement.size).run();
@@ -852,6 +859,7 @@ export default {
       stripeParams.set('line_items[0][price_data][currency]', 'usd');
       stripeParams.set('line_items[0][price_data][unit_amount]', String(Math.round(totalUsd * 100)));
       stripeParams.set('line_items[0][price_data][product_data][name]', `WALL advertising: ${campaignName}`);
+      stripeParams.set('line_items[0][price_data][product_data][images][0]', `${origin}/api/orders/${encodeURIComponent(orderId)}/advertisement/preview`);
       stripeParams.set('line_items[0][quantity]', '1');
       stripeParams.set('metadata[order_id]', orderId);
       stripeParams.set('payment_intent_data[metadata][order_id]', orderId);
@@ -1228,6 +1236,13 @@ export default {
     }
 
     const orderAdvertisementMatch = url.pathname.match(/^\/api\/orders\/([^/]+)\/advertisement\/raw$/);
+    const orderAdvertisementPreviewMatch = url.pathname.match(/^\/api\/orders\/([^/]+)\/advertisement\/preview$/);
+    if (orderAdvertisementPreviewMatch && request.method === 'GET') {
+      const orderId = decodeURIComponent(orderAdvertisementPreviewMatch[1]);
+      const object = await env.IMAGES.get(`orders/${orderId}/preview`);
+      if (!object) return new Response('Advertisement preview not found', { status: 404 });
+      return new Response(object.body, { headers: { 'Content-Type': object.httpMetadata?.contentType || 'image/jpeg', 'Cache-Control': 'public, max-age=3600' } });
+    }
     if (orderAdvertisementMatch && request.method === 'GET') {
       if (!isAdminRequest(request)) return unauthorizedResponse();
       const orderId = decodeURIComponent(orderAdvertisementMatch[1]);
