@@ -160,7 +160,7 @@ function buildInvoicePdf(order) {
   text('F1', 9, steel, 48, 300, 'Thank you for choosing WALL.');
   text('F1', 9, steel, 48, 284, 'Payment received online. No tax line applied.');
   line(hair, 48, 72, 564, 72);
-  text('F1', 8, steel, 48, 52, 'Yogiki Pty Ltd · hello@wall.marketing · wall.marketing');
+  text('F1', 8, steel, 48, 52, 'Yogiki Pty Ltd - hello@wall.marketing - www.wall.marketing');
   const content = commands.join('\n');
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
@@ -723,7 +723,8 @@ export default {
       if (!campaignName || campaignName.length > 200 || !contactEmail || contactEmail.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail) || !Array.isArray(deviceIds) || !deviceIds.length || deviceIds.length > 100) {
         return jsonResponse({ error: 'campaign, contact email, dates, and at least one device are required' }, 400);
       }
-      if (invoiceRequired && Object.values(invoiceDetails).some((value) => !value || value.length > 200)) {
+      const requiredInvoiceDetails = Object.entries(invoiceDetails).filter(([key]) => key !== 'taxNumber').map(([, value]) => value);
+      if (invoiceRequired && requiredInvoiceDetails.some((value) => !value || value.length > 200)) {
         return jsonResponse({ error: 'all invoice details are required' }, 400);
       }
 

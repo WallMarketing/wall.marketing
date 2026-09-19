@@ -270,10 +270,9 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
         <div class="invoice-fields" id="invoiceFields" hidden>
           <h3>Invoice details</h3>
           <div class="invoice-field"><label for="businessName">Business name</label><input id="businessName" name="business_name" autocomplete="organization"></div>
-          <div class="invoice-field"><label for="businessRegistration">Business registration number</label><input id="businessRegistration" name="business_registration_number"></div>
-          <div class="invoice-field"><label for="taxNumber">Tax number</label><input id="taxNumber" name="tax_number"></div>
+          <div class="invoice-field"><label for="businessRegistration">Government business number</label><input id="businessRegistration" name="business_registration_number"></div>
           <div class="invoice-field"><label for="invoiceContactName">Invoice contact name</label><input id="invoiceContactName" name="invoice_contact_name" autocomplete="name"></div>
-          <div class="invoice-field"><label for="invoicePhone">Invoice contact phone</label><input id="invoicePhone" name="invoice_phone" type="tel" autocomplete="tel"></div>
+          <div class="invoice-field"><label for="invoicePhone">Phone number</label><input id="invoicePhone" name="invoice_phone" type="tel" autocomplete="tel"></div>
           <div class="invoice-field invoice-address-wrap"><label for="invoiceAddress">Billing address</label><input id="invoiceAddress" name="invoice_address" autocomplete="street-address"><div class="invoice-suggestions" id="invoiceSuggestions" hidden></div></div>
           <div class="invoice-field"><label for="invoiceCity">City</label><input id="invoiceCity" name="invoice_city" autocomplete="address-level2"></div>
           <div class="invoice-field"><label for="invoicePostcode">Postcode</label><input id="invoicePostcode" name="invoice_postcode" autocomplete="postal-code"></div>
@@ -343,7 +342,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     var submitButton = $("bookingForm").querySelector("button[type=submit]");
     var attemptedSubmit = false;
     var requiredFields = ["brand", "contactEmail"];
-    var invoiceInputIds = ["businessName", "businessRegistration", "taxNumber", "invoiceContactName", "invoicePhone", "invoiceAddress", "invoiceCity", "invoicePostcode", "invoiceCountry"];
+    var invoiceInputIds = ["businessName", "businessRegistration", "invoiceContactName", "invoicePhone", "invoiceAddress", "invoiceCity", "invoicePostcode", "invoiceCountry"];
     function updateInvoiceFields(){
       var enabled = $("invoiceRequired").checked;
       $("invoiceFields").hidden = !enabled;
