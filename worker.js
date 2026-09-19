@@ -410,7 +410,8 @@ export default {
             await env.DB.prepare(`UPDATE devices SET target_firmware_version = NULL WHERE device_id = ?`).bind(deviceId).run();
           }
 
-          return new Response(JSON.stringify({ ok: true, device_token: issuedToken, ota_version: targetVersion && normalizedTarget !== firmwareVersion ? targetVersion : null }), {
+          const otaStatus = targetVersion ? (normalizedTarget === firmwareVersion ? 'current' : 'update_required') : 'none';
+          return new Response(JSON.stringify({ ok: true, device_token: issuedToken, ota_version: targetVersion, ota_status: otaStatus }), {
         headers: { 'Content-Type': 'application/json' },
       });
     }

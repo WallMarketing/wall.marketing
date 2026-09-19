@@ -1060,6 +1060,7 @@
           }
         });
         firmwareActions.append(firmwareButton, firmwareMenu);
+        firmwareActions.addEventListener('click', (event) => event.stopPropagation());
         firmwareCell.appendChild(firmwareActions);
         const imageButton = document.createElement('button');
         imageButton.type = 'button';
@@ -1756,6 +1757,9 @@
       document.getElementById('whoami').textContent = 'Could not reach /api/whoami';
     });
 
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.firmware-menu:not([hidden])').forEach((menu) => { menu.hidden = true; });
+  });
   loadDevices();
   loadVenues();
   loadOrders();
