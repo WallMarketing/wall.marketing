@@ -899,8 +899,8 @@ export default {
           ORDER BY device_id`
       ).bind(siteKey).all();
           const finance = await env.DB.prepare(
-          `SELECT
-             COALESCE(SUM((julianday(oi.end_date) - julianday(oi.start_date)) * oi.daily_rate_usd), 0) * COALESCE(MAX(sp.revenue_share_percent), MAX(d.revenue_share_percent), 0) / 100 AS venue_due_usd,
+           `SELECT
+             COALESCE(SUM((julianday(oi.end_date) - julianday(oi.start_date)) * oi.daily_rate_usd * COALESCE(sp.revenue_share_percent, d.revenue_share_percent, 0) / 100), 0) AS venue_due_usd,
              COALESCE((SELECT SUM(vp.amount_usd)
                    FROM venue_payments vp
                    JOIN devices paid_devices ON paid_devices.device_id = vp.device_id
