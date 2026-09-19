@@ -43,6 +43,7 @@ h1{font-size:clamp(2.7rem,6.4vw,4.7rem);letter-spacing:-.03em;}
 .info-icon::after{content:attr(data-tooltip);position:absolute;left:0;bottom:calc(100% + 8px);z-index:10;width:230px;padding:8px 10px;border-radius:3px;background:var(--graphite);color:var(--chalk);font-size:.75rem;font-weight:400;line-height:1.35;opacity:0;pointer-events:none;transform:translateY(3px);transition:opacity .15s ease,transform .15s ease;}
 .info-icon:hover::after,.info-icon:focus-visible::after{opacity:1;transform:translateY(0);}
 .field input{width:100%;padding:10px 11px;border:1px solid var(--hair);border-radius:3px;background:#fff;}
+.field input[readonly]{background:var(--panel);color:var(--steel);cursor:not-allowed;}
 .field input:focus{border-color:var(--volt);outline:none;}
 .address-editor{position:relative;}
 .address-suggestions{display:grid;margin-top:3px;background:var(--panel-2);border:1px solid var(--hair);border-radius:3px;overflow:hidden;}
