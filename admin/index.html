@@ -186,6 +186,21 @@
   }
   .last-seen-btn:hover { background: transparent; color: var(--volt); }
   .last-seen-btn:focus-visible { outline: 2px solid var(--volt); outline-offset: 3px; }
+  .error-count-btn {
+    padding: 0;
+    background: transparent;
+    color: var(--ink);
+    border: 0;
+    font: inherit;
+    text-decoration: underline;
+    text-decoration-color: var(--hair);
+    text-underline-offset: 3px;
+  }
+  .error-count-btn:hover { background: transparent; color: var(--volt); }
+  .error-count-btn:focus-visible { outline: 2px solid var(--volt); outline-offset: 3px; }
+  .error-details { margin: 18px 0 0; padding-left: 20px; color: var(--steel); }
+  .error-details li + li { margin-top: 7px; }
+  .error-note { margin-top: 16px; color: var(--steel); font-size: .85rem; }
   .site-edit-cell { min-width: 0; }
   .site-input {
     width: 100%;
@@ -460,6 +475,24 @@
         </table>
       </div>
       <button id="deviceHistoryMore" class="device-history-more" type="button" hidden>Show more</button>
+    </div>
+  </div>
+
+  <div id="deviceErrorsModal" class="modal-overlay" hidden>
+    <div class="box wide">
+      <button id="closeDeviceErrors" class="modal-close" type="button" aria-label="Close device errors" title="Close">&times;</button>
+      <h2 id="deviceErrorsTitle"></h2>
+      <p id="deviceErrorsSummary"></p>
+      <ul class="error-details">
+        <li>DNS lookup failure while checking in</li>
+        <li>Check-in connection failure</li>
+        <li>Failure to open the check-in or image connection</li>
+        <li>Image request returning an unexpected HTTP status</li>
+        <li>Unexpected image size</li>
+        <li>Image download stalled for 15 seconds</li>
+        <li>Image download or display exceeding 120 seconds</li>
+      </ul>
+      <p class="error-note">The device reports only a cumulative count. Individual error events are not currently stored.</p>
     </div>
   </div>
 
@@ -829,7 +862,7 @@
           <td>${row.rssi ?? '—'}</td>
           <td>${formatFreeHeap(row.free_heap)}</td>
           <td>${row.firmware_version ?? '—'}</td>
-          <td>${row.error_count ?? '—'}</td>
+          <td><button type="button" class="error-count-btn" aria-label="View errors for ${escapeHtml(row.device_id)}">${row.error_count ?? '—'}</button></td>
           <td class="image-cell"></td>
           <td class="site-edit-actions">
             <button type="button" class="site-save">Save</button>
@@ -918,11 +951,13 @@
         });
         const saveButton = tr.querySelector('.site-save');
         const lastSeenButton = tr.querySelector('.last-seen-btn');
+        const errorCountButton = tr.querySelector('.error-count-btn');
         const saveStatus = tr.querySelector('.site-save-status');
         saveButton.addEventListener('click', () => saveDeviceSite(
           row.device_id, siteNameInput, siteLocationInput, dailyCostInput, viewsPerDayInput, saveButton, saveStatus
         ));
         lastSeenButton.addEventListener('click', () => openDeviceHistory(row.device_id));
+        errorCountButton.addEventListener('click', () => openDeviceErrors(row.device_id, row.error_count));
         devicesBody.appendChild(tr);
       }
       devicesStatus.textContent = rows.length ? '' : 'No devices have checked in yet.';
@@ -1124,9 +1159,20 @@
   const deviceHistoryBody = document.getElementById('deviceHistoryBody');
   const deviceHistoryScroll = document.getElementById('deviceHistoryScroll');
   const deviceHistoryMore = document.getElementById('deviceHistoryMore');
+  const deviceErrorsModal = document.getElementById('deviceErrorsModal');
+  const deviceErrorsTitle = document.getElementById('deviceErrorsTitle');
+  const deviceErrorsSummary = document.getElementById('deviceErrorsSummary');
   const deviceHistoryPageSize = 10;
   let deviceHistoryRows = [];
   let deviceHistoryVisibleCount = deviceHistoryPageSize;
+
+  function openDeviceErrors(deviceId, errorCount) {
+    deviceErrorsTitle.textContent = `${deviceId} errors`;
+    deviceErrorsSummary.textContent = errorCount == null
+      ? 'No error count was reported by this device.'
+      : `This device has reported ${errorCount} error${errorCount === 1 ? '' : 's'} since its last reboot.`;
+    deviceErrorsModal.hidden = false;
+  }
 
   function renderDeviceHistory() {
     deviceHistoryBody.innerHTML = '';
@@ -1140,7 +1186,7 @@
         <td>${row.rssi ?? '—'}</td>
         <td>${formatFreeHeap(row.free_heap)}</td>
         <td>${row.firmware_version ?? '—'}</td>
-        <td>${row.error_count ?? '—'}</td>
+        <td><button type="button" class="error-count-btn" aria-label="View errors for ${escapeHtml(deviceHistoryTitle.textContent)}">${row.error_count ?? '—'}</button></td>
         <td class="history-image-cell"></td>
       `;
       const imageCell = tr.querySelector('.history-image-cell');
@@ -1157,6 +1203,7 @@
         imageCell.textContent = row.image_hash ?? '—';
       }
       deviceHistoryBody.appendChild(tr);
+      tr.querySelector('.error-count-btn').addEventListener('click', () => openDeviceErrors(deviceHistoryTitle.textContent.replace(/ history$/, ''), row.error_count));
     }
     if (!deviceHistoryRows.length) {
       deviceHistoryBody.innerHTML = '<tr><td colspan="7">No check-ins recorded.</td></tr>';
@@ -1190,6 +1237,9 @@
 
   document.getElementById('closeDeviceHistory').addEventListener('click', () => {
     deviceHistoryModal.hidden = true;
+  });
+  document.getElementById('closeDeviceErrors').addEventListener('click', () => {
+    deviceErrorsModal.hidden = true;
   });
 
   // Access identity check, same as before — just a quiet status line now.
