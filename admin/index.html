@@ -161,6 +161,7 @@
   .card:has(#schedulesBody) table { min-width: 980px; }
   .card:has(#financeBody) { overflow-x: auto; }
   .card:has(#financeBody) table { min-width: 980px; }
+  .card:has(#financeBody) tfoot th, .card:has(#financeBody) tfoot td { border-top: 2px solid var(--hair); color: var(--ink); font-weight: 700; }
   .order-status { font-variation-settings: "wdth" 108, "wght" 600; }
   .preview-btn, .site-save {
     padding: 6px 10px;
@@ -460,6 +461,9 @@
           <tr><th>Device</th><th>Total revenue</th><th>Current month revenue</th><th>Share %</th><th>Venue payments total</th><th>Venue payments paid</th><th>Venue payments unpaid</th><th>Actions</th></tr>
         </thead>
         <tbody id="financeBody"></tbody>
+        <tfoot>
+          <tr><th>Totals</th><td id="financeTotalRevenue">$0.00</td><td id="financeMonthlyRevenue">$0.00</td><td>—</td><td id="financeVenueDue">$0.00</td><td id="financeVenuePaid">$0.00</td><td id="financeVenueUnpaid">$0.00</td><td>—</td></tr>
+        </tfoot>
       </table>
       <div class="status" id="financeStatus"></div>
     </div>
@@ -1206,6 +1210,13 @@
         const rows = await resp.json();
         if (!resp.ok) throw new Error(rows.error || 'Could not load finance');
         financeBody.innerHTML = '';
+        const totals = rows.reduce((summary, row) => ({
+          totalRevenue: summary.totalRevenue + Number(row.total_revenue_usd || 0),
+          monthlyRevenue: summary.monthlyRevenue + Number(row.monthly_revenue_usd || 0),
+          venueDue: summary.venueDue + Number(row.venue_due_usd || 0),
+          venuePaid: summary.venuePaid + Number(row.venue_paid_usd || 0),
+          venueUnpaid: summary.venueUnpaid + Number(row.venue_unpaid_usd || 0),
+        }), { totalRevenue: 0, monthlyRevenue: 0, venueDue: 0, venuePaid: 0, venueUnpaid: 0 });
         for (const row of rows) {
           const tr = document.createElement('tr');
           tr.innerHTML = `
@@ -1231,6 +1242,11 @@
           }
           financeBody.appendChild(tr);
         }
+        document.getElementById('financeTotalRevenue').textContent = `$${totals.totalRevenue.toFixed(2)}`;
+        document.getElementById('financeMonthlyRevenue').textContent = `$${totals.monthlyRevenue.toFixed(2)}`;
+        document.getElementById('financeVenueDue').textContent = `$${totals.venueDue.toFixed(2)}`;
+        document.getElementById('financeVenuePaid').textContent = `$${totals.venuePaid.toFixed(2)}`;
+        document.getElementById('financeVenueUnpaid').textContent = `$${totals.venueUnpaid.toFixed(2)}`;
         financeStatus.textContent = rows.length ? '' : 'No device finance records yet.';
       } catch (err) {
         financeStatus.textContent = 'Failed to load finance: ' + err.message;
