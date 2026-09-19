@@ -1039,7 +1039,10 @@ export default {
       try {
         const response = await githubReleaseRequest(env, '/releases/latest');
         if (response.status === 404) return jsonResponse({ available: false, message: 'No published firmware release is available yet.' });
-        if (!response.ok) return jsonResponse({ error: 'could not load the latest GitHub release' }, 502);
+        if (!response.ok) {
+          const detail = await response.text();
+          return jsonResponse({ error: `GitHub release lookup failed (${response.status}): ${detail.slice(0, 240)}` }, 502);
+        }
         const release = await response.json();
         const asset = release.assets?.find((item) => item.name === 'firmware.bin');
         if (!asset) return jsonResponse({ available: false, message: 'The latest release does not contain firmware.bin.' });
@@ -1060,7 +1063,10 @@ export default {
       const device = await env.DB.prepare(`SELECT device_id FROM devices WHERE device_id = ?`).bind(deviceId).first();
       if (!device) return jsonResponse({ error: 'device not found' }, 404);
       const releaseResponse = await githubReleaseRequest(env, `/releases/tags/${encodeURIComponent(version)}`);
-      if (!releaseResponse.ok) return jsonResponse({ error: 'firmware release not found' }, 404);
+      if (!releaseResponse.ok) {
+        const detail = await releaseResponse.text();
+        return jsonResponse({ error: `GitHub firmware release lookup failed (${releaseResponse.status}): ${detail.slice(0, 240)}` }, 502);
+      }
       const release = await releaseResponse.json();
       if (!release.assets?.some((item) => item.name === 'firmware.bin')) return jsonResponse({ error: 'firmware.bin is missing from the release' }, 422);
       await env.DB.prepare(`UPDATE devices SET target_firmware_version = ? WHERE device_id = ?`).bind(version, deviceId).run();
