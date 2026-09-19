@@ -725,6 +725,20 @@ export default {
       });
     }
 
+    // Public because Stripe must fetch this image without Cloudflare Access.
+    const stripePreviewMatch = url.pathname.match(/^\/stripe-preview\/orders\/([^/]+)$/);
+    if (stripePreviewMatch && request.method === 'GET') {
+      const orderId = decodeURIComponent(stripePreviewMatch[1]);
+      const object = await env.IMAGES.get(`orders/${orderId}/preview`);
+      if (!object) return new Response('Advertisement preview not found', { status: 404 });
+      return new Response(object.body, {
+        headers: {
+          'Content-Type': object.httpMetadata?.contentType || 'image/jpeg',
+          'Cache-Control': 'public, max-age=3600',
+        },
+      });
+    }
+
     // --- Orders: save the booking before starting payment ---
     if (url.pathname === '/api/orders' && request.method === 'POST') {
       let form;
@@ -859,7 +873,7 @@ export default {
       stripeParams.set('line_items[0][price_data][currency]', 'usd');
       stripeParams.set('line_items[0][price_data][unit_amount]', String(Math.round(totalUsd * 100)));
       stripeParams.set('line_items[0][price_data][product_data][name]', `WALL advertising: ${campaignName}`);
-      stripeParams.set('line_items[0][price_data][product_data][images][0]', `${origin}/api/orders/${encodeURIComponent(orderId)}/advertisement/preview`);
+      stripeParams.set('line_items[0][price_data][product_data][images][0]', `${origin}/stripe-preview/orders/${encodeURIComponent(orderId)}`);
       stripeParams.set('line_items[0][quantity]', '1');
       stripeParams.set('metadata[order_id]', orderId);
       stripeParams.set('payment_intent_data[metadata][order_id]', orderId);
