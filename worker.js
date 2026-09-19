@@ -898,7 +898,22 @@ export default {
           WHERE COALESCE(site_location, device_id) = ?
           ORDER BY device_id`
       ).bind(siteKey).all();
-      return jsonResponse({ ...row, devices });
+          const finance = await env.DB.prepare(
+          `SELECT
+             COALESCE(SUM((julianday(oi.end_date) - julianday(oi.start_date)) * oi.daily_rate_usd), 0) * COALESCE(MAX(sp.revenue_share_percent), MAX(d.revenue_share_percent), 0) / 100 AS venue_due_usd,
+             COALESCE((SELECT SUM(vp.amount_usd)
+                   FROM venue_payments vp
+                   JOIN devices paid_devices ON paid_devices.device_id = vp.device_id
+                  WHERE COALESCE(paid_devices.site_location, paid_devices.device_id) = ?), 0) AS venue_paid_usd
+             FROM devices d
+             LEFT JOIN site_profiles sp ON sp.site_key = ?
+             LEFT JOIN order_items oi ON oi.device_id = d.device_id
+             LEFT JOIN orders o ON o.id = oi.order_id AND o.status IN ('paid', 'scheduled')
+            WHERE COALESCE(d.site_location, d.device_id) = ? AND o.id IS NOT NULL`
+          ).bind(siteKey, siteKey, siteKey).first();
+          const venueDue = Number(finance?.venue_due_usd || 0);
+          const venuePaid = Number(finance?.venue_paid_usd || 0);
+          return jsonResponse({ ...row, devices, venue_owed_usd: Math.max(0, venueDue - venuePaid) });
     }
 
     if (siteProfileMatch && request.method === 'PATCH') {
