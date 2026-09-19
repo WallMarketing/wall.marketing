@@ -81,6 +81,8 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 .summary dl { display: grid; grid-template-columns: 1fr auto; gap: 10px 20px; margin: 0 0 28px; }
 .summary dt { color: #A9B0AA; }
 .summary dd { margin: 0; font-weight: 700; text-align: right; }
+.summary dd.total.is-action { color: var(--volt-2); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.summary dd.total.is-action:hover { color: #fff; }
 .currency-control { margin-top: -18px; margin-bottom: 22px; text-align: right; }
 .currency-link { padding: 0; border: 0; background: transparent; color: var(--volt-2); font-size: .78rem; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .currency-link:hover { background: transparent; color: #fff; }
@@ -238,7 +240,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
         <dt>Screens</dt><dd id="screenCount">0</dd>
         <dt>Daily rate</dt><dd id="dailyRate">$0.00</dd>
         <dt id="advertisementFileLabel" class="advertisement-file" hidden>Advertisement</dt><dd id="advertisementFileSummary" class="advertisement-file" hidden></dd>
-        <dt>Total</dt><dd id="estimatedTotal" class="total">Enter dates</dd>
+        <dt>Total</dt><dd id="estimatedTotal" class="total" aria-live="polite">Enter dates</dd>
       </dl>
       <div class="currency-control" id="currencyControl">
         <button type="button" class="currency-link" id="currencyLink">Change currency</button>
@@ -453,6 +455,23 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       $("bookingDateStatus").textContent = "";
       $("bookingDateModal").hidden = false;
     }
+    function firstMissingDateDeviceId(){
+      for (var index = 0; index < selected.length; index++) {
+        var deviceId = selected[index].device_id, range = dateRanges[deviceId];
+        if (!range || !range.start || !range.end) return deviceId;
+      }
+      return null;
+    }
+    $("estimatedTotal").addEventListener("click", function(){
+      var deviceId = firstMissingDateDeviceId();
+      if (deviceId) openDateModal(deviceId);
+    });
+    $("estimatedTotal").addEventListener("keydown", function(event){
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      var deviceId = firstMissingDateDeviceId();
+      if (deviceId) openDateModal(deviceId);
+    });
     $("orderList").addEventListener("click", function(event){
       var link = event.target.closest(".date-link");
       if (!link) return;
@@ -514,13 +533,22 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       });
       if (missingDates) {
         $("estimatedTotal").textContent = "Enter dates";
+        $("estimatedTotal").classList.add("is-action");
+        $("estimatedTotal").setAttribute("role", "button");
+        $("estimatedTotal").tabIndex = 0;
         return false;
       }
       if (invalidDates) {
         $("estimatedTotal").textContent = "Minimum 5 days";
+        $("estimatedTotal").classList.remove("is-action");
+        $("estimatedTotal").removeAttribute("role");
+        $("estimatedTotal").removeAttribute("tabindex");
         return false;
       }
       $("estimatedTotal").textContent = formatMoney(total);
+      $("estimatedTotal").classList.remove("is-action");
+      $("estimatedTotal").removeAttribute("role");
+      $("estimatedTotal").removeAttribute("tabindex");
       return true;
     }
     requiredFields.forEach(function(fieldId){ $(fieldId).addEventListener("input", updateSubmitState); });
@@ -537,7 +565,11 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
         event.currentTarget.reportValidity();
         if (!event.currentTarget.checkValidity()) $("formStatus").textContent = "Complete the required fields before continuing to payment.";
         else if (!hasValidAdvertisement()) $("formStatus").textContent = "Add your advertisement before continuing to payment.";
-        else $("formStatus").textContent = "Choose dates for every screen before continuing to payment.";
+        else {
+          $("formStatus").textContent = "Choose dates for every screen before continuing to payment.";
+          var missingDeviceId = firstMissingDateDeviceId();
+          if (missingDeviceId) openDateModal(missingDeviceId);
+        }
         return;
       }
       submitButton.disabled = true;
