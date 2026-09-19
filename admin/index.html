@@ -196,6 +196,13 @@
   .firmware-btn { padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; text-decoration: underline; text-decoration-color: var(--hair); text-underline-offset: 3px; cursor: pointer; }
   .firmware-btn:hover { background: transparent; color: var(--volt); }
   .firmware-btn.queued { color: var(--volt); }
+  .firmware-actions { position: relative; }
+  .firmware-menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 5; min-width: 220px; padding: 8px; background: var(--panel-2); border: 1px solid var(--hair); box-shadow: 0 8px 18px -12px rgba(27,29,31,.8); }
+  .firmware-menu[hidden] { display: none; }
+  .firmware-menu-status { display: block; padding: 3px 5px 8px; color: var(--steel); font-size: .78rem; }
+  .firmware-send { width: 100%; padding: 7px 9px; border: 0; background: var(--ink); color: var(--panel-2); font-size: .8rem; text-align: left; cursor: pointer; }
+  .firmware-send:hover { background: var(--volt); }
+  .firmware-send:disabled { background: var(--hair); color: var(--steel); cursor: default; }
   .image-cell, .site-edit-actions { white-space: nowrap; vertical-align: top; }
   .site-edit-actions { text-align: center; }
   .image-actions { display: grid; gap: 5px; }
@@ -985,37 +992,65 @@
         const siteCells = tr.querySelectorAll('.site-edit-cell');
         const imageCell = tr.querySelector('.image-cell');
         const firmwareCell = tr.querySelector('.firmware-cell');
+        const firmwareActions = document.createElement('div');
+        firmwareActions.className = 'firmware-actions';
         const firmwareButton = document.createElement('button');
         firmwareButton.type = 'button';
         firmwareButton.className = `firmware-btn${row.target_firmware_version ? ' queued' : ''}`;
         firmwareButton.textContent = row.target_firmware_version ? `${row.firmware_version || '—'} → ${row.target_firmware_version}` : (row.firmware_version || '—');
-        firmwareButton.title = 'Check GitHub Releases and push firmware to this device';
+        firmwareButton.title = 'Check for firmware updates';
+        const firmwareMenu = document.createElement('div');
+        firmwareMenu.className = 'firmware-menu';
+        firmwareMenu.hidden = true;
+        const firmwareMenuStatus = document.createElement('span');
+        firmwareMenuStatus.className = 'firmware-menu-status';
+        firmwareMenuStatus.textContent = 'Checking for updates...';
+        const firmwareSend = document.createElement('button');
+        firmwareSend.type = 'button';
+        firmwareSend.className = 'firmware-send';
+        firmwareSend.textContent = 'Send update';
+        firmwareSend.hidden = true;
+        firmwareMenu.append(firmwareMenuStatus, firmwareSend);
         firmwareButton.addEventListener('click', async () => {
-          firmwareButton.disabled = true;
+          firmwareMenu.hidden = !firmwareMenu.hidden;
+          if (firmwareMenu.hidden || firmwareMenu.dataset.loaded) return;
+          firmwareMenu.dataset.loaded = 'true';
           try {
             const releaseResponse = await fetch('/api/admin/firmware/releases/latest');
             const release = await releaseResponse.json();
             if (!releaseResponse.ok) throw new Error(release.error || 'Could not load the latest firmware release');
             if (release.tag_name === row.firmware_version) {
-              devicesStatus.textContent = `${row.device_id} is already running ${release.tag_name}.`;
+              firmwareMenuStatus.textContent = `Up to date (${release.tag_name})`;
               return;
             }
-            if (!window.confirm(`Push ${release.tag_name} to ${row.device_id}?`)) return;
-            const pushResponse = await fetch(`/api/admin/devices/${encodeURIComponent(row.device_id)}/ota`, {
-              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: release.tag_name }),
-            });
-            const result = await pushResponse.json();
-            if (!pushResponse.ok) throw new Error(result.error || 'Could not queue firmware update');
-            firmwareButton.classList.add('queued');
-            firmwareButton.textContent = `${row.firmware_version || '—'} → ${release.tag_name}`;
-            devicesStatus.textContent = `Firmware ${release.tag_name} queued for ${row.device_id}.`;
+            firmwareMenuStatus.textContent = `Update available: ${release.tag_name}`;
+            firmwareSend.hidden = false;
+            firmwareSend.addEventListener('click', async () => {
+              firmwareSend.disabled = true;
+              firmwareSend.textContent = 'Sending...';
+              try {
+                const pushResponse = await fetch(`/api/admin/devices/${encodeURIComponent(row.device_id)}/ota`, {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: release.tag_name }),
+                });
+                const result = await pushResponse.json();
+                if (!pushResponse.ok) throw new Error(result.error || 'Could not queue firmware update');
+                firmwareButton.classList.add('queued');
+                firmwareButton.textContent = `${row.firmware_version || '—'} → ${release.tag_name}`;
+                firmwareMenuStatus.textContent = `Queued ${release.tag_name}`;
+                firmwareSend.hidden = true;
+                devicesStatus.textContent = `Firmware ${release.tag_name} queued for ${row.device_id}.`;
+              } catch (error) {
+                firmwareMenuStatus.textContent = 'Update failed: ' + error.message;
+                firmwareSend.disabled = false;
+                firmwareSend.textContent = 'Send update';
+              }
+            }, { once: true });
           } catch (error) {
-            devicesStatus.textContent = 'Firmware update failed: ' + error.message;
-          } finally {
-            firmwareButton.disabled = false;
+            firmwareMenuStatus.textContent = 'Could not check updates: ' + error.message;
           }
         });
-        firmwareCell.appendChild(firmwareButton);
+        firmwareActions.append(firmwareButton, firmwareMenu);
+        firmwareCell.appendChild(firmwareActions);
         const imageButton = document.createElement('button');
         imageButton.type = 'button';
         imageButton.className = 'preview-btn';
