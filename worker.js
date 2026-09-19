@@ -1014,6 +1014,32 @@ export default {
       return jsonResponse(results);
     }
 
+    const supportReplyMatch = url.pathname.match(/^\/api\/admin\/support-conversations\/(\d+)\/reply$/);
+    if (supportReplyMatch && request.method === 'POST') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
+      let body;
+      try { body = await request.json(); } catch { return jsonResponse({ error: 'request body must be valid JSON' }, 400); }
+      const message = typeof body?.message === 'string' ? body.message.trim() : '';
+      if (!message || message.length > 10000) return jsonResponse({ error: 'reply message is required' }, 400);
+      const conversation = await env.DB.prepare(`SELECT email FROM support_conversations WHERE id = ?`).bind(Number(supportReplyMatch[1])).first();
+      if (!conversation) return jsonResponse({ error: 'support conversation not found' }, 404);
+      try {
+        await sendOrderEmail(env, { id: `support-${supportReplyMatch[1]}`, contact_email: conversation.email }, 'WALL support reply', message);
+        return jsonResponse({ ok: true });
+      } catch (error) {
+        return jsonResponse({ error: error.message }, 502);
+      }
+    }
+
+    const supportDeleteMatch = url.pathname.match(/^\/api\/admin\/support-conversations\/(\d+)$/);
+    if (supportDeleteMatch && request.method === 'DELETE') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
+      const result = await env.DB.prepare(`DELETE FROM support_conversations WHERE id = ?`).bind(Number(supportDeleteMatch[1])).run();
+      return result.meta.changes
+        ? jsonResponse({ ok: true })
+        : jsonResponse({ error: 'support conversation not found' }, 404);
+    }
+
     // --- Venues: active bot-backed companies and pending onboarding submissions ---
     if (url.pathname === '/api/admin/venues' && request.method === 'GET') {
       if (!isAdminRequest(request)) return unauthorizedResponse();

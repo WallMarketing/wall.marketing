@@ -177,6 +177,9 @@
   .venue-menu[hidden] { display: none; }
   .venue-delete { width: 100%; padding: 7px 9px; border: 0; background: transparent; color: #C8202C; font-size: .8rem; text-align: left; cursor: pointer; }
   .venue-delete:hover { background: #FCE8E6; }
+  .support-reply-btn { padding: 6px 10px; font-size: .8rem; white-space: nowrap; }
+  .support-reply-form { display: grid; gap: 12px; margin-top: 18px; }
+  .support-reply-form textarea { width: 100%; min-height: 150px; padding: 10px; border: 1px solid var(--hair); border-radius: 3px; background: #fff; color: var(--ink); resize: vertical; }
   .order-created-actions { position: relative; }
   .order-created-btn { padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; text-decoration: underline; text-decoration-color: var(--hair); text-underline-offset: 3px; cursor: pointer; }
   .order-created-btn:hover { background: transparent; color: var(--volt); }
@@ -532,13 +535,26 @@
     <div class="card">
       <h2>Support</h2>
       <table>
-        <thead><tr><th>Received</th><th>Message</th><th>Email</th></tr></thead>
+        <thead><tr><th>Received</th><th>Message</th><th>Email</th><th>Actions</th></tr></thead>
         <tbody id="supportBody"></tbody>
       </table>
       <div class="status" id="supportStatus"></div>
     </div>
   </div>
   </main>
+
+  <div id="supportReplyModal" class="modal-overlay" hidden>
+    <div class="box wide">
+      <button id="closeSupportReply" class="modal-close" type="button" aria-label="Close support reply" title="Close">&times;</button>
+      <h2>Reply to support request</h2>
+      <p id="supportReplyRecipient" class="error-note"></p>
+      <form id="supportReplyForm" class="support-reply-form">
+        <textarea id="supportReplyMessage" required placeholder="Write your reply..."></textarea>
+        <button id="supportReplySend" type="submit">Send reply</button>
+        <div id="supportReplyStatus" class="status" aria-live="polite"></div>
+      </form>
+    </div>
+  </div>
 
   <div id="previewModal" class="modal-overlay" hidden>
     <div class="box">
@@ -1238,12 +1254,69 @@
       const response = await fetch('/api/admin/support-conversations');
       const rows = await response.json();
       if (!response.ok) throw new Error(rows.error || 'Could not load support conversations');
-      body.innerHTML = rows.map((row) => `<tr><td>${escapeHtml(row.created_at || '—')}</td><td>${escapeHtml(row.message)}</td><td>${escapeHtml(row.email)}</td></tr>`).join('');
+      body.innerHTML = '';
+      rows.forEach((row) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${escapeHtml(row.created_at || '—')}</td><td>${escapeHtml(row.message)}</td><td>${escapeHtml(row.email)}</td><td class="support-action-cell"></td>`;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'support-reply-btn';
+        button.textContent = 'Reply';
+        button.addEventListener('click', () => openSupportReply(row));
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'venue-delete';
+        deleteButton.textContent = 'Delete';
+        deleteButton.addEventListener('click', async () => {
+          if (!window.confirm('Delete this support conversation?')) return;
+          const response = await fetch(`/api/admin/support-conversations/${encodeURIComponent(row.id)}`, { method: 'DELETE' });
+          if (!response.ok) {
+            status.textContent = 'Could not delete support conversation.';
+            return;
+          }
+          loadSupport();
+        });
+        tr.querySelector('.support-action-cell').append(button, deleteButton);
+        body.appendChild(tr);
+      });
       status.textContent = rows.length ? '' : 'No support conversations yet.';
     } catch (error) {
       status.textContent = 'Failed to load support conversations: ' + error.message;
     }
   }
+
+  const supportReplyModal = document.getElementById('supportReplyModal');
+  const supportReplyForm = document.getElementById('supportReplyForm');
+  const supportReplyRecipient = document.getElementById('supportReplyRecipient');
+  const supportReplyMessage = document.getElementById('supportReplyMessage');
+  const supportReplyStatus = document.getElementById('supportReplyStatus');
+  const supportReplySend = document.getElementById('supportReplySend');
+  let supportReplyId = null;
+  function openSupportReply(row) {
+    supportReplyId = row.id;
+    supportReplyRecipient.textContent = `To: ${row.email}`;
+    supportReplyMessage.value = '';
+    supportReplyStatus.textContent = '';
+    supportReplyModal.hidden = false;
+    supportReplyMessage.focus();
+  }
+  document.getElementById('closeSupportReply').addEventListener('click', () => { supportReplyModal.hidden = true; });
+  supportReplyForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    supportReplySend.disabled = true;
+    supportReplyStatus.textContent = 'Sending...';
+    try {
+      const response = await fetch(`/api/admin/support-conversations/${supportReplyId}/reply`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: supportReplyMessage.value }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not send reply');
+      supportReplyStatus.textContent = 'Reply sent.';
+      supportReplyMessage.value = '';
+    } catch (error) {
+      supportReplyStatus.textContent = error.message;
+    } finally {
+      supportReplySend.disabled = false;
+    }
+  });
 
   async function loadOrders() {
     const ordersBody = document.getElementById('ordersBody');

@@ -16,13 +16,17 @@
     .wall-chat-input{min-width:0;flex:1;padding:9px 10px;border:1px solid #CBD1CA;border-radius:3px;background:#fff;color:#1F2225}
     .wall-chat-send{padding:9px 12px;border:0;border-radius:3px;background:#1B1D1F;color:#F4F6F2;cursor:pointer}
     .wall-chat-send:hover{background:#3826F0}
+    .wall-chat-typing{display:flex;gap:4px;align-items:center;width:max-content;padding:11px 12px;background:#E6E9E4;border-radius:3px}
+    .wall-chat-typing i{width:5px;height:5px;border-radius:50%;background:#5C625E;animation:wall-chat-dot 1s infinite ease-in-out}
+    .wall-chat-typing i:nth-child(2){animation-delay:.15s}.wall-chat-typing i:nth-child(3){animation-delay:.3s}
+    @keyframes wall-chat-dot{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-2px)}}
   `;
   document.head.appendChild(style);
   const launcher = document.createElement('button');
   launcher.className = 'wall-chat-launcher';
   launcher.type = 'button';
   launcher.setAttribute('aria-label', 'Open support chat');
-  launcher.textContent = 'i';
+  launcher.innerHTML = '<svg viewBox="0 0 24 24" width="23" height="23" aria-hidden="true"><path d="M4 5.5h16v10H9l-5 3v-13Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 10h8M8 13h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
   const panel = document.createElement('section');
   panel.className = 'wall-chat-panel';
   panel.hidden = true;
@@ -35,6 +39,7 @@
   let firstMessage = '';
   let email = '';
   let submitted = false;
+  let busy = false;
   function addMessage(text, type){
     const message = document.createElement('div');
     message.className = `wall-chat-message ${type}`;
@@ -43,15 +48,34 @@
     log.scrollTop = log.scrollHeight;
   }
   function agent(text){ addMessage(text, 'agent'); }
+  function wait(milliseconds){ return new Promise((resolve) => setTimeout(resolve, milliseconds)); }
+  async function delayedAgent(text, milliseconds = 900){
+    busy = true;
+    input.disabled = true;
+    panel.querySelector('.wall-chat-send').disabled = true;
+    const typing = document.createElement('div');
+    typing.className = 'wall-chat-typing';
+    typing.innerHTML = '<i></i><i></i><i></i>';
+    log.appendChild(typing);
+    log.scrollTop = log.scrollHeight;
+    await wait(milliseconds);
+    typing.remove();
+    agent(text);
+    busy = false;
+    input.disabled = false;
+    panel.querySelector('.wall-chat-send').disabled = false;
+    input.focus();
+  }
   function open(){
     panel.hidden = false;
-    if (!step) { step = 1; agent('Hello, how can I help you today?'); }
+    if (!step) { step = 1; delayedAgent('Hello, how can I help you today?', 5000); }
     input.focus();
   }
   launcher.addEventListener('click', open);
   panel.querySelector('.wall-chat-close').addEventListener('click', () => { panel.hidden = true; });
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (busy) return;
     const value = input.value.trim();
     if (!value) return;
     addMessage(value, 'user');
@@ -59,7 +83,7 @@
     if (step === 1) {
       firstMessage = value;
       step = 2;
-      agent('Can I get your email address incase we get disconnected?');
+      delayedAgent('Can I get your email address in case we get disconnected?');
       input.type = 'email';
       input.placeholder = 'you@example.com';
       return;
@@ -67,9 +91,12 @@
     if (step === 2) {
       email = value;
       step = 3;
+      input.placeholder = '';
+      input.type = 'text';
+      await delayedAgent('Thank you, how can I help you today?');
+      await delayedAgent('I will have someone contact you by email shortly');
       input.disabled = true;
       panel.querySelector('.wall-chat-send').disabled = true;
-      agent('I will have someone contact you by email shortly');
       if (!submitted) {
         submitted = true;
         try {
