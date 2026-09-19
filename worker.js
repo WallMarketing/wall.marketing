@@ -49,6 +49,17 @@ function isAdminRequest(request) {
 }
 
 function jsonResponse(body, status = 200) {
+
+  async function githubReleaseRequest(env, path) {
+    if (!env.GITHUB_TOKEN) throw new Error('GitHub token is not configured');
+    return fetch(`https://api.github.com/repos/WallMarketing/WallBotFirmware${path}`, {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+        'User-Agent': 'wall-marketing-ota',
+      },
+    });
+  }
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'Content-Type': 'application/json' },
@@ -313,7 +324,7 @@ export default {
       }
 
       const existingDevice = await env.DB.prepare(
-        `SELECT device_token_hash, setup_status, site_name, site_location, site_latitude, site_longitude, views_per_day FROM devices WHERE device_id = ?`
+        `SELECT device_token_hash, setup_status, site_name, site_location, site_latitude, site_longitude, views_per_day, target_firmware_version FROM devices WHERE device_id = ?`
       ).bind(deviceId).first();
       if (existingDevice?.setup_status === 'disabled') return jsonResponse({ error: 'device disabled' }, 403);
       const presentedToken = request.headers.get('X-Device-Token');
@@ -393,8 +404,34 @@ export default {
              ).bind(deviceId, issuedTokenHash, siteName, siteLocation, siteLatitude, siteLongitude, viewsPerDay, issuedTokenHash, siteName, siteLocation, siteLatitude, siteLongitude, viewsPerDay),
       ]);
 
-      return new Response(JSON.stringify({ ok: true, device_token: issuedToken }), {
+      return new Response(JSON.stringify({ ok: true, device_token: issuedToken, ota_version: existingDevice?.target_firmware_version || null }), {
         headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // --- Device OTA: stream the targeted private GitHub release asset ---
+    const deviceOtaMatch = url.pathname.match(/^\/api\/device-ota\/([^/]+)\/raw$/);
+    if (deviceOtaMatch && request.method === 'GET') {
+      const deviceId = decodeURIComponent(deviceOtaMatch[1]);
+      if (!(await deviceTokenFromRequest(request, env, deviceId))) return unauthorizedResponse();
+      const device = await env.DB.prepare(`SELECT target_firmware_version FROM devices WHERE device_id = ?`).bind(deviceId).first();
+      const requestedVersion = url.searchParams.get('version');
+      if (!device?.target_firmware_version || device.target_firmware_version !== requestedVersion) return new Response('No OTA update queued', { status: 404 });
+      const releaseResponse = await githubReleaseRequest(env, `/releases/tags/${encodeURIComponent(requestedVersion)}`);
+      if (!releaseResponse.ok) return new Response('Firmware release unavailable', { status: 502 });
+      const release = await releaseResponse.json();
+      const asset = release.assets?.find((item) => item.name === 'firmware.bin');
+      if (!asset) return new Response('firmware.bin is missing from the release', { status: 404 });
+      const assetResponse = await fetch(asset.url, {
+        headers: {
+          Accept: 'application/octet-stream',
+          Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+          'User-Agent': 'wall-marketing-ota',
+        },
+      });
+      if (!assetResponse.ok || !assetResponse.body) return new Response('Firmware asset unavailable', { status: 502 });
+      return new Response(assetResponse.body, {
+        headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': assetResponse.headers.get('Content-Length') || '' },
       });
     }
 
@@ -995,6 +1032,38 @@ export default {
           venue_unpaid_usd: Math.max(0, venueDue - venuePaid),
         };
       }));
+
+      if (url.pathname === '/api/admin/firmware/releases/latest' && request.method === 'GET') {
+        if (!isAdminRequest(request)) return unauthorizedResponse();
+        try {
+          const response = await githubReleaseRequest(env, '/releases/latest');
+          if (!response.ok) return jsonResponse({ error: 'could not load the latest GitHub release' }, 502);
+          const release = await response.json();
+          const asset = release.assets?.find((item) => item.name === 'firmware.bin');
+          if (!asset) return jsonResponse({ error: 'latest release does not contain firmware.bin' }, 404);
+          return jsonResponse({ tag_name: release.tag_name, name: release.name, published_at: release.published_at, asset_name: asset.name });
+        } catch (error) {
+          return jsonResponse({ error: error.message }, 503);
+        }
+      }
+
+      const otaPushMatch = url.pathname.match(/^\/api\/admin\/devices\/([^/]+)\/ota$/);
+      if (otaPushMatch && request.method === 'POST') {
+        if (!isAdminRequest(request)) return unauthorizedResponse();
+        const deviceId = decodeURIComponent(otaPushMatch[1]);
+        let body;
+        try { body = await request.json(); } catch { return jsonResponse({ error: 'request body must be valid JSON' }, 400); }
+        const version = typeof body?.version === 'string' ? body.version.trim() : '';
+        if (!/^v?\d+\.\d+\.\d+$/.test(version)) return jsonResponse({ error: 'version must be a release tag such as v0.3.0' }, 400);
+        const device = await env.DB.prepare(`SELECT device_id FROM devices WHERE device_id = ?`).bind(deviceId).first();
+        if (!device) return jsonResponse({ error: 'device not found' }, 404);
+        const releaseResponse = await githubReleaseRequest(env, `/releases/tags/${encodeURIComponent(version)}`);
+        if (!releaseResponse.ok) return jsonResponse({ error: 'firmware release not found' }, 404);
+        const release = await releaseResponse.json();
+        if (!release.assets?.some((item) => item.name === 'firmware.bin')) return jsonResponse({ error: 'firmware.bin is missing from the release' }, 422);
+        await env.DB.prepare(`UPDATE devices SET target_firmware_version = ? WHERE device_id = ?`).bind(version, deviceId).run();
+        return jsonResponse({ ok: true, device_id: deviceId, target_firmware_version: version });
+      }
     }
 
     const siteProfileMatch = url.pathname.match(/^\/api\/admin\/sites\/([^/]+)$/);

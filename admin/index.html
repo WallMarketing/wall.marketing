@@ -193,6 +193,9 @@
     font-size: .8rem;
     white-space: nowrap;
   }
+  .firmware-btn { padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; text-decoration: underline; text-decoration-color: var(--hair); text-underline-offset: 3px; cursor: pointer; }
+  .firmware-btn:hover { background: transparent; color: var(--volt); }
+  .firmware-btn.queued { color: var(--volt); }
   .image-cell, .site-edit-actions { white-space: nowrap; vertical-align: top; }
   .site-edit-actions { text-align: center; }
   .image-actions { display: grid; gap: 5px; }
@@ -970,7 +973,7 @@
           <td><button type="button" class="last-seen-btn" title="View check-in history"><span class="status-dot ${dotClass}"></span>${formatRelativeTime(row.last_seen_at)}</button></td>
           <td>${row.rssi ?? '—'}</td>
           <td>${formatFreeHeap(row.free_heap)}</td>
-          <td>${row.firmware_version ?? '—'}</td>
+          <td class="firmware-cell"></td>
           <td><button type="button" class="error-count-btn" aria-label="View errors for ${escapeHtml(row.device_id)}">${row.error_count ?? '—'}</button></td>
           <td class="image-cell"></td>
           <td class="site-edit-actions">
@@ -981,6 +984,38 @@
 
         const siteCells = tr.querySelectorAll('.site-edit-cell');
         const imageCell = tr.querySelector('.image-cell');
+        const firmwareCell = tr.querySelector('.firmware-cell');
+        const firmwareButton = document.createElement('button');
+        firmwareButton.type = 'button';
+        firmwareButton.className = `firmware-btn${row.target_firmware_version ? ' queued' : ''}`;
+        firmwareButton.textContent = row.target_firmware_version ? `${row.firmware_version || '—'} → ${row.target_firmware_version}` : (row.firmware_version || '—');
+        firmwareButton.title = 'Check GitHub Releases and push firmware to this device';
+        firmwareButton.addEventListener('click', async () => {
+          firmwareButton.disabled = true;
+          try {
+            const releaseResponse = await fetch('/api/admin/firmware/releases/latest');
+            const release = await releaseResponse.json();
+            if (!releaseResponse.ok) throw new Error(release.error || 'Could not load the latest firmware release');
+            if (release.tag_name === row.firmware_version) {
+              devicesStatus.textContent = `${row.device_id} is already running ${release.tag_name}.`;
+              return;
+            }
+            if (!window.confirm(`Push ${release.tag_name} to ${row.device_id}?`)) return;
+            const pushResponse = await fetch(`/api/admin/devices/${encodeURIComponent(row.device_id)}/ota`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: release.tag_name }),
+            });
+            const result = await pushResponse.json();
+            if (!pushResponse.ok) throw new Error(result.error || 'Could not queue firmware update');
+            firmwareButton.classList.add('queued');
+            firmwareButton.textContent = `${row.firmware_version || '—'} → ${release.tag_name}`;
+            devicesStatus.textContent = `Firmware ${release.tag_name} queued for ${row.device_id}.`;
+          } catch (error) {
+            devicesStatus.textContent = 'Firmware update failed: ' + error.message;
+          } finally {
+            firmwareButton.disabled = false;
+          }
+        });
+        firmwareCell.appendChild(firmwareButton);
         const imageButton = document.createElement('button');
         imageButton.type = 'button';
         imageButton.className = 'preview-btn';
