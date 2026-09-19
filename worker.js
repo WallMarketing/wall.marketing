@@ -835,9 +835,10 @@ export default {
         `SELECT d.device_id, d.site_name, d.site_location, sp.company_name,
                 COALESCE(sp.site_key, COALESCE(d.site_location, d.device_id)) AS site_key,
                 COALESCE(sp.revenue_share_percent, d.revenue_share_percent, 0) AS revenue_share_percent,
-                COALESCE(SUM((julianday(oi.end_date) - julianday(oi.start_date)) * oi.daily_rate_usd), 0) AS total_revenue_usd,
+                COALESCE(SUM(CASE WHEN o.id IS NOT NULL THEN (julianday(oi.end_date) - julianday(oi.start_date)) * oi.daily_rate_usd ELSE 0 END), 0) AS total_revenue_usd,
                 COALESCE(SUM(CASE
-                  WHEN oi.end_date <= date('now', 'start of month')
+                  WHEN o.id IS NULL
+                    OR oi.end_date <= date('now', 'start of month')
                     OR oi.start_date >= date('now', 'start of month', '+1 month') THEN 0
                   ELSE (julianday(MIN(oi.end_date, date('now', 'start of month', '+1 month'))) -
                         julianday(MAX(oi.start_date, date('now', 'start of month')))) * oi.daily_rate_usd
@@ -908,8 +909,8 @@ export default {
              FROM devices d
              LEFT JOIN site_profiles sp ON sp.site_key = ?
              LEFT JOIN order_items oi ON oi.device_id = d.device_id
-             LEFT JOIN orders o ON o.id = oi.order_id AND o.status IN ('paid', 'scheduled')
-            WHERE COALESCE(d.site_location, d.device_id) = ? AND o.id IS NOT NULL`
+             JOIN orders o ON o.id = oi.order_id AND o.status IN ('paid', 'scheduled')
+            WHERE COALESCE(d.site_location, d.device_id) = ?`
           ).bind(siteKey, siteKey, siteKey).first();
           const venueDue = Number(finance?.venue_due_usd || 0);
           const venuePaid = Number(finance?.venue_paid_usd || 0);
@@ -953,12 +954,12 @@ export default {
       const deviceId = decodeURIComponent(financePayMatch[1]);
       const row = await env.DB.prepare(
         `SELECT d.device_id, d.revenue_share_percent,
-                COALESCE(SUM((julianday(oi.end_date) - julianday(oi.start_date)) * oi.daily_rate_usd), 0) AS total_revenue_usd,
+                COALESCE(SUM(CASE WHEN o.id IS NOT NULL THEN (julianday(oi.end_date) - julianday(oi.start_date)) * oi.daily_rate_usd ELSE 0 END), 0) AS total_revenue_usd,
                 COALESCE((SELECT SUM(vp.amount_usd) FROM venue_payments vp WHERE vp.device_id = d.device_id), 0) AS venue_paid_usd
            FROM devices d
            LEFT JOIN order_items oi ON oi.device_id = d.device_id
            LEFT JOIN orders o ON o.id = oi.order_id AND o.status IN ('paid', 'scheduled')
-          WHERE d.device_id = ? AND (o.id IS NOT NULL OR d.device_id IS NOT NULL)
+          WHERE d.device_id = ?
           GROUP BY d.device_id, d.revenue_share_percent`
       ).bind(deviceId).first();
       if (!row) return jsonResponse({ error: 'device not found' }, 404);
