@@ -832,7 +832,9 @@ export default {
     if (url.pathname === '/api/admin/finance' && request.method === 'GET') {
       if (!isAdminRequest(request)) return unauthorizedResponse();
       const { results } = await env.DB.prepare(
-        `SELECT d.device_id, d.site_name, d.site_location, d.revenue_share_percent,
+        `SELECT d.device_id, d.site_name, d.site_location,
+                COALESCE(sp.site_key, COALESCE(d.site_location, d.device_id)) AS site_key,
+                COALESCE(sp.revenue_share_percent, d.revenue_share_percent, 0) AS revenue_share_percent,
                 COALESCE(SUM((julianday(oi.end_date) - julianday(oi.start_date)) * oi.daily_rate_usd), 0) AS total_revenue_usd,
                 COALESCE(SUM(CASE
                   WHEN oi.end_date <= date('now', 'start of month')
@@ -842,6 +844,7 @@ export default {
                 END), 0) AS monthly_revenue_usd,
                 COALESCE((SELECT SUM(vp.amount_usd) FROM venue_payments vp WHERE vp.device_id = d.device_id), 0) AS venue_paid_usd
            FROM devices d
+           LEFT JOIN site_profiles sp ON sp.site_key = COALESCE(d.site_location, d.device_id)
            LEFT JOIN order_items oi ON oi.device_id = d.device_id
            LEFT JOIN orders o ON o.id = oi.order_id AND o.status IN ('paid', 'scheduled')
           GROUP BY d.device_id, d.site_name, d.site_location, d.revenue_share_percent
@@ -859,6 +862,66 @@ export default {
           venue_unpaid_usd: Math.max(0, venueDue - venuePaid),
         };
       }));
+    }
+
+    const siteProfileMatch = url.pathname.match(/^\/api\/admin\/sites\/([^/]+)$/);
+    if (siteProfileMatch && request.method === 'GET') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
+      const siteKey = decodeURIComponent(siteProfileMatch[1]);
+      const row = await env.DB.prepare(
+        `SELECT ? AS site_key,
+                COALESCE(sp.site_name, MAX(d.site_name)) AS site_name,
+                COALESCE(sp.address, MAX(d.site_location)) AS address,
+                COALESCE(sp.suburb, '') AS suburb,
+                COALESCE(sp.country, '') AS country,
+                COALESCE(sp.revenue_share_percent, MAX(d.revenue_share_percent), 0) AS revenue_share_percent,
+                COALESCE(sp.contact_name, '') AS contact_name,
+                COALESCE(sp.contact_email, '') AS contact_email,
+                COALESCE(sp.contact_phone, '') AS contact_phone,
+                COALESCE(sp.company_name, '') AS company_name,
+                COALESCE(sp.business_number, '') AS business_number,
+                COALESCE(sp.bank_account_name, '') AS bank_account_name,
+                COALESCE(sp.bsb, '') AS bsb,
+                COUNT(d.device_id) AS bot_count
+           FROM devices d
+           LEFT JOIN site_profiles sp ON sp.site_key = ?
+          WHERE COALESCE(d.site_location, d.device_id) = ?
+          GROUP BY sp.site_key, sp.site_name, sp.address, sp.suburb, sp.country,
+                   sp.revenue_share_percent, sp.contact_name, sp.contact_email,
+                   sp.contact_phone, sp.company_name, sp.business_number,
+                   sp.bank_account_name, sp.bsb`
+      ).bind(siteKey, siteKey, siteKey).first();
+      if (!row || !row.bot_count) return jsonResponse({ error: 'site not found' }, 404);
+      return jsonResponse(row);
+    }
+
+    if (siteProfileMatch && request.method === 'PATCH') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
+      const siteKey = decodeURIComponent(siteProfileMatch[1]);
+      let body;
+      try { body = await request.json(); } catch { return jsonResponse({ error: 'request body must be valid JSON' }, 400); }
+      const textFields = ['site_name', 'address', 'suburb', 'country', 'contact_name', 'contact_email', 'contact_phone', 'company_name', 'business_number', 'bank_account_name', 'bsb'];
+      for (const field of textFields) {
+        if (typeof body[field] !== 'string' || body[field].length > 300) return jsonResponse({ error: `${field} must be a string of 300 characters or fewer` }, 400);
+      }
+      const revenueSharePercent = Number(body.revenue_share_percent);
+      if (!Number.isFinite(revenueSharePercent) || revenueSharePercent < 0 || revenueSharePercent > 100 || Math.round(revenueSharePercent * 100) !== revenueSharePercent * 100) {
+        return jsonResponse({ error: 'revenue_share_percent must be between 0 and 100 with at most two decimal places' }, 400);
+      }
+      const values = textFields.map((field) => body[field].trim());
+      await env.DB.prepare(
+        `INSERT INTO site_profiles (site_key, site_name, address, suburb, country, revenue_share_percent, contact_name, contact_email, contact_phone, company_name, business_number, bank_account_name, bsb, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+         ON CONFLICT(site_key) DO UPDATE SET
+           site_name = excluded.site_name, address = excluded.address, suburb = excluded.suburb, country = excluded.country,
+           revenue_share_percent = excluded.revenue_share_percent, contact_name = excluded.contact_name, contact_email = excluded.contact_email,
+           contact_phone = excluded.contact_phone, company_name = excluded.company_name, business_number = excluded.business_number,
+           bank_account_name = excluded.bank_account_name, bsb = excluded.bsb, updated_at = datetime('now')`
+      ).bind(siteKey, ...values.slice(0, 4), revenueSharePercent, ...values.slice(4)).run();
+      await env.DB.prepare(
+        `UPDATE devices SET revenue_share_percent = ? WHERE COALESCE(site_location, device_id) = ?`
+      ).bind(revenueSharePercent, siteKey).run();
+      return jsonResponse({ ok: true });
     }
 
     const financePayMatch = url.pathname.match(/^\/api\/admin\/finance\/([^/]+)\/pay$/);

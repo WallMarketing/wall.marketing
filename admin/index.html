@@ -204,6 +204,14 @@
   .error-details { margin: 18px 0 0; padding-left: 20px; color: var(--steel); }
   .error-details li + li { margin-top: 7px; }
   .error-note { margin-top: 16px; color: var(--steel); font-size: .85rem; }
+  .site-profile-form { display: grid; gap: 12px; margin-top: 18px; }
+  .site-profile-form label { display: grid; gap: 5px; color: var(--steel); font-size: .82rem; }
+  .site-profile-form input { width: 100%; padding: 8px 9px; border: 1px solid var(--hair); border-radius: 3px; background: #fff; color: var(--ink); font: inherit; font-size: .9rem; }
+  .site-profile-form input:focus { border-color: var(--volt); outline: none; }
+  .site-profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .site-location-link { padding: 0; background: transparent; color: var(--ink); border: 0; font: inherit; text-align: left; text-decoration: underline; text-decoration-color: var(--hair); text-underline-offset: 3px; }
+  .site-location-link:hover { background: transparent; color: var(--volt); }
+  .site-location-link:focus-visible { outline: 2px solid var(--volt); outline-offset: 3px; }
   .site-edit-cell { min-width: 0; }
   .site-input {
     width: 100%;
@@ -514,6 +522,38 @@
       <div class="booking-date-actions">
         <button id="clearDeviceErrors" type="button">Clear all</button>
       </div>
+    </div>
+  </div>
+
+  <div id="siteProfileModal" class="modal-overlay" hidden>
+    <div class="box wide">
+      <button id="closeSiteProfile" class="modal-close" type="button" aria-label="Close site profile" title="Close">&times;</button>
+      <h2 id="siteProfileTitle">Site profile</h2>
+      <p id="siteProfileBots"></p>
+      <form id="siteProfileForm" class="site-profile-form">
+        <div class="site-profile-grid">
+          <label>Site name<input name="site_name" maxlength="200"></label>
+          <label>Revenue share %<input name="revenue_share_percent" type="number" min="0" max="100" step="0.01" required></label>
+        </div>
+        <label>Address<input name="address" maxlength="300"></label>
+        <div class="site-profile-grid">
+          <label>Suburb<input name="suburb" maxlength="100"></label>
+          <label>Country<input name="country" maxlength="100"></label>
+        </div>
+        <div class="site-profile-grid">
+          <label>Site contact name<input name="contact_name" maxlength="200"></label>
+          <label>Site contact email<input name="contact_email" type="email" maxlength="200"></label>
+          <label>Site contact phone (incl. country code)<input name="contact_phone" maxlength="40"></label>
+          <label>Company name<input name="company_name" maxlength="200"></label>
+          <label>Business number<input name="business_number" maxlength="100"></label>
+          <label>Bank account name<input name="bank_account_name" maxlength="200"></label>
+          <label>BSB<input name="bsb" maxlength="20"></label>
+        </div>
+        <div class="booking-date-actions">
+          <button type="submit" id="saveSiteProfile">Save site profile</button>
+        </div>
+        <div class="status" id="siteProfileStatus"></div>
+      </form>
     </div>
   </div>
 
@@ -1221,7 +1261,7 @@
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td>${escapeHtml(row.device_id)}${row.site_name ? ` <small>(${escapeHtml(row.site_name)})</small>` : ''}</td>
-            <td>${escapeHtml(row.site_location || '—')}</td>
+            <td><button type="button" class="site-location-link" data-site-key="${escapeHtml(row.site_key || row.device_id)}">${escapeHtml(row.site_location || '—')}</button></td>
             <td>$${Number(row.total_revenue_usd || 0).toFixed(2)}</td>
             <td>$${Number(row.monthly_revenue_usd || 0).toFixed(2)}</td>
             <td>${Number(row.revenue_share_percent || 0).toFixed(2)}%</td>
@@ -1231,6 +1271,7 @@
             <td class="finance-actions"></td>
           `;
           const actions = tr.querySelector('.finance-actions');
+          tr.querySelector('.site-location-link').addEventListener('click', () => openSiteProfile(row.site_key || row.device_id));
           if (Number(row.venue_unpaid_usd || 0) > 0) {
             const button = document.createElement('button');
             button.type = 'button';
@@ -1253,6 +1294,63 @@
         financeStatus.textContent = 'Failed to load finance: ' + err.message;
       }
   }
+
+  const siteProfileModal = document.getElementById('siteProfileModal');
+  const siteProfileTitle = document.getElementById('siteProfileTitle');
+  const siteProfileBots = document.getElementById('siteProfileBots');
+  const siteProfileForm = document.getElementById('siteProfileForm');
+  const siteProfileStatus = document.getElementById('siteProfileStatus');
+  let activeSiteProfileKey = '';
+
+  async function openSiteProfile(siteKey) {
+    activeSiteProfileKey = siteKey;
+    siteProfileTitle.textContent = 'Site profile';
+    siteProfileBots.textContent = 'Loading site details...';
+    siteProfileStatus.textContent = '';
+    siteProfileModal.hidden = false;
+    try {
+      const resp = await fetch(`/api/admin/sites/${encodeURIComponent(siteKey)}`);
+      const profile = await resp.json();
+      if (!resp.ok) throw new Error(profile.error || 'Could not load site details');
+      siteProfileTitle.textContent = profile.site_name || siteKey;
+      siteProfileBots.textContent = `${profile.bot_count} bot${profile.bot_count === 1 ? '' : 's'} deployed`;
+      Object.keys(profile).forEach((field) => {
+        if (siteProfileForm.elements[field]) siteProfileForm.elements[field].value = profile[field] ?? '';
+      });
+    } catch (err) {
+      siteProfileBots.textContent = '';
+      siteProfileStatus.textContent = 'Could not load site details: ' + err.message;
+    }
+  }
+
+  siteProfileForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const saveButton = document.getElementById('saveSiteProfile');
+    saveButton.disabled = true;
+    siteProfileStatus.textContent = 'Saving...';
+    try {
+      const body = Object.fromEntries(new FormData(siteProfileForm));
+      const resp = await fetch(`/api/admin/sites/${encodeURIComponent(activeSiteProfileKey)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const result = await resp.json();
+      if (!resp.ok) throw new Error(result.error || 'Could not save site details');
+      siteProfileStatus.textContent = 'Saved';
+      siteProfileTitle.textContent = body.site_name || activeSiteProfileKey;
+      loadFinance();
+      loadDevices();
+    } catch (err) {
+      siteProfileStatus.textContent = 'Could not save site details: ' + err.message;
+    } finally {
+      saveButton.disabled = false;
+    }
+  });
+
+  document.getElementById('closeSiteProfile').addEventListener('click', () => {
+    siteProfileModal.hidden = true;
+  });
 
   const deviceHistoryModal = document.getElementById('deviceHistoryModal');
   const deviceHistoryTitle = document.getElementById('deviceHistoryTitle');
