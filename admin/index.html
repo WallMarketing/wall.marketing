@@ -1021,6 +1021,10 @@
             let release;
             try { release = releaseText ? JSON.parse(releaseText) : {}; } catch { throw new Error(`Update check returned HTTP ${releaseResponse.status}`); }
             if (!releaseResponse.ok) throw new Error(release.error || 'Could not load the latest firmware release');
+            if (!release.available) {
+              firmwareMenuStatus.textContent = release.message || 'No firmware release is available yet.';
+              return;
+            }
             if (release.tag_name === row.firmware_version) {
               firmwareMenuStatus.textContent = `Up to date (${release.tag_name})`;
               return;

@@ -1038,11 +1038,12 @@ export default {
       if (!isAdminRequest(request)) return unauthorizedResponse();
       try {
         const response = await githubReleaseRequest(env, '/releases/latest');
+        if (response.status === 404) return jsonResponse({ available: false, message: 'No published firmware release is available yet.' });
         if (!response.ok) return jsonResponse({ error: 'could not load the latest GitHub release' }, 502);
         const release = await response.json();
         const asset = release.assets?.find((item) => item.name === 'firmware.bin');
-        if (!asset) return jsonResponse({ error: 'latest release does not contain firmware.bin' }, 404);
-        return jsonResponse({ tag_name: release.tag_name, name: release.name, published_at: release.published_at, asset_name: asset.name });
+        if (!asset) return jsonResponse({ available: false, message: 'The latest release does not contain firmware.bin.' });
+        return jsonResponse({ available: true, tag_name: release.tag_name, name: release.name, published_at: release.published_at, asset_name: asset.name });
       } catch (error) {
         return jsonResponse({ error: error.message }, 503);
       }
