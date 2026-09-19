@@ -885,6 +885,18 @@ export default {
       }
     }
 
+    const orderDeleteMatch = url.pathname.match(/^\/api\/admin\/orders\/([^/]+)$/);
+    if (orderDeleteMatch && request.method === 'DELETE') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
+      const orderId = decodeURIComponent(orderDeleteMatch[1]);
+      const result = await env.DB.prepare(
+        `DELETE FROM orders WHERE id = ? AND status = 'pending_payment'`
+      ).bind(orderId).run();
+      return result.meta.changes
+        ? jsonResponse({ ok: true })
+        : jsonResponse({ error: 'pending order not found' }, 404);
+    }
+
     // --- Orders: admin view with booking, payment, invoice, and device details ---
     if (url.pathname === '/api/admin/orders' && request.method === 'GET') {
       if (!isAdminRequest(request)) return unauthorizedResponse();

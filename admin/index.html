@@ -177,6 +177,13 @@
   .venue-menu[hidden] { display: none; }
   .venue-delete { width: 100%; padding: 7px 9px; border: 0; background: transparent; color: #C8202C; font-size: .8rem; text-align: left; cursor: pointer; }
   .venue-delete:hover { background: #FCE8E6; }
+  .order-created-actions { position: relative; }
+  .order-created-btn { padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; text-decoration: underline; text-decoration-color: var(--hair); text-underline-offset: 3px; cursor: pointer; }
+  .order-created-btn:hover { background: transparent; color: var(--volt); }
+  .order-menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 5; min-width: 130px; padding: 4px; background: var(--panel-2); border: 1px solid var(--hair); box-shadow: 0 8px 18px -12px rgba(27,29,31,.8); }
+  .order-menu[hidden] { display: none; }
+  .order-delete { width: 100%; padding: 7px 9px; border: 0; background: transparent; color: #C8202C; font-size: .8rem; text-align: left; cursor: pointer; }
+  .order-delete:hover { background: #FCE8E6; }
   .card:has(#financeBody) { overflow-x: auto; }
   .card:has(#financeBody) table { min-width: 980px; }
   .card:has(#financeBody) tfoot th, .card:has(#financeBody) tfoot td { border-top: 2px solid var(--hair); color: var(--ink); font-weight: 800; font-variation-settings: "wdth" 108, "wght" 800; }
@@ -1141,8 +1148,11 @@
           ? [row.business_name, row.invoice_contact_name, row.invoice_address, row.invoice_city, row.invoice_postcode, row.invoice_country].filter(Boolean).join(', ')
           : 'No';
         const tr = document.createElement('tr');
+        const createdCell = row.status === 'pending_payment'
+          ? '<td class="order-created-actions"><button type="button" class="order-created-btn">' + escapeHtml(row.created_at || '—') + '</button><div class="order-menu" hidden><button type="button" class="order-delete">Delete order</button></div></td>'
+          : '<td>' + escapeHtml(row.created_at || '—') + '</td>';
         tr.innerHTML = `
-          <td>${escapeHtml(row.created_at || '—')}</td>
+          ${createdCell}
           <td>${escapeHtml(row.checkout_code || '—')}</td>
           <td>${escapeHtml(row.campaign_name || '—')}</td>
           <td>${escapeHtml(row.contact_email || '—')}</td>
@@ -1154,6 +1164,20 @@
           <td>${escapeHtml(invoice)}</td>
           <td class="order-email-cell"></td>
         `;
+        if (row.status === 'pending_payment') {
+          const createdButton = tr.querySelector('.order-created-btn');
+          const menu = tr.querySelector('.order-menu');
+          createdButton.addEventListener('click', () => { menu.hidden = !menu.hidden; });
+          tr.querySelector('.order-delete').addEventListener('click', async () => {
+            if (!window.confirm('Delete this pending order?')) return;
+            const response = await fetch(`/api/admin/orders/${encodeURIComponent(row.id)}`, { method: 'DELETE' });
+            if (!response.ok) {
+              ordersStatus.textContent = 'Could not delete order.';
+              return;
+            }
+            loadOrders();
+          });
+        }
         const emailCell = tr.querySelector('.order-email-cell');
         if ((row.status === 'paid' || row.status === 'scheduled') && !row.success_email_sent) {
           const emailButton = document.createElement('button');
