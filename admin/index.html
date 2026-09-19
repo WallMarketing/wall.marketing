@@ -1025,7 +1025,9 @@
               firmwareMenuStatus.textContent = release.message || 'No firmware release is available yet.';
               return;
             }
-            if (release.tag_name === row.firmware_version) {
+            const releaseVersion = release.tag_name.replace(/^v/, '');
+            const installedVersion = String(row.firmware_version || '').replace(/^v/, '');
+            if (releaseVersion === installedVersion) {
               firmwareMenuStatus.textContent = `Up to date (${release.tag_name})`;
               return;
             }

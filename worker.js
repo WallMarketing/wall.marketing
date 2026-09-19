@@ -404,7 +404,13 @@ export default {
              ).bind(deviceId, issuedTokenHash, siteName, siteLocation, siteLatitude, siteLongitude, viewsPerDay, issuedTokenHash, siteName, siteLocation, siteLatitude, siteLongitude, viewsPerDay),
       ]);
 
-      return new Response(JSON.stringify({ ok: true, device_token: issuedToken, ota_version: existingDevice?.target_firmware_version || null }), {
+          const targetVersion = existingDevice?.target_firmware_version || null;
+          const normalizedTarget = targetVersion?.replace(/^v/, '');
+          if (targetVersion && normalizedTarget === firmwareVersion) {
+            await env.DB.prepare(`UPDATE devices SET target_firmware_version = NULL WHERE device_id = ?`).bind(deviceId).run();
+          }
+
+          return new Response(JSON.stringify({ ok: true, device_token: issuedToken, ota_version: targetVersion && normalizedTarget !== firmwareVersion ? targetVersion : null }), {
         headers: { 'Content-Type': 'application/json' },
       });
     }
