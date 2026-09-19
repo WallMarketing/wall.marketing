@@ -466,7 +466,7 @@
       <h2>Finance</h2>
       <table>
         <thead>
-          <tr><th>Device ID</th><th>Company profile</th><th>Total revenue</th><th>Current month revenue</th><th>Share %</th><th>Venue payments total</th><th>Venue payments paid</th><th>Venue payments unpaid</th><th>Actions</th></tr>
+          <tr><th>Device ID</th><th>Company</th><th>Total revenue</th><th>Current month revenue</th><th>Share %</th><th>Venue payments total</th><th>Venue payments paid</th><th>Venue payments unpaid</th><th>Actions</th></tr>
         </thead>
         <tbody id="financeBody"></tbody>
         <tfoot>
@@ -1261,7 +1261,7 @@
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td>${escapeHtml(row.device_id)}${row.site_name ? ` <small>(${escapeHtml(row.site_name)})</small>` : ''}</td>
-            <td><button type="button" class="site-location-link" data-site-key="${escapeHtml(row.site_key || row.device_id)}" aria-label="Open company profile for ${escapeHtml(row.site_location || row.device_id)}">${escapeHtml(row.site_location || '—')}</button></td>
+            <td><button type="button" class="site-location-link" data-site-key="${escapeHtml(row.site_key || row.device_id)}" aria-label="Open company profile for ${escapeHtml(row.company_name || row.site_location || row.device_id)}">${escapeHtml(row.company_name || row.site_location || '—')}</button></td>
             <td>$${Number(row.total_revenue_usd || 0).toFixed(2)}</td>
             <td>$${Number(row.monthly_revenue_usd || 0).toFixed(2)}</td>
             <td>${Number(row.revenue_share_percent || 0).toFixed(2)}%</td>
@@ -1312,7 +1312,7 @@
       const resp = await fetch(`/api/admin/sites/${encodeURIComponent(siteKey)}`);
       const profile = await resp.json();
       if (!resp.ok) throw new Error(profile.error || 'Could not load site details');
-      siteProfileTitle.textContent = profile.site_name || siteKey;
+      siteProfileTitle.textContent = profile.company_name || profile.site_name || siteKey;
       siteProfileBots.textContent = `${profile.bot_count} bot${profile.bot_count === 1 ? '' : 's'} deployed`;
       Object.keys(profile).forEach((field) => {
         if (siteProfileForm.elements[field]) siteProfileForm.elements[field].value = profile[field] ?? '';
@@ -1338,7 +1338,7 @@
       const result = await resp.json();
       if (!resp.ok) throw new Error(result.error || 'Could not save site details');
       siteProfileStatus.textContent = 'Saved';
-      siteProfileTitle.textContent = body.site_name || activeSiteProfileKey;
+      siteProfileTitle.textContent = body.company_name || body.site_name || activeSiteProfileKey;
       loadFinance();
       loadDevices();
     } catch (err) {
