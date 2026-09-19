@@ -55,6 +55,9 @@ h1{font-size:clamp(2.7rem,6.4vw,4.7rem);letter-spacing:-.03em;}
 .btn{display:inline-flex;align-items:center;justify-content:center;width:100%;margin-top:24px;padding:13px 20px;border:1px solid transparent;border-radius:3px;background:var(--ink);color:var(--panel-2);font-variation-settings:"wdth" 108,"wght" 600;cursor:pointer;}
 .btn:hover{background:var(--volt);}
 .status{min-height:1.4em;margin-top:14px;color:var(--steel);font-size:.85rem;}
+.success-message{padding:clamp(24px,4vw,42px) 0;}
+.success-message h2{font-size:clamp(2.4rem,5vw,4rem);color:var(--volt);}
+.success-message p{margin-top:14px;color:var(--steel);font-size:1rem;}
 .aside{background:var(--graphite);color:var(--chalk);padding:clamp(22px,3vw,32px);}
 .aside h2{font-size:1.35rem;color:#fff;margin-bottom:16px;}
 .aside p{color:#C3C8C4;font-size:.92rem;}
@@ -97,6 +100,10 @@ footer{padding-block:30px;border-top:1px solid var(--hair);color:var(--steel);fo
       <button class="btn" type="submit">Send registration</button>
       <div class="status" id="formStatus" aria-live="polite"></div>
     </form>
+    <div class="form-panel success-message" id="successMessage" hidden>
+      <h2>Thank you.</h2>
+      <p>Registration received. We will be in touch.</p>
+    </div>
 
     <aside class="aside">
       <h2>What happens next?</h2>
@@ -112,6 +119,7 @@ footer{padding-block:30px;border-top:1px solid var(--hair);color:var(--steel);fo
 (function(){
   var form = document.getElementById('venueForm');
   var status = document.getElementById('formStatus');
+  var successMessage = document.getElementById('successMessage');
   var address = document.getElementById('address');
   var suggestions = document.getElementById('addressSuggestions');
   var searchTimer = null;
@@ -175,9 +183,8 @@ footer{padding-block:30px;border-top:1px solid var(--hair);color:var(--steel);fo
       var response = await fetch('/api/venue-applications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       var result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not send registration');
-      form.reset();
-      document.getElementById('revenueShare').value = '25';
-      status.textContent = 'Registration received. We will be in touch.';
+      form.hidden = true;
+      successMessage.hidden = false;
     } catch (error) {
       status.textContent = error.message;
     }
