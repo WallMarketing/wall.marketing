@@ -41,6 +41,12 @@ h1{font-size:clamp(2.7rem,6.4vw,4.7rem);letter-spacing:-.03em;}
 .field label{font-size:.82rem;color:var(--steel);}
 .field input{width:100%;padding:10px 11px;border:1px solid var(--hair);border-radius:3px;background:#fff;}
 .field input:focus{border-color:var(--volt);outline:none;}
+.address-editor{position:relative;}
+.address-suggestions{display:grid;margin-top:3px;background:var(--panel-2);border:1px solid var(--hair);border-radius:3px;overflow:hidden;}
+.address-suggestions[hidden]{display:none;}
+.address-suggestion{display:block;width:100%;padding:9px 10px;border:0;border-bottom:1px solid var(--hair);background:var(--panel-2);color:var(--ink);font-size:.82rem;text-align:left;cursor:pointer;}
+.address-suggestion:last-child{border-bottom:0;}
+.address-suggestion:hover,.address-suggestion:focus-visible{background:#fff;color:var(--volt);}
 .phone-grid{display:grid;grid-template-columns:minmax(80px,.32fr) 1fr;gap:10px;}
 .btn{display:inline-flex;align-items:center;justify-content:center;width:100%;margin-top:24px;padding:13px 20px;border:1px solid transparent;border-radius:3px;background:var(--ink);color:var(--panel-2);font-variation-settings:"wdth" 108,"wght" 600;cursor:pointer;}
 .btn:hover{background:var(--volt);}
@@ -72,7 +78,7 @@ footer{padding-block:30px;border-top:1px solid var(--hair);color:var(--steel);fo
       <h2>Company profile</h2>
       <div class="form-grid">
         <div class="field field--full"><label for="companyName">Company name</label><input id="companyName" name="Company name" required></div>
-        <div class="field field--full"><label for="address">Address</label><input id="address" name="Address" required></div>
+        <div class="field field--full address-editor"><label for="address">Address</label><input id="address" name="Address" required><div class="address-suggestions" id="addressSuggestions" hidden></div></div>
         <div class="field"><label for="suburb">Suburb</label><input id="suburb" name="Suburb" required></div>
         <div class="field"><label for="country">Country</label><input id="country" name="Country" required></div>
         <div class="field"><label for="contactName">Site contact name</label><input id="contactName" name="Site contact name" required></div>
@@ -101,6 +107,48 @@ footer{padding-block:30px;border-top:1px solid var(--hair);color:var(--steel);fo
 (function(){
   var form = document.getElementById('venueForm');
   var status = document.getElementById('formStatus');
+  var address = document.getElementById('address');
+  var suggestions = document.getElementById('addressSuggestions');
+  var searchTimer = null;
+  var requestNumber = 0;
+  function closeSuggestions(){ suggestions.hidden = true; suggestions.replaceChildren(); }
+  address.addEventListener('input', function(){
+    clearTimeout(searchTimer);
+    var query = address.value.trim();
+    if (query.length < 3) { closeSuggestions(); return; }
+    searchTimer = setTimeout(async function(){
+      var requestId = ++requestNumber;
+      try {
+        var response = await fetch('/api/location-search?q=' + encodeURIComponent(query));
+        if (requestId !== requestNumber || !response.ok) return;
+        var results = await response.json();
+        suggestions.replaceChildren();
+        results.forEach(function(result){
+          var option = document.createElement('button');
+          option.type = 'button';
+          option.className = 'address-suggestion';
+          option.textContent = result.label;
+          option.addEventListener('click', async function(){
+            address.value = result.label;
+            closeSuggestions();
+            try {
+              var detailsResponse = await fetch('/api/location-details?place_id=' + encodeURIComponent(result.place_id));
+              if (detailsResponse.ok) {
+                var details = await detailsResponse.json();
+                address.value = details.address || result.label;
+                document.getElementById('suburb').value = details.city || '';
+                document.getElementById('country').value = details.country || '';
+              }
+            } catch {}
+            address.focus();
+          });
+          suggestions.appendChild(option);
+        });
+        suggestions.hidden = results.length === 0;
+      } catch { closeSuggestions(); }
+    }, 300);
+  });
+  address.addEventListener('blur', function(){ setTimeout(closeSuggestions, 150); });
   form.addEventListener('submit', function(event){
     event.preventDefault();
     var values = Array.from(new FormData(form).entries());
