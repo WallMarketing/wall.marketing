@@ -204,9 +204,12 @@ function makeEmailMessage(from, to, subject, text, pdfBytes, filename) {
   const boundary = `wall-${crypto.randomUUID()}`;
   const attachment = pdfBytes ? `--${boundary}\r\nContent-Type: application/pdf; name="${filename}"\r\nContent-Disposition: attachment; filename="${filename}"\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Bytes(pdfBytes)}\r\n` : '';
   return [
-    `From: ${from}`,
+    `From: WALL Marketing <${from}>`,
     `To: ${to}`,
+    `Reply-To: ${from}`,
     `Subject: ${subject}`,
+    `Date: ${new Date().toUTCString()}`,
+    `Message-ID: <${crypto.randomUUID()}@wall.marketing>`,
     'MIME-Version: 1.0',
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
     '',
@@ -221,19 +224,19 @@ function makeEmailMessage(from, to, subject, text, pdfBytes, filename) {
   ].join('\r\n');
 }
 
-async function sendOrderEmail(env, order, subject, text, pdfBytes, filename) {
-  if (!env.EMAIL || !env.EMAIL_FROM || !order.contact_email) {
+async function sendOrderEmail(env, order, subject, text, pdfBytes, filename, sender = env.EMAIL_FROM) {
+  if (!env.EMAIL || !sender || !order.contact_email) {
     console.error('Order email send skipped: email binding, sender, or recipient is missing', JSON.stringify({
       orderId: order.id,
       hasBinding: Boolean(env.EMAIL),
-      hasSender: Boolean(env.EMAIL_FROM),
+      hasSender: Boolean(sender),
       hasRecipient: Boolean(order.contact_email),
     }));
     throw new Error('email sending is not configured');
   }
-  const raw = makeEmailMessage(env.EMAIL_FROM, order.contact_email, subject, text, pdfBytes, filename);
+  const raw = makeEmailMessage(sender, order.contact_email, subject, text, pdfBytes, filename);
   try {
-    await env.EMAIL.send(new EmailMessage(env.EMAIL_FROM, order.contact_email, raw));
+    await env.EMAIL.send(new EmailMessage(sender, order.contact_email, raw));
   } catch (error) {
     console.error('Order email send failed', JSON.stringify({
       orderId: order.id,
@@ -1024,7 +1027,7 @@ export default {
       const conversation = await env.DB.prepare(`SELECT email FROM support_conversations WHERE id = ?`).bind(Number(supportReplyMatch[1])).first();
       if (!conversation) return jsonResponse({ error: 'support conversation not found' }, 404);
       try {
-        await sendOrderEmail(env, { id: `support-${supportReplyMatch[1]}`, contact_email: conversation.email }, 'WALL support reply', message);
+        await sendOrderEmail(env, { id: `support-${supportReplyMatch[1]}`, contact_email: conversation.email }, 'WALL support reply', message, undefined, undefined, env.SUPPORT_EMAIL_FROM || env.EMAIL_FROM);
         return jsonResponse({ ok: true });
       } catch (error) {
         return jsonResponse({ error: error.message }, 502);
