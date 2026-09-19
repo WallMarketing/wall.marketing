@@ -528,6 +528,15 @@
       </table>
       <div class="status" id="venuesStatus"></div>
     </div>
+
+    <div class="card">
+      <h2>Support</h2>
+      <table>
+        <thead><tr><th>Received</th><th>Message</th><th>Email</th></tr></thead>
+        <tbody id="supportBody"></tbody>
+      </table>
+      <div class="status" id="supportStatus"></div>
+    </div>
   </div>
   </main>
 
@@ -1222,6 +1231,20 @@
     }
   }
 
+  async function loadSupport() {
+    const body = document.getElementById('supportBody');
+    const status = document.getElementById('supportStatus');
+    try {
+      const response = await fetch('/api/admin/support-conversations');
+      const rows = await response.json();
+      if (!response.ok) throw new Error(rows.error || 'Could not load support conversations');
+      body.innerHTML = rows.map((row) => `<tr><td>${escapeHtml(row.created_at || '—')}</td><td>${escapeHtml(row.message)}</td><td>${escapeHtml(row.email)}</td></tr>`).join('');
+      status.textContent = rows.length ? '' : 'No support conversations yet.';
+    } catch (error) {
+      status.textContent = 'Failed to load support conversations: ' + error.message;
+    }
+  }
+
   async function loadOrders() {
     const ordersBody = document.getElementById('ordersBody');
     const ordersStatus = document.getElementById('ordersStatus');
@@ -1768,6 +1791,7 @@
   });
   loadDevices();
   loadVenues();
+  loadSupport();
   loadOrders();
   loadSchedules();
   loadFinance();
@@ -1778,5 +1802,6 @@
   setInterval(loadOrders, 30000);
   setInterval(loadSchedules, 30000);
 </script>
+<script src="../support-chat.js"></script>
 </body>
 </html>

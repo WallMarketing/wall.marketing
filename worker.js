@@ -275,6 +275,18 @@ export default {
       return jsonResponse({ site_key: env.TURNSTILE_SITE_KEY || null });
     }
 
+    if (url.pathname === '/api/support-conversations' && request.method === 'POST') {
+      let body;
+      try { body = await request.json(); } catch { return jsonResponse({ error: 'request body must be valid JSON' }, 400); }
+      const message = typeof body?.message === 'string' ? body.message.trim() : '';
+      const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
+      if (!message || message.length > 2000 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return jsonResponse({ error: 'message and a valid email are required' }, 400);
+      }
+      await env.DB.prepare(`INSERT INTO support_conversations (message, email) VALUES (?, ?)`).bind(message, email).run();
+      return jsonResponse({ ok: true }, 201);
+    }
+
     // --- Public venue onboarding: keep new venue submissions in the pending queue ---
     if (url.pathname === '/api/venue-applications' && request.method === 'POST') {
       let body;
@@ -990,6 +1002,14 @@ export default {
            LEFT JOIN advertisements a ON a.order_id = o.id
           GROUP BY o.id
           ORDER BY o.created_at DESC`
+      ).all();
+      return jsonResponse(results);
+    }
+
+    if (url.pathname === '/api/admin/support-conversations' && request.method === 'GET') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
+      const { results } = await env.DB.prepare(
+        `SELECT id, message, email, created_at FROM support_conversations ORDER BY created_at DESC LIMIT 200`
       ).all();
       return jsonResponse(results);
     }
