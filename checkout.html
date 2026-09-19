@@ -332,6 +332,7 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
     var conversionRates = { USD: 1 };
     var currency = new Intl.NumberFormat("en-US", { style: "currency", currency: currencyCode });
     var submitButton = $("bookingForm").querySelector("button[type=submit]");
+    var attemptedSubmit = false;
     var requiredFields = ["brand", "contactEmail"];
     var invoiceInputIds = ["businessName", "businessRegistration", "taxNumber", "invoiceContactName", "invoicePhone", "invoiceAddress", "invoiceCity", "invoicePostcode", "invoiceCountry"];
     function updateInvoiceFields(){
@@ -373,12 +374,16 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
       var form = $("bookingForm");
       var hasAdvertisement = hasValidAdvertisement();
       var hasDates = updateEstimatedTotal();
-      submitButton.disabled = !form.checkValidity() || !hasAdvertisement || !hasDates;
-      if (form.checkValidity() && !hasAdvertisement) {
+      submitButton.disabled = false;
+      if (!attemptedSubmit) {
+        $("formStatus").textContent = "";
+      } else if (!form.checkValidity()) {
+        $("formStatus").textContent = "Complete the required fields before continuing to payment.";
+      } else if (!hasAdvertisement) {
         $("formStatus").textContent = "Add your advertisement before continuing to payment.";
-      } else if (form.checkValidity() && !hasDates) {
+      } else if (!hasDates) {
         $("formStatus").textContent = "Choose dates for every screen before continuing to payment.";
-      } else if ($("formStatus").textContent === "Add your advertisement before continuing to payment." || $("formStatus").textContent === "Choose dates for every screen before continuing to payment.") {
+      } else {
         $("formStatus").textContent = "";
       }
     }
@@ -526,10 +531,13 @@ h1 { max-width: 680px; font-size: clamp(2.5rem, 7vw, 5.4rem); }
 
     $("bookingForm").addEventListener("submit", async function(event){
       event.preventDefault();
+      attemptedSubmit = true;
       var data = new FormData(event.currentTarget);
       if (!event.currentTarget.checkValidity() || !updateEstimatedTotal() || !hasValidAdvertisement()) {
         event.currentTarget.reportValidity();
-        if (!hasValidAdvertisement()) $("formStatus").textContent = "Add your advertisement before continuing to payment.";
+        if (!event.currentTarget.checkValidity()) $("formStatus").textContent = "Complete the required fields before continuing to payment.";
+        else if (!hasValidAdvertisement()) $("formStatus").textContent = "Add your advertisement before continuing to payment.";
+        else $("formStatus").textContent = "Choose dates for every screen before continuing to payment.";
         return;
       }
       submitButton.disabled = true;
