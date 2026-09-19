@@ -209,6 +209,9 @@
   .site-profile-form input { width: 100%; padding: 8px 9px; border: 1px solid var(--hair); border-radius: 3px; background: #fff; color: var(--ink); font: inherit; font-size: .9rem; }
   .site-profile-form input:focus { border-color: var(--volt); outline: none; }
   .site-profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .site-devices { margin: 18px 0 0; padding: 12px 14px; background: #fff; border: 1px solid var(--hair); }
+  .site-devices h3 { margin: 0 0 8px; font-size: .95rem; }
+  .site-devices-list { display: grid; gap: 5px; margin: 0; padding-left: 20px; color: var(--steel); font-size: .85rem; }
   .site-location-link { padding: 0; background: transparent; color: var(--ink); border: 0; font: inherit; text-align: left; text-decoration: underline; text-decoration-color: var(--hair); text-underline-offset: 3px; }
   .site-location-link:hover { background: transparent; color: var(--volt); }
   .site-location-link:focus-visible { outline: 2px solid var(--volt); outline-offset: 3px; }
@@ -530,9 +533,12 @@
       <button id="closeSiteProfile" class="modal-close" type="button" aria-label="Close company profile" title="Close">&times;</button>
       <h2 id="siteProfileTitle">Company profile</h2>
       <p id="siteProfileBots"></p>
+      <div class="site-devices">
+        <h3>Devices hosted at this site</h3>
+        <ul class="site-devices-list" id="siteDevicesList"></ul>
+      </div>
       <form id="siteProfileForm" class="site-profile-form">
         <div class="site-profile-grid">
-          <label>Device Name<input name="site_name" maxlength="200"></label>
           <label>Revenue share %<input name="revenue_share_percent" type="number" min="0" max="100" step="0.01" required></label>
         </div>
         <label>Address<input name="address" maxlength="300"></label>
@@ -1298,6 +1304,7 @@
   const siteProfileModal = document.getElementById('siteProfileModal');
   const siteProfileTitle = document.getElementById('siteProfileTitle');
   const siteProfileBots = document.getElementById('siteProfileBots');
+  const siteDevicesList = document.getElementById('siteDevicesList');
   const siteProfileForm = document.getElementById('siteProfileForm');
   const siteProfileStatus = document.getElementById('siteProfileStatus');
   let activeSiteProfileKey = '';
@@ -1306,6 +1313,7 @@
     activeSiteProfileKey = siteKey;
     siteProfileTitle.textContent = 'Company profile';
     siteProfileBots.textContent = 'Loading site details...';
+    siteDevicesList.innerHTML = '';
     siteProfileStatus.textContent = '';
     siteProfileModal.hidden = false;
     try {
@@ -1314,6 +1322,7 @@
       if (!resp.ok) throw new Error(profile.error || 'Could not load site details');
       siteProfileTitle.textContent = profile.company_name || 'Company profile';
       siteProfileBots.textContent = `${profile.bot_count} bot${profile.bot_count === 1 ? '' : 's'} deployed`;
+      siteDevicesList.innerHTML = profile.devices.map((device) => `<li><strong>${escapeHtml(device.device_id)}</strong>${device.device_name ? ` — ${escapeHtml(device.device_name)}` : ''}</li>`).join('');
       Object.keys(profile).forEach((field) => {
         if (siteProfileForm.elements[field]) siteProfileForm.elements[field].value = profile[field] ?? '';
       });

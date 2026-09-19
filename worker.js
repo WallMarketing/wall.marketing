@@ -892,7 +892,13 @@ export default {
                    sp.bank_account_name, sp.bsb`
       ).bind(siteKey, siteKey, siteKey).first();
       if (!row || !row.bot_count) return jsonResponse({ error: 'site not found' }, 404);
-      return jsonResponse(row);
+      const { results: devices } = await env.DB.prepare(
+        `SELECT device_id, site_name AS device_name
+           FROM devices
+          WHERE COALESCE(site_location, device_id) = ?
+          ORDER BY device_id`
+      ).bind(siteKey).all();
+      return jsonResponse({ ...row, devices });
     }
 
     if (siteProfileMatch && request.method === 'PATCH') {
@@ -900,7 +906,8 @@ export default {
       const siteKey = decodeURIComponent(siteProfileMatch[1]);
       let body;
       try { body = await request.json(); } catch { return jsonResponse({ error: 'request body must be valid JSON' }, 400); }
-      const textFields = ['site_name', 'address', 'suburb', 'country', 'contact_name', 'contact_email', 'contact_phone', 'company_name', 'business_number', 'bank_account_name', 'bsb'];
+      const existingProfile = await env.DB.prepare(`SELECT site_name FROM site_profiles WHERE site_key = ?`).bind(siteKey).first();
+      const textFields = ['address', 'suburb', 'country', 'contact_name', 'contact_email', 'contact_phone', 'company_name', 'business_number', 'bank_account_name', 'bsb'];
       for (const field of textFields) {
         if (typeof body[field] !== 'string' || body[field].length > 300) return jsonResponse({ error: `${field} must be a string of 300 characters or fewer` }, 400);
       }
@@ -909,6 +916,7 @@ export default {
         return jsonResponse({ error: 'revenue_share_percent must be between 0 and 100 with at most two decimal places' }, 400);
       }
       const values = textFields.map((field) => body[field].trim());
+      const siteName = existingProfile?.site_name || null;
       await env.DB.prepare(
         `INSERT INTO site_profiles (site_key, site_name, address, suburb, country, revenue_share_percent, contact_name, contact_email, contact_phone, company_name, business_number, bank_account_name, bsb, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
@@ -917,7 +925,7 @@ export default {
            revenue_share_percent = excluded.revenue_share_percent, contact_name = excluded.contact_name, contact_email = excluded.contact_email,
            contact_phone = excluded.contact_phone, company_name = excluded.company_name, business_number = excluded.business_number,
            bank_account_name = excluded.bank_account_name, bsb = excluded.bsb, updated_at = datetime('now')`
-      ).bind(siteKey, ...values.slice(0, 4), revenueSharePercent, ...values.slice(4)).run();
+      ).bind(siteKey, siteName, ...values.slice(0, 3), revenueSharePercent, ...values.slice(3)).run();
       await env.DB.prepare(
         `UPDATE devices SET revenue_share_percent = ? WHERE COALESCE(site_location, device_id) = ?`
       ).bind(revenueSharePercent, siteKey).run();
