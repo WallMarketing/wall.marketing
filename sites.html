@@ -247,6 +247,13 @@ header{
   75%{transform:translateX(-3px);}
 }
 .plan.wiggle{animation:plan-wiggle .45s ease-in-out;}
+@keyframes review-flash{
+  0%,100%{background-color:var(--volt-2);}
+  50%{background-color:#fff;}
+}
+@media (min-width:981px){
+  #planReview.flash{animation:review-flash .7s ease-in-out;}
+}
 
 /* ============ map ============ */
 .mapwrap{position:relative;min-height:0;}
@@ -923,10 +930,17 @@ footer{padding-block:34px;border-top:1px solid var(--hair);}
     refreshPin(state.active);
     renderPlan();
     render(false);
-    var plan = $("plan");
-    plan.classList.remove("wiggle");
-    void plan.offsetWidth;
-    plan.classList.add("wiggle");
+    if (window.matchMedia("(min-width:981px)").matches) {
+      var review = $("planReview");
+      review.classList.remove("flash");
+      void review.offsetWidth;
+      review.classList.add("flash");
+    } else {
+      var plan = $("plan");
+      plan.classList.remove("wiggle");
+      void plan.offsetWidth;
+      plan.classList.add("wiggle");
+    }
   });
 
   /* ---------- plan ---------- */
