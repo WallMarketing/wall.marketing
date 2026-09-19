@@ -262,6 +262,7 @@
   }
   .close h2{color:var(--paper);margin-bottom:14px}
   .close p{color:#CFCCC6;max-width:56ch}
+  .close-intro{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:28px;align-items:end;}
   .contact{
     display:grid;
     grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
@@ -294,6 +295,7 @@
     font-weight:600;
   }
   .register-link:hover{background:var(--paper);color:var(--ink);}
+  @media (max-width:700px){.close-intro{grid-template-columns:1fr;gap:4px;}.close-intro .register-link{justify-self:start;}}
 
   a{color:inherit}
   a:focus-visible,:focus-visible{outline:2px solid var(--violet);outline-offset:3px}
@@ -598,10 +600,14 @@
 
   <!-- ============ CLOSE ============ -->
   <div class="close">
-    <h2>Start with one door.</h2>
-    <p>There is no minimum, no term and no cost. Put a wall unit on a single door, look at the first month&#8217;s revenue report, and decide from there. If the answer is no, we collect at our expense and leave the door exactly as it was.</p>
-
-    <p>To get started, email us. We will set up a short video call to walk your site, agree which doors are worth fitting and book the installation.</p>
+    <div class="close-intro">
+      <div>
+        <h2>Start with one door.</h2>
+        <p>There is no minimum, no term and no cost. Put a wall unit on a single door, look at the first month&#8217;s revenue report, and decide from there. If the answer is no, we collect at our expense and leave the door exactly as it was.</p>
+        <p>To get started, email us. We will set up a short video call to walk your site, agree which doors are worth fitting and book the installation.</p>
+      </div>
+      <a class="register-link" href="venue-onboarding.html">Register your venue</a>
+    </div>
 
     <div class="contact">
       <div><span>Email</span><strong>hello@wallmarketing.com</strong></div>
@@ -609,7 +615,6 @@
     </div>
 
     <p class="colophon">IT security summary, insurance certificates and installer credentials available on request.</p>
-    <a class="register-link" href="venue-onboarding.html">Register your venue</a>
   </div>
 
 </div>
