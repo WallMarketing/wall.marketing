@@ -1032,6 +1032,7 @@ export default {
           venue_unpaid_usd: Math.max(0, venueDue - venuePaid),
         };
       }));
+    }
 
 
     if (url.pathname === '/api/admin/firmware/releases/latest' && request.method === 'GET') {
@@ -1071,7 +1072,6 @@ export default {
       if (!release.assets?.some((item) => item.name === 'firmware.bin')) return jsonResponse({ error: 'firmware.bin is missing from the release' }, 422);
       await env.DB.prepare(`UPDATE devices SET target_firmware_version = ? WHERE device_id = ?`).bind(version, deviceId).run();
       return jsonResponse({ ok: true, device_id: deviceId, target_firmware_version: version });
-    }
     }
     const siteProfileMatch = url.pathname.match(/^\/api\/admin\/sites\/([^/]+)$/);
     if (siteProfileMatch && request.method === 'GET') {
