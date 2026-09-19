@@ -828,6 +828,64 @@ export default {
       return jsonResponse(results);
     }
 
+    // --- Finance: device revenue and venue share ledger ---
+    if (url.pathname === '/api/admin/finance' && request.method === 'GET') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
+      const { results } = await env.DB.prepare(
+        `SELECT d.device_id, d.site_name, d.revenue_share_percent,
+                COALESCE(SUM((julianday(oi.end_date) - julianday(oi.start_date)) * oi.daily_rate_usd), 0) AS total_revenue_usd,
+                COALESCE(SUM(CASE
+                  WHEN oi.end_date <= date('now', 'start of month')
+                    OR oi.start_date >= date('now', 'start of month', '+1 month') THEN 0
+                  ELSE (julianday(MIN(oi.end_date, date('now', 'start of month', '+1 month'))) -
+                        julianday(MAX(oi.start_date, date('now', 'start of month')))) * oi.daily_rate_usd
+                END), 0) AS monthly_revenue_usd,
+                COALESCE((SELECT SUM(vp.amount_usd) FROM venue_payments vp WHERE vp.device_id = d.device_id), 0) AS venue_paid_usd
+           FROM devices d
+           LEFT JOIN order_items oi ON oi.device_id = d.device_id
+           LEFT JOIN orders o ON o.id = oi.order_id AND o.status IN ('paid', 'scheduled')
+          GROUP BY d.device_id, d.site_name, d.revenue_share_percent
+          ORDER BY d.device_id`
+      ).all();
+      return jsonResponse(results.map((row) => {
+        const venueDue = Number(row.total_revenue_usd || 0) * Number(row.revenue_share_percent || 0) / 100;
+        const venuePaid = Number(row.venue_paid_usd || 0);
+        return {
+          ...row,
+          total_revenue_usd: Number(row.total_revenue_usd || 0),
+          monthly_revenue_usd: Number(row.monthly_revenue_usd || 0),
+          venue_due_usd: venueDue,
+          venue_paid_usd: venuePaid,
+          venue_unpaid_usd: Math.max(0, venueDue - venuePaid),
+        };
+      }));
+    }
+
+    const financePayMatch = url.pathname.match(/^\/api\/admin\/finance\/([^/]+)\/pay$/);
+    if (financePayMatch && request.method === 'POST') {
+      if (!isAdminRequest(request)) return unauthorizedResponse();
+      const deviceId = decodeURIComponent(financePayMatch[1]);
+      const row = await env.DB.prepare(
+        `SELECT d.device_id, d.revenue_share_percent,
+                COALESCE(SUM((julianday(oi.end_date) - julianday(oi.start_date)) * oi.daily_rate_usd), 0) AS total_revenue_usd,
+                COALESCE((SELECT SUM(vp.amount_usd) FROM venue_payments vp WHERE vp.device_id = d.device_id), 0) AS venue_paid_usd
+           FROM devices d
+           LEFT JOIN order_items oi ON oi.device_id = d.device_id
+           LEFT JOIN orders o ON o.id = oi.order_id AND o.status IN ('paid', 'scheduled')
+          WHERE d.device_id = ? AND (o.id IS NOT NULL OR d.device_id IS NOT NULL)
+          GROUP BY d.device_id, d.revenue_share_percent`
+      ).bind(deviceId).first();
+      if (!row) return jsonResponse({ error: 'device not found' }, 404);
+      const due = Number(row.total_revenue_usd || 0) * Number(row.revenue_share_percent || 0) / 100;
+      const unpaid = Math.max(0, due - Number(row.venue_paid_usd || 0));
+      if (unpaid > 0) {
+        await env.DB.prepare(
+          `INSERT INTO venue_payments (device_id, amount_usd, note) VALUES (?, ?, ?)`
+        ).bind(deviceId, unpaid, 'Marked paid from admin finance panel').run();
+      }
+      return jsonResponse({ ok: true, amount_usd: unpaid });
+    }
+
     // --- Schedules: admin visibility and test controls ---
     if (url.pathname === '/api/schedules' && request.method === 'GET') {
       if (!isAdminRequest(request)) return unauthorizedResponse();

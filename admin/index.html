@@ -159,6 +159,8 @@
   .card:has(#ordersBody) table { min-width: 1120px; }
   .card:has(#schedulesBody) { overflow-x: auto; }
   .card:has(#schedulesBody) table { min-width: 980px; }
+  .card:has(#financeBody) { overflow-x: auto; }
+  .card:has(#financeBody) table { min-width: 980px; }
   .order-status { font-variation-settings: "wdth" 108, "wght" 600; }
   .preview-btn, .site-save {
     padding: 6px 10px;
@@ -449,6 +451,17 @@
         <tbody id="schedulesBody"></tbody>
       </table>
       <div class="status" id="schedulesStatus"></div>
+    </div>
+
+    <div class="card">
+      <h2>Finance</h2>
+      <table>
+        <thead>
+          <tr><th>Device</th><th>Total revenue</th><th>Current month revenue</th><th>Share %</th><th>Venue payments total</th><th>Venue payments paid</th><th>Venue payments unpaid</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="financeBody"></tbody>
+      </table>
+      <div class="status" id="financeStatus"></div>
     </div>
   </div>
   </main>
@@ -1168,6 +1181,60 @@
     } catch (err) {
       schedulesStatus.textContent = 'Failed to load schedules: ' + err.message;
     }
+
+    async function markFinancePaid(deviceId, button) {
+      button.disabled = true;
+      button.textContent = 'Saving...';
+      try {
+        const resp = await fetch(`/api/admin/finance/${encodeURIComponent(deviceId)}/pay`, { method: 'POST' });
+        const result = await resp.json();
+        if (!resp.ok) throw new Error(result.error || 'Could not record venue payment');
+        loadFinance();
+      } catch (err) {
+        document.getElementById('financeStatus').textContent = 'Finance update failed: ' + err.message;
+        button.disabled = false;
+        button.textContent = 'Mark paid';
+      }
+    }
+
+    async function loadFinance() {
+      const financeBody = document.getElementById('financeBody');
+      const financeStatus = document.getElementById('financeStatus');
+      try {
+        const resp = await fetch('/api/admin/finance');
+        const rows = await resp.json();
+        if (!resp.ok) throw new Error(rows.error || 'Could not load finance');
+        financeBody.innerHTML = '';
+        for (const row of rows) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${escapeHtml(row.device_id)}${row.site_name ? ` <small>(${escapeHtml(row.site_name)})</small>` : ''}</td>
+            <td>$${Number(row.total_revenue_usd || 0).toFixed(2)}</td>
+            <td>$${Number(row.monthly_revenue_usd || 0).toFixed(2)}</td>
+            <td>${Number(row.revenue_share_percent || 0).toFixed(2)}%</td>
+            <td>$${Number(row.venue_due_usd || 0).toFixed(2)}</td>
+            <td>$${Number(row.venue_paid_usd || 0).toFixed(2)}</td>
+            <td>$${Number(row.venue_unpaid_usd || 0).toFixed(2)}</td>
+            <td class="finance-actions"></td>
+          `;
+          const actions = tr.querySelector('.finance-actions');
+          if (Number(row.venue_unpaid_usd || 0) > 0) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'preview-btn';
+            button.textContent = 'Mark paid';
+            button.addEventListener('click', () => markFinancePaid(row.device_id, button));
+            actions.appendChild(button);
+          } else {
+            actions.textContent = '—';
+          }
+          financeBody.appendChild(tr);
+        }
+        financeStatus.textContent = rows.length ? '' : 'No device finance records yet.';
+      } catch (err) {
+        financeStatus.textContent = 'Failed to load finance: ' + err.message;
+      }
+    }
   }
 
   const deviceHistoryModal = document.getElementById('deviceHistoryModal');
@@ -1300,6 +1367,7 @@
   loadDevices();
   loadOrders();
   loadSchedules();
+  loadFinance();
   // Fleet status should feel roughly live without the page constantly
   // refetching images — 30s is frequent enough to feel current without
   // hammering D1 on every open admin tab.
