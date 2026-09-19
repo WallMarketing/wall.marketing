@@ -1181,8 +1181,9 @@
     } catch (err) {
       schedulesStatus.textContent = 'Failed to load schedules: ' + err.message;
     }
+  }
 
-    async function markFinancePaid(deviceId, button) {
+  async function markFinancePaid(deviceId, button) {
       button.disabled = true;
       button.textContent = 'Saving...';
       try {
@@ -1197,7 +1198,7 @@
       }
     }
 
-    async function loadFinance() {
+  async function loadFinance() {
       const financeBody = document.getElementById('financeBody');
       const financeStatus = document.getElementById('financeStatus');
       try {
@@ -1234,7 +1235,6 @@
       } catch (err) {
         financeStatus.textContent = 'Failed to load finance: ' + err.message;
       }
-    }
   }
 
   const deviceHistoryModal = document.getElementById('deviceHistoryModal');
